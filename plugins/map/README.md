@@ -78,6 +78,11 @@ follows you over the game.
   - Cooking: Mela, Coriolus, Inina, Kukuru and about 30 more
   - Gemstones: Sapphire, Diamond, Ruby, Aquamarine, Topaz and more
   - Odyle: Odyle, Splendent Odyle, Mysterious Odyle
+
+  Each kind says how many spots this map has (0.11.2). Fibers: none, on any
+  map: the game's own map data places none of them (SkeeveAN's copy of the
+  client's lists them with 0 places each), and Aion 2 Timers has none
+  either; your meter adds each one it sees.
 - **Hidden Cubes**: purple cubes: the spots where a cube is known to stand
   (pale, about 110 per map), and a cube in range right now (solid with a white
   edge, it shows as soon as the game announces it).
@@ -99,6 +104,13 @@ follows you over the game.
 - **NPCs** (0.11.0): every other NPC, by name.
 - **Marks 100% to 175%**: how large the marks are, on the map and the
   overlay (125% to begin with).
+- **The map's buttons** (0.11.2, its top right corner): **+** and **−**
+  zoom; **Fit** puts the whole map in the window; **Results** (while
+  something is shown) frames everything searched for or clicked again; **Big
+  map** hides the rows of buttons above the map, so the map has their room
+  (pressed: gold). A **scale** at the bottom left ("500 m"). A map that
+  started in a small box (its tab hidden, the window still small) is fitted
+  again when its box grows, until you move or zoom it.
 - **Every pet monster's spawn points** (0.10.0): all of them, as the game
   has them (A2 Tools' Pet Soul Tracker's map data, from Aion 2 Timers'
   interactive map): 458 of the 465 pet monsters with exactly the number of

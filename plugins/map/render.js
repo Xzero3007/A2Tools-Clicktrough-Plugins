@@ -60,7 +60,7 @@
   /** World -> the map's own pixels. */
   const toNative = (map, x, y) => [map.ox + map.scale * x, map.oy + map.scale * y];
 
-  function MapView(root, { interactive = true, onView, onPick } = {}) {
+  function MapView(root, { interactive = true, onView, onPick, scaleBar = false } = {}) {
     root.classList.add("mapView");
     const tilesEl = document.createElement("div");
     tilesEl.className = "mapTiles";
@@ -102,6 +102,11 @@
       redraw();
     }
 
+    // What the view was last fitted to (the whole map, or points), until it
+    // is moved or zoomed: a view that grows a lot (a tab shown, the window
+    // made larger) is fitted again, so the map doesn't stay as small as the
+    // box it started in.
+    let fitted = null;
     function fitMap() {
       const full = map.tile * map.grid;
       cx = full / 2;
@@ -109,6 +114,21 @@
       const [w, h] = size();
       fitPending = !w || !h;
       zoom = fitZoom();
+      fitted = { whole: true };
+    }
+    function fitTo(pts) {
+      let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < pts.length; i += 2) {
+        const [nx, ny] = toNative(map, pts[i], pts[i + 1]);
+        x0 = Math.min(x0, nx); y0 = Math.min(y0, ny); x1 = Math.max(x1, nx); y1 = Math.max(y1, ny);
+      }
+      const [w, h] = size();
+      const minSpan = 40000 * map.scale;
+      cx = (x0 + x1) / 2;
+      cy = (y0 + y1) / 2;
+      zoom = Math.max(fitZoom() * 0.5, Math.min(4, Math.min((w || 300) / Math.max(x1 - x0, minSpan), (h || 300) / Math.max(y1 - y0, minSpan)) * 0.85));
+      fitPending = !w || !h;
+      fitted = { pts: [...pts] };
     }
 
     const fitZoom = () => {
@@ -120,11 +140,13 @@
     function centerOn(x, y) {
       if (!map) return;
       [cx, cy] = toNative(map, x, y);
+      fitted = null;
       redraw();
     }
 
     function setZoom(z, at) {
       if (!map) return;
+      fitted = null;
       const min = fitZoom() * 0.5;
       const next = Math.max(min, Math.min(4, z));
       if (at) {
@@ -176,6 +198,10 @@
             img = document.createElement("img");
             img.decoding = "async";
             img.draggable = false;
+            // Unseen until loaded: an empty one is drawn as a frame (white
+            // lines across the map while its tiles load).
+            img.style.visibility = "hidden";
+            img.addEventListener("load", () => { img.style.visibility = ""; }, { once: true });
             // WebP with the sea transparent (no CSS mask: WebKitGTK draws
             // none from a plugin's own scheme).
             const shown = img;
@@ -249,6 +275,40 @@
         if (m.label && shown !== false) drawn.push([sx, sy, reach, m.label, m]);
       }
       drawNames();
+      if (scaleBar) drawScale();
+    }
+
+    // A scale at the bottom left: a round distance about 100 px long.
+    function drawScale() {
+      const pxPerM = map.scale * 100 * zoom;
+      if (!(pxPerM > 0)) return;
+      const want = 110 / pxPerM;
+      const p = 10 ** Math.floor(Math.log10(want));
+      const metres = [1, 2, 5, 10].map((k) => k * p).filter((m) => m <= want).pop() || p;
+      const len = metres * pxPerM;
+      const [, h] = size();
+      const x = 12;
+      const y = h - 14;
+      const text = metres >= 1000 ? `${metres / 1000} km` : `${metres} m`;
+      ctx.save();
+      ctx.lineCap = "round";
+      for (const [width, color] of [[5, "rgba(0,0,0,0.6)"], [2, "rgba(255,255,255,0.9)"]]) {
+        ctx.lineWidth = width;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 5);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + len, y);
+        ctx.lineTo(x + len, y - 5);
+        ctx.stroke();
+      }
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(0,0,0,0.8)";
+      ctx.fillStyle = "#fff";
+      ctx.strokeText(text, x + 4, y - 7);
+      ctx.fillText(text, x + 4, y - 7);
+      ctx.restore();
     }
 
     // Where the game puts a monster the map knows only in part: the
@@ -607,7 +667,10 @@
         if (drag) {
           const dx = e.clientX - drag.x;
           const dy = e.clientY - drag.y;
-          if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+          if (Math.abs(dx) + Math.abs(dy) > 3) {
+            drag.moved = true;
+            fitted = null;
+          }
           cx = drag.cx - dx / zoom;
           cy = drag.cy - dy / zoom;
           redraw();
@@ -639,10 +702,17 @@
     let lastRect = null;
     new ResizeObserver(() => {
       const r = root.getBoundingClientRect();
-      if (fitPending && map) fitMap();
-      else if (map && lastRect?.width && lastRect?.height && r.width && r.height) {
-        cx += (r.left - lastRect.left + (r.width - lastRect.width) / 2) / zoom;
-        cy += (r.top - lastRect.top + (r.height - lastRect.height) / 2) / zoom;
+      const was = lastRect;
+      // Much larger, or from a box too small to show a map: fitted again.
+      const grew = !!was && r.width && r.height
+        && (was.width < 200 || was.height < 150 || r.width > was.width * 1.2 || r.height > was.height * 1.2);
+      if (map && fitted && (fitPending || grew)) {
+        if (fitted.pts) fitTo(fitted.pts);
+        else fitMap();
+      } else if (fitPending && map) fitMap();
+      else if (map && was?.width && was?.height && r.width && r.height) {
+        cx += (r.left - was.left + (r.width - was.width) / 2) / zoom;
+        cy += (r.top - was.top + (r.height - was.height) / 2) / zoom;
       }
       lastRect = r;
       redraw();
@@ -659,17 +729,13 @@
        *  than about 400 m across. */
       fitPoints(pts) {
         if (!map || pts.length < 2) return;
-        let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
-        for (let i = 0; i < pts.length; i += 2) {
-          const [nx, ny] = toNative(map, pts[i], pts[i + 1]);
-          x0 = Math.min(x0, nx); y0 = Math.min(y0, ny); x1 = Math.max(x1, nx); y1 = Math.max(y1, ny);
-        }
-        const [w, h] = size();
-        const minSpan = 40000 * map.scale;
-        cx = (x0 + x1) / 2;
-        cy = (y0 + y1) / 2;
-        zoom = Math.max(fitZoom() * 0.5, Math.min(4, Math.min((w || 300) / Math.max(x1 - x0, minSpan), (h || 300) / Math.max(y1 - y0, minSpan)) * 0.85));
+        fitTo(pts);
         redraw();
+      },
+      /** Zoom in (f > 1) or out about the middle (the map's + and −). */
+      zoomBy(f) {
+        setZoom(zoom * f);
+        root.dispatchEvent(new CustomEvent("mapzoom", { detail: zoom }));
       },
       centerOn,
       setMarks(list) { marks = list; redraw(); },

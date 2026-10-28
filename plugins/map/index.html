@@ -66,7 +66,16 @@
       <label class="check"><input type="checkbox" class="overlayLock" /> Lock it (clicks go to the game)</label>
       <span class="muted">Or drag one of its corners.</span>
     </section>
-    <div class="mapBox"></div>
+    <div class="mapWrap">
+      <div class="mapBox"></div>
+      <div class="mapButtons" role="toolbar" aria-label="The map's view">
+        <button type="button" class="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" class="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+        <button type="button" class="fitBtn" title="The whole map in the window">Fit</button>
+        <button type="button" class="resultsBtn" title="Everything shown (what you searched for or clicked) in the window" hidden>Results</button>
+        <button type="button" class="bigBtn" aria-pressed="false" title="Big map: the rows of buttons above the map hidden, so the map has their room">Big map</button>
+      </div>
+    </div>
     <ol class="nearKinds" hidden aria-label="The nearest monsters that drop souls you still need"></ol>
     <div class="legend" aria-label="The pet marks">
       <span><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0,-7.2 L1.99,-2.74 L6.85,-2.23 L3.22,1.05 L4.23,5.83 L0,3.38 L-4.23,5.83 L-3.22,1.05 L-6.85,-2.23 L-1.99,-2.74 Z" fill="#ffd666" stroke="rgba(0,0,0,0.8)" stroke-width="1.2" stroke-linejoin="round"/><circle r="1.6" fill="#e5484d"/></svg>favourite</span>

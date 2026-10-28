@@ -25,6 +25,7 @@
     lastKey: null,
     focus: null, // what the search or another plugin asked to show
     markScale: 1.25, // how large the marks are drawn, on the map and the overlay
+    bigMap: false, // the rows of buttons above the map hidden
   };
   let world = null;
   let shared = {};
@@ -87,6 +88,7 @@
   // nearest (as the search shows it); on what is shown already: off again.
   const sameFocus = (a, b) => !!a && !!b && a.type === b.type && String(a.ids) === String(b.ids);
   const view = K.MapView($(".mapBox"), {
+    scaleBar: true,
     onPick: (m) => (sameFocus(m.focus, settings.focus) ? setFocus(null) : setFocus(m.focus, { map: currentKey(), frame: false })),
   });
 
@@ -178,6 +180,7 @@
       saveLater();
     }
     view.setMap(key);
+    if (key !== toolsKey) renderTools();
     view.setMarkScale(settings.markScale);
     const built = M.build(state(key));
     view.setMarks(built.marks);
@@ -541,6 +544,7 @@
   });
 
   // ---------- the controls ----------
+  let toolsKey = null; // the map the gathering counts are of
   function renderTools() {
     $(".follow").setAttribute("aria-pressed", String(settings.follow));
     $(".overlayBtn").setAttribute("aria-pressed", String(settings.overlay));
@@ -556,13 +560,21 @@
     $(".markScale").value = String(settings.markScale);
     const kinds = $(".kinds");
     kinds.hidden = !settings.layers.gather || compact;
+    // How many spots of each kind this map has; a kind the game places
+    // nowhere (Fibers) says so.
+    toolsKey = currentKey();
+    const here = M.gatherCounts(toolsKey);
+    const anywhere = M.gatherCounts(null);
     kinds.replaceChildren(...M.KIND_ORDER.map((k) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "chip kind";
-      b.title = M.kindTitle(k);
+      const n = here[k] || 0;
+      b.title = !anywhere[k]
+        ? `${M.kindTitle(k)}. The game's map data places none of them; your meter adds each one it sees.`
+        : `${M.kindTitle(k)}${n ? "" : ". None on this map"}`;
       b.setAttribute("aria-pressed", String(settings.gatherKinds[k] !== false));
-      b.append(iconEl(M.kindIcon(k)), M.kindLabel(k));
+      b.append(iconEl(M.kindIcon(k)), M.kindLabel(k), Object.assign(document.createElement("span"), { className: "n", textContent: n.toLocaleString("en") }));
       b.addEventListener("click", () => {
         settings.gatherKinds = { ...settings.gatherKinds, [k]: settings.gatherKinds[k] === false };
         saveLater();
@@ -573,6 +585,9 @@
     }));
     $(".overlayOpacity").value = String(Math.round(settings.overlayOpacity * 100));
     $(".overlayLock").checked = !!settings.overlayLock;
+    document.body.classList.toggle("bigMap", !!settings.bigMap);
+    $(".bigBtn").setAttribute("aria-pressed", String(!!settings.bigMap));
+    $(".resultsBtn").hidden = !settings.focus;
     const size = sizeName();
     for (const b of document.querySelectorAll(".overlaySizes button")) b.setAttribute("aria-pressed", String(b.dataset.size === size));
     const pick = $(".mapPick");
@@ -656,6 +671,27 @@
       else view.fit();
     }
     render();
+  });
+  // The map's view buttons: zoom, the whole map, what is shown, big map.
+  $(".zoomIn").addEventListener("click", () => view.zoomBy(1.25));
+  $(".zoomOut").addEventListener("click", () => view.zoomBy(0.8));
+  $(".fitBtn").addEventListener("click", () => {
+    settings.follow = false;
+    saveLater();
+    renderTools();
+    view.fit();
+    render();
+  });
+  $(".resultsBtn").addEventListener("click", () => {
+    if (!settings.focus) return;
+    const maps = M.focusMaps(settings.focus);
+    const key = maps[currentKey()] ? currentKey() : Object.keys(maps)[0];
+    if (key) showFocusOn(key);
+  });
+  $(".bigBtn").addEventListener("click", () => {
+    settings.bigMap = !settings.bigMap;
+    saveLater();
+    renderTools();
   });
   // Double-click: back to following you.
   $(".mapBox").addEventListener("dblclick", () => {

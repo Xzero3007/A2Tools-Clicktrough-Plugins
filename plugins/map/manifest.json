@@ -1,7 +1,7 @@
 {
   "id": "map",
   "name": "Map",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "apiVersion": 2,
   "author": "Clicktrough (maps: the game's own; data from SkeeveAN's Aion-DPS-Meter, MIT, the AION2 Interactive Map, CC BY-NC 4.0, A2 Tools' Pet Soul Tracker, GPL-3.0, and Aion 2 Timers)",
   "description": "The map you are on (Verteron, Altgard, Eltnen, Morheim, the Abyss's three layers, Poeta, Ishalgen, 25 instances) with your position and region, drawn with the game's own symbols: every pet monster's and monster's spawn points, the pets Pet Finder follows, gathering spots, Hidden Cubes, feathers, Kibelisks, field bosses, dungeons and other places, merchants and crafting tables, quest givers and NPCs; every mark can be clicked, a search over all of them; and an overlay with a small map that follows you.",

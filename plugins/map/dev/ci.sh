@@ -12,6 +12,6 @@ trap 'rm -rf "$work"' EXIT
 # A copy outside the meter: its package.json sets "type": "module", and Node
 # would then read the scripts as modules instead of classic scripts.
 mkdir "$work/plugin"
-cp "$plugin"/*.js "$work/plugin/"
+cp "$plugin"/*.js "$plugin/index.html" "$work/plugin/"
 cp -r "$here/tests" "$work/tests"
 PLUGIN_DIR="$work/plugin" ICON_DIR="$plugin/icons" SOURCES_JS="$plugin/../pet-finder/sources.js" node --test "$work"/tests/*.test.cjs

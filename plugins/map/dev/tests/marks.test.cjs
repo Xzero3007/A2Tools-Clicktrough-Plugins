@@ -587,3 +587,29 @@ test("a field boss's one place is all the game has: the bar says so", () => {
   const src = fs.readFileSync(path.join(dir, "plugin.js"), "utf8");
   assert.match(src, /is a field boss: the game has this one place for it\./);
 });
+
+test("the gathering kinds' counts: Fibers the game places nowhere, the others on their maps", () => {
+  const all = M.gatherCounts(null);
+  assert.equal(all.Cotton || 0, 0, "no source has a fiber spot (the client's own data: 0 each)");
+  for (const k of ["Herb", "Ore", "Wood", "Food", "Gemstone", "Od"]) assert.ok(M.gatherCounts("verteron")[k] > 50, k);
+  assert.equal(M.gatherCounts("verteron").Herb, Object.entries(D.gather.points.verteron)
+    .filter(([env]) => D.gather.objects[env]?.kind === "Herb").reduce((n, [, p]) => n + p.length / 2, 0));
+  // A fiber spot the meter sees is learnt and counted.
+  const env = Object.entries(D.gather.objects).find(([, o]) => o.kind === "Cotton")[0];
+  const store = {};
+  M.learnFrom(store, "verteron", { objects: [[1, Number(env), 1000, 2000]], npcs: [] });
+  M.setLearned(store);
+  assert.equal(M.gatherCounts("verteron").Cotton, 1);
+  M.setLearned({});
+});
+
+test("the map's view buttons: zoom, the whole map, what is shown, big map; and a scale", () => {
+  const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
+  for (const cls of ["zoomIn", "zoomOut", "fitBtn", "resultsBtn", "bigBtn"]) assert.match(html, new RegExp(`class="${cls}"`));
+  const src = fs.readFileSync(path.join(dir, "plugin.js"), "utf8");
+  assert.match(src, /scaleBar: true/);
+  assert.match(src, /document\.body\.classList\.toggle\("bigMap"/);
+  const r = fs.readFileSync(path.join(dir, "render.js"), "utf8");
+  assert.match(r, /zoomBy\(f\)/);
+  assert.match(r, /if \(map && fitted && \(fitPending \|\| grew\)\)/);
+});

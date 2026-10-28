@@ -424,6 +424,18 @@
   // The game's minimap symbol of each kind of place (icons/).
   const placeIcon = (kind, key) => (kind === "monolith" ? `monolith_${key ? sideOf(key) : "light"}` : kind);
   const kindTitle = (k) => `${kindLabel(k)}: ${[...(kindItems[k] || [])].join(", ")}`;
+  /** How many gathering spots of each kind map `key` has (the data's and
+   *  the learnt): { kind: count }; with no key, all maps together. */
+  function gatherCounts(key) {
+    const out = {};
+    for (const k of key ? [key] : Object.keys(D.maps)) {
+      for (const [env, pts] of Object.entries(gatherPoints(k))) {
+        const kind = D.gather.objects[env]?.kind;
+        if (kind && kind !== "Cube") out[kind] = (out[kind] || 0) + pts.length / 2;
+      }
+    }
+    return out;
+  }
 
   // ---------- what the search and other plugins ask for ("focus") ----------
   // { type: "gather" | "pet" | "npc" (a monster) | "person" (another NPC)
@@ -1046,6 +1058,6 @@
   const arrow = (deg) => ARROWS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 
   globalThis.MapMarks = Object.freeze({
-    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusMapsByPoints, focusPoints, focusArea, focusFit, KIND_ORDER, kindLabel, kindTitle, kindIcon, placeLabel, placeLayer, placeIcon, sideOf,
+    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusMapsByPoints, focusPoints, focusArea, focusFit, KIND_ORDER, kindLabel, kindTitle, kindIcon, gatherCounts, placeLabel, placeLayer, placeIcon, sideOf,
   });
 })();

@@ -52,8 +52,21 @@ select.chip:hover, select.chip:focus { border-color: rgba(255, 255, 255, 0.35); 
 select.chip option { background: #1c1f24; color: #fff; }
 .chip.kind { display: inline-flex; align-items: center; gap: 5px; }
 .chip.kind .ico { margin: -4px 0 -4px -6px; }
+.chip.kind .n { font-size: 11px; opacity: 0.6; font-variant-numeric: tabular-nums; }
 .sep { width: 1px; height: 14px; background: rgba(255, 255, 255, 0.15); margin: 0 4px; }
 
+/* The map, and its view's buttons in its top right corner. */
+.mapWrap { position: relative; flex: 1; min-height: 120px; display: flex; }
+.mapButtons { position: absolute; top: 8px; right: 8px; z-index: 6; display: flex; gap: 4px; }
+.mapButtons button { min-width: 28px; padding: 2px 8px; font-size: 12px; font-weight: 600;
+  background: rgba(10, 12, 16, 0.8); border-color: rgba(255, 255, 255, 0.22); color: rgba(255, 255, 255, 0.85); }
+.mapButtons button:hover { background: rgba(30, 33, 40, 0.92); border-color: rgba(255, 255, 255, 0.4); color: #fff; }
+.mapButtons .zoomIn, .mapButtons .zoomOut { font-size: 15px; line-height: 18px; padding: 1px 0; }
+.mapButtons button[aria-pressed="true"] { color: #ffd666; border-color: rgba(255, 214, 102, 0.7); background: rgba(10, 12, 16, 0.85); }
+.mapButtons .resultsBtn { color: #ffd666; border-color: rgba(255, 214, 102, 0.55); }
+body.compact .mapButtons .bigBtn { display: none; }
+/* Big map: the rows of buttons above the map out of the way. */
+body.bigMap .layers, body.bigMap .kinds, body.bigMap .overlaySettings { display: none; }
 .mapBox { position: relative; flex: 1; min-height: 120px; border-radius: 6px; overflow: hidden;
   background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); cursor: grab; }
 .mapBox:active { cursor: grabbing; }
