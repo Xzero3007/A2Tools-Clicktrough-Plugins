@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="portrait"><img class="face" alt="" hidden /></div>
+      <div class="who">
+        <div class="name"><span class="charName">Armory</span> <span class="server muted"></span></div>
+        <div class="sub muted"></div>
+        <div class="titleLine"></div>
+      </div>
+      <div class="nums">
+        <div class="num cp"><span class="label">Combat power</span><span class="value">—</span><span class="live"></span></div>
+        <div class="num gs"><span class="label">Gear score</span><span class="value">—</span><span class="live"></span></div>
+      </div>
+      <div class="acts">
+        <div class="row">
+          <select class="pick" title="Whose armory: the character you play, or one you looked up"></select>
+          <button type="button" class="refresh" title="Read the character from NC's character pages again">Update</button>
+        </div>
+        <div class="row">
+          <input type="search" class="lookName" placeholder="Look up a name …" autocomplete="off" spellcheck="false" />
+          <select class="lookRegion" title="Which shard to look in">
+            <option value="1">NA East</option><option value="2">NA West</option><option value="3">Europe</option>
+            <option value="4">South America</option><option value="5">Asia</option>
+          </select>
+        </div>
+        <div class="status muted"></div>
+      </div>
+    </header>
+    <div class="lookResults" hidden></div>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab" data-tab="overview">Overview</button>
+      <button type="button" class="tab" data-tab="gear">Gear</button>
+      <button type="button" class="tab" data-tab="skills">Skills</button>
+      <button type="button" class="tab" data-tab="reference">Reference</button>
+      <button type="button" class="tab" data-tab="goals">Goals</button>
+      <button type="button" class="tab" data-tab="history">History</button>
+    </nav>
+
+    <section class="pane" data-pane="overview"></section>
+    <section class="pane" data-pane="gear"></section>
+    <section class="pane" data-pane="skills"></section>
+    <section class="pane" data-pane="reference"></section>
+    <section class="pane" data-pane="goals"></section>
+    <section class="pane" data-pane="history"></section>
+
+    <footer class="credit muted">Character data: NC's AION 2 character pages. Enhance tables and items: the game's files, as Aion2Data reads them. Prices: aion2.exchange.</footer>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="data.js"></script>
+    <script src="calc.js"></script>
+    <script src="nc.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

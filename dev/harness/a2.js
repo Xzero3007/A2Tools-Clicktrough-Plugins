@@ -5,7 +5,18 @@
 // window.__notes (a2.notify), window.__opened (links), window.__store.
 (() => {
   const handlers = {};
-  const store = (window.__store = {});
+  // Optional answers set before the page (shot.mjs: WEB_FIXTURES, STORE):
+  // window.__preset = { web: { "<url or its start>": answer }, store: {...} }.
+  const preset = window.__preset || {};
+  const store = (window.__store = { ...(preset.store || {}) });
+  const webAnswer = (url) => {
+    const web = preset.web || {};
+    if (url in web) return structuredClone(web[url]);
+    const key = Object.keys(web).filter((k) => url.startsWith(k)).sort((a, b) => b.length - a.length)[0];
+    return key ? structuredClone(web[key]) : null;
+  };
+  // A grey square for any picture (the harness reaches no image server).
+  const GREY = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#3a3f47"/></svg>');
   window.__shares = [];
   window.__notes = [];
   window.__opened = [];
@@ -23,7 +34,7 @@
     },
     share: async (v) => { window.__shares.push(v); },
     file: async () => null,
-    web: { get: async () => null },
+    web: { get: async (url) => webAnswer(url), image: async () => GREY },
     bossTimers: async () => null,
     abyssSiege: async () => null,
     followBosses: async () => { throw new Error("not in this build"); },

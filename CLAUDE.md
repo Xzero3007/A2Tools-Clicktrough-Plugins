@@ -27,7 +27,10 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   donation or sign-in links, no pop-up asking to share). A credit names its
   source as text. The only downloads a plugin can make are the meter's:
   `a2.web.get` for the market prices (aion2.exchange and this build's hourly
-  copy on the app repo's branch `market-data`) and the shared world boss /
+  copy on the app repo's branch `market-data`) and NC's character pages
+  (aion2.plaync.com/api/character/, api-search.plaync.com; the Armory),
+  `a2.web.image` for the game's icons and NC's portraits
+  (assets.playnccdn.com, profileimg.plaync.com), and the shared world boss /
   Abyss siege timer files (`a2.bossTimers`, `a2.abyssSiege`, read only).
   Anything else needs the person's yes first, and a meter patch.
 - **This repo is public. No network analysis goes in here**: no write-ups of
@@ -59,7 +62,7 @@ with its own CLAUDE.md: work on the meter happens there, not here.
 
 ## What this repo is
 
-The plugins of the Clicktrough build: three of its own and its changes to the
+The plugins of the Clicktrough build: four of its own and its changes to the
 original's. Nothing is installed from here directly: the app's release puts
 them into its package (`build/assemble.sh`), and every meter updates through
 the green button. The original's plugins are frozen at one commit and taken
@@ -67,7 +70,7 @@ on only when the person decides (see below).
 
 | Path | What |
 |---|---|
-| `plugins/<id>/` | Own plugins: `map`, `market`, `pet-finder`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
+| `plugins/<id>/` | Own plugins: `armory`, `map`, `market`, `pet-finder`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
 | `original/PIN` | The commit of `taengu/A2Tools-Plugins` the build takes the original's plugins at. |
 | `original/pins.txt` | Single plugins at another commit (`<id> <commit>`): a new plugin, or a new version of one, without moving PIN. |
 | `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link. A file `installed-only` there: the plugin still runs only where installed. |
@@ -126,6 +129,11 @@ and wait. Taken: a line `<id> <commit>` in `original/pins.txt` (or PIN moved,
 which takes every plugin's newest), its links and anything sending removed by
 a patch, `bash build/assemble.sh ../ct-plugins /tmp/x` to see it apply.
 
+**The Armory's data.** `plugins/armory/dev/make_data.py <cache> --fetch` builds
+`data.js` from Aion2Data's enhance calculator data file (the game's Enchant and
+Amplify tables and every enhanceable item, read from the game's files). The
+gear score formula and NC's page layouts are in its README and `nc.js`.
+
 **The Map's data.** `plugins/map/dev/make_data.py` builds `data.js`, the
 tiles and `icons/` (the game's minimap symbols) from SkeeveAN's
 Aion-DPS-Meter, the AION2 Interactive Map, A2 Tools' Pet Soul Tracker map
@@ -148,6 +156,10 @@ the Pet Soul Tracker's list; `plugins/map/dev/make_areas.py` builds
 `node dev/harness/shot.mjs plugins/<id> out.png [events.json] [WxH]`. The
 events file is `[["character", {...}], ["world", {...}], ...]`, emitted in
 order. It lists external requests (there must be none) and page errors.
+`WEB_FIXTURES=<json>` answers `a2.web.get` (`{ "<url or its start>": answer }`),
+`STORE=<json>` fills the plugin's storage first, `WAIT=<ms>` and `FULL=1`
+(the whole page); pictures are grey squares. Answers from NC's pages hold a
+character's name: keep such fixtures in the session's scratch, never commit them.
 Playwright is installed in the sessions' machines and needs no options. In
 the real meter: `dev/setup.sh --build`, then the app's
 `clicktrough/dev/run-meter.sh start`, xdotool on `DISPLAY=:97`,
@@ -190,7 +202,9 @@ Calls: `a2.storage.get/set` (`storage`, a JSON file per key, ≤ 1 MB, key
 `[A-Za-z0-9_-]{1,64}`), `a2.notify` (`notify`), `a2.file(path)` (its own
 images and JSON as a data URL, ≤ 8 MB; WebKitGTK can't load a plugin's own
 files once its page started), `a2.share(value)` (`share`, ≤ 64 KB),
-`a2.web.get(url)` (`web:<host>`, only the market price hosts),
+`a2.web.get(url)` (`web:<host>`, only the market price hosts and NC's
+character pages), `a2.web.image(url)` (`web:<host>`, the game's icon server
+and NC's portraits, as a data URL),
 `a2.bossTimers` / `a2.abyssSiege` (`feed:boss-timers`, read only; live
 updates and reporting don't exist in this build), `a2.window.*` (`window`),
 `a2.widgets.*` (`widgets`, `resize` is Clicktrough's).

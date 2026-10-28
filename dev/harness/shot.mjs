@@ -6,6 +6,9 @@
 //   node dev/harness/shot.mjs <plugin folder> <out.png> [events.json] [WxH]
 //
 // events.json: [["character", {...}, {meta}], ["decoded:pet-list", {...}], ...]
+// WEB_FIXTURES=<json> answers a2.web.get ({ "<url or its start>": answer }),
+// STORE=<json> fills the plugin's storage first; pictures are grey squares.
+// WAIT=<ms> after the events (default 500), FULL=1 the whole page.
 // The page gets the meter's dark ground; external requests are listed (there
 // should be none) and so are page errors.
 import http from "node:http";
@@ -39,6 +42,12 @@ server.listen(0, async () => {
   const outside = [];
   page.on("request", (r) => { if (!r.url().startsWith(`http://localhost:${port}`)) outside.push(r.url()); });
   page.on("pageerror", (e) => console.log("page error:", e.message));
+  // Answers for a2.web.get and saved storage, set before the page loads:
+  // WEB_FIXTURES=<json: { "<url or its start>": answer }>, STORE=<json>.
+  const preset = {};
+  if (process.env.WEB_FIXTURES) preset.web = JSON.parse(fs.readFileSync(process.env.WEB_FIXTURES, "utf8"));
+  if (process.env.STORE) preset.store = JSON.parse(fs.readFileSync(process.env.STORE, "utf8"));
+  if (Object.keys(preset).length) await page.addInitScript((p) => { window.__preset = p; }, preset);
   await page.goto(`http://localhost:${port}/`);
   await page.addStyleTag({ content: "html,body{background:#0b0f17;color:#e8e8e8}" });
   await page.waitForTimeout(500);
@@ -47,8 +56,8 @@ server.listen(0, async () => {
     await page.evaluate(([n, d, m]) => a2.emit(n, d, m), [name, data, meta]);
     await page.waitForTimeout(100);
   }
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: out });
+  await page.waitForTimeout(Number(process.env.WAIT) || 500);
+  await page.screenshot({ path: out, fullPage: !!process.env.FULL });
   console.log(`screenshot: ${out}`);
   console.log(`requests outside the plugin: ${outside.length ? outside.join(", ") : "none"}`);
   await browser.close();

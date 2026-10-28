@@ -1,0 +1,23 @@
+{
+  "id": "armory",
+  "name": "Armory",
+  "version": "0.1.0",
+  "apiVersion": 2,
+  "author": "Clicktrough (characters: NC's AION 2 character pages; enhance tables and items: the game's files via Aion2Data; prices: aion2.exchange)",
+  "description": "Your character as NC's character pages show it, every value written out: gear with enhance, Amplify, Manastones and Theostones, stats, skills, Daevanion boards, titles. The gear score from its parts, where each skill's level comes from and what is left to 20, a reference build (a saved questlog.gg page) to compare with, the cheapest enhancing to a target gear score or combat power with its cost in Kinah and materials, and the history of every reading.",
+  "permissions": [
+    "storage",
+    "events:character",
+    "web:aion2.plaync.com",
+    "web:api-search.plaync.com",
+    "web:assets.playnccdn.com",
+    "web:profileimg.plaync.com",
+    "web:raw.githubusercontent.com"
+  ],
+  "ui": {
+    "panel": {
+      "width": 860,
+      "height": 820
+    }
+  }
+}
