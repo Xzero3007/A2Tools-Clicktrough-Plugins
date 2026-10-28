@@ -7,7 +7,8 @@ game's own map pictures as that map publishes them (its gh-pages branch).
     python3 -I dev/make_data.py <Aion-DPS-Meter checkout> <plugin folder> \
         [--aim <aion2-interactive-map checkout>] \
         [--game-maps <aion2-interactive-map gh-pages checkout>] \
-        [--pet-maps <A2Tools-Plugins checkout>] [--no-tiles] [--tiles <map,map>]
+        [--pet-maps <A2Tools-Plugins checkout>] [--a2t <Aion 2 Timers cache>] \
+        [--no-tiles] [--tiles <map,map>]
 
 What it takes (Client/assets/aion2/ of SkeeveAN's repo), English names only:
   maps/maps.json, maps/instances.json  the maps: tiles, grid, world -> pixel
@@ -56,6 +57,20 @@ spawn groups: Harsh Pino Worker none of 22, Hill Coradon 9 of 91), and its
 pictures (maps/<id>.webp, the game's world maps) give the maps no other
 source has: Eltnen, Morheim, and the Abyss's middle and upper layers.
 
+With --a2t, the folder dev/fetch_aion2timers.py downloads Aion 2 Timers'
+interactive map into (aion2timers.com: the game client's own spawn data, map
+by map): every Kibelisk, field boss, gathering spot and place one can find a
+Hidden Cube, the places (dungeon entrances, outposts, Spacetime Rifts, flight
+circles, Monoliths, Abyss artifacts ...), the services (merchants, storage,
+crafting tables, teleport towers), the quest givers and their quests, every
+monster's and NPC's spawn points, the areas' names, and the full-size
+pictures of Eltnen, Morheim and the Abyss's middle and upper layers (their
+tiles at the highest zoom, stitched). Where the AION2 Interactive Map has a
+sealed dungeon or outpost, its own stays. The Empyrean Traces of SkeeveAN's
+gathering spots are the Monolith pieces (feathers): out of the gathering
+spots; their object ids only learn feathers. The game's minimap symbols
+(icons/) come from the AION2 Interactive Map (public/UI/.../Icon/).
+
 --no-tiles leaves tiles/ as it is (data.js only); --tiles <map,map> writes
 the tiles of those maps only.
 
@@ -78,8 +93,9 @@ TILES_FOR = set(args[args.index("--tiles") + 1].split(",")) if "--tiles" in args
 AIM = args[args.index("--aim") + 1] if "--aim" in args else None
 GAME = args[args.index("--game-maps") + 1] if "--game-maps" in args else None
 PET = args[args.index("--pet-maps") + 1] if "--pet-maps" in args else None
+A2T = args[args.index("--a2t") + 1] if "--a2t" in args else None
 SRC, OUT = [a for i, a in enumerate(args) if not a.startswith("--")
-            and (i == 0 or args[i - 1] not in ("--aim", "--game-maps", "--pet-maps", "--tiles"))][:2]
+            and (i == 0 or args[i - 1] not in ("--aim", "--game-maps", "--pet-maps", "--tiles", "--a2t"))][:2]
 ASSETS = os.path.join(SRC, "Client", "assets", "aion2")
 LO = 512  # px per tile of the zoomed-out copies
 QUALITY = 72  # WebP
@@ -109,7 +125,7 @@ WORLD_ZONES = {1010: "verteron", 902: "verteron", 1110: "altgard", 901: "altgard
                100001: "poeta", 100002: "poeta", 1100: "ishalgen", 110001: "ishalgen"}
 # With --pet-maps the Abyss's middle and upper layers have maps of their own,
 # and so have Eltnen and Morheim.
-if PET:
+if PET or A2T:
     WORLD_ZONES.update({22: "abyss_middle", 23: "abyss_upper", 1011: "eltnen", 1111: "morheim"})
 
 # The maps only A2 Tools' Pet Soul Tracker pictures (--pet-maps): map -> (its
@@ -138,7 +154,7 @@ GAME_MAPS = {
 }
 
 GAME_KEY = {v[0]: k for k, v in GAME_MAPS.items()}  # "World_D_A" -> "altgard"
-if PET:
+if PET or A2T:
     # The field bosses of Eltnen, Morheim and the Abyss's middle layer.
     GAME_KEY.update({"World_L_B": "eltnen", "World_D_B": "morheim", "Abyss_Reshanta_C": "abyss_middle"})
 
@@ -347,10 +363,75 @@ if PET:
         return {"title": title, "tile": size, "grid": grid, "scale": scale, "ox": -x0 * scale, "oy": -y0 * scale,
                 "tiles": names, "lo": LO, "instance": False, "picture": "game"}
 
-    for key, (mid, _, table, _) in PET_ONLY_MAPS.items():
-        if key in maps or mid not in PET_MAPS:
+
+# ---------- Aion 2 Timers' interactive map (--a2t, dev/fetch_aion2timers.py) ----------
+a2t_catalog, a2t_pos, A2T_MAPS = None, {}, {}
+if A2T:
+    path = os.path.join(A2T, "maps.json")
+    note(path, "aion2timers:maps.json")
+    a2t_catalog = json.load(open(path, encoding="utf8"))
+    A2T_MAPS = {str(m["id"]): m for m in a2t_catalog["maps"]}
+    for mid, m in A2T_MAPS.items():
+        path = os.path.join(A2T, "positions", f"{mid}.json")
+        if m.get("empty") or not os.path.exists(path):
             continue
-        maps[key] = pet_map(key)
+        note(path, f"aion2timers:positions/{mid}.json")
+        a2t_pos[mid] = json.load(open(path, encoding="utf8"))
+
+    def a2t_map(key):
+        """A map from Aion 2 Timers' picture of it (the game's world map, at
+        its full size: its tiles of the highest zoom), in tiles of 1024 px."""
+        mid, title, _, _ = PET_ONLY_MAPS[key]
+        m = A2T_MAPS[mid]
+        img, b = m["image"], m["bounds"]
+        x0, y0, x1, y1 = b["minX"], b["minY"], b["maxX"], b["maxY"]
+        if img["width"] != img["height"] or any((m.get("flip") or {}).values()) or abs((x1 - x0) - (y1 - y0)) > 1:
+            raise SystemExit(f"{key}: Aion 2 Timers' picture {img} / bounds {b} not square and unflipped as expected")
+        t, z = img["tile_size"], img["max_zoom"]
+        n = img["width"] // t
+        size = 1024
+        grid = img["width"] // size
+        names = [f"{c}_{r}" for c in range(grid) for r in range(grid)]
+        if not NO_TILES or key in TILES_FOR:
+            whole = Image.new("RGB", (img["width"], img["height"]))
+            digest = hashlib.sha256()
+            for x in range(n):
+                for y in range(n):
+                    tp = os.path.join(A2T, m["tiles"].format(z=z, x=x, y=y))
+                    raw = open(tp, "rb").read()
+                    digest.update(raw)
+                    whole.paste(Image.open(tp).convert("RGB"), (x * t, y * t))
+            read[f"aion2timers:{m['tiles'].format(z=z, x='*', y='*')}"] = digest.hexdigest()
+            os.makedirs(os.path.join(tiles_out, key, "lo"), exist_ok=True)
+            for old in os.listdir(os.path.join(tiles_out, key)):
+                if old.endswith(".webp"):
+                    os.remove(os.path.join(tiles_out, key, old))
+            for old in os.listdir(os.path.join(tiles_out, key, "lo")):
+                os.remove(os.path.join(tiles_out, key, "lo", old))
+            small = whole.resize((grid * LO, grid * LO), Image.LANCZOS)
+            for c in range(grid):
+                for r in range(grid):
+                    whole.crop((c * size, r * size, (c + 1) * size, (r + 1) * size)).save(
+                        os.path.join(tiles_out, key, f"{c}_{r}.webp"), "WEBP", quality=QUALITY, method=6)
+                    small.crop((c * LO, r * LO, (c + 1) * LO, (r + 1) * LO)).save(
+                        os.path.join(tiles_out, key, "lo", f"{c}_{r}.webp"), "WEBP", quality=QUALITY, method=6)
+        scale = grid * size / (x1 - x0)
+        calibration[key] = {"bounds": [x0, y0, x1, y1], "from": "the game's map bounds, as Aion 2 Timers' map has them"}
+        return {"title": title, "tile": size, "grid": grid, "scale": scale, "ox": -x0 * scale, "oy": -y0 * scale,
+                "tiles": names, "lo": LO, "instance": False, "picture": "game"}
+
+# The maps no other source has a picture of: Aion 2 Timers' (sharper) or
+# the Pet Soul Tracker's.
+if PET or A2T:
+    for key, (mid, _, table, _) in PET_ONLY_MAPS.items():
+        if key in maps:
+            continue
+        if A2T and mid in A2T_MAPS:
+            maps[key] = a2t_map(key)
+        elif PET and mid in PET_MAPS:
+            maps[key] = pet_map(key)
+        else:
+            continue
         collect(key, [table, *[t for t in spawns_src if t.startswith(table + "/")]])
 game_commit = None
 if GAME:
@@ -362,7 +443,7 @@ if GAME:
 # ---------- the AION2 Interactive Map (--aim) ----------
 # Its map -> ours (its pictures are the game's: GAME_MAPS).
 AIM_MAPS = {key: g[0] for key, g in GAME_MAPS.items()}
-AIM_MAPS.update({key: g[3] for key, g in PET_ONLY_MAPS.items() if PET and g[3]})
+AIM_MAPS.update({key: g[3] for key, g in PET_ONLY_MAPS.items() if (PET or A2T) and g[3]})
 AIM_PLACES = {"seal": "Sealed dungeon", "battlefield": "Battlefield", "occupation": "Outpost", "village": "Village"}
 aim_commit = None
 cube_spots, monoliths, places, regions = {}, {}, {}, {}
@@ -576,6 +657,181 @@ if PET:
 if AIM:
     data["aim"] = {"repo": "https://github.com/aion2-interactive-map/aion2-interactive-map", "commit": aim_commit,
                    "license": "CC BY-NC 4.0", "author": "Yihao Liu (tc-imba)"}
+
+# ---------- everything Aion 2 Timers' map has (--a2t) ----------
+# The game's own minimap symbols, as the AION2 Interactive Map publishes them
+# (public/UI/Resource/Texture/Icon/UT_Marker_*; "a2t:": the one Aion 2 Timers'
+# map draws, which the AION2 Interactive Map lacks), 64 px, into icons/: one
+# per kind of mark (marks.js).
+ICON_FILES = {
+    "teleportartifact_light": "TeleportArtifact_Light_Engraved", "teleportartifact_dark": "TeleportArtifact_Dark_Engraved",
+    "feather": "MonolithFragment", "monolith_light": "Monolith_Light", "monolith_dark": "Monolith_Dark",
+    "boss": "Monster_Boss", "village": "Vlillage", "seal": "Exploration_Seal", "dungeon": "Dungeon",
+    "battlefield": "BattleField", "occupation": "Exploration_Occupation", "rift": "Rift", "flightring": "FlightRing",
+    "shop": "Shop", "storage": "Storage", "alchemy": "Alchemist", "blacksmith": "BlackSmith", "cook": "Cooking",
+    "jewelcraft": "Jewelry", "tailor": "Tailor", "npcteleport": "a2t:ut_marker_movemap", "abyssartifact": "AbyssArtifact_Neutral",
+    "abysscore": "AbyssArtifact_Neutral", "abysscorridor": "AbyssPortal", "fieldevent": "BattleField",
+    "door": "a2t:ut_marker_movemap", "npc": "Talk",
+    "heroquest": "Quest_Hero_Acquired", "districtquest": "Quest_District_Acquired",
+    "gather_herb": "Gather_Herb", "gatherl_metal": "Gatherl_Metal", "gatherl_raremetal": "Gatherl_RareMetal",
+    "gather_tree": "Gather_Tree", "gatherl_jewelry": "Gatherl_Jewelry", "gather_od": "Gather_Od",
+    "gather_berry": "Gather_Berry", "gather_vegetable": "Gather_Vegetable", "gather_shellfish": "Gather_shellfish",
+    "gather_flower": "Gather_Flower", "gather": "Gather",
+}
+if AIM and os.path.isdir(os.path.join(AIM, "public", "UI", "Resource", "Texture", "Icon")):
+    os.makedirs(os.path.join(OUT, "icons"), exist_ok=True)
+    for name, src_name in ICON_FILES.items():
+        if src_name.startswith("a2t:"):
+            if not A2T:
+                continue
+            path = os.path.join(A2T, "icons", f"{src_name[4:]}.webp")
+            note(path, f"aion2timers:icons/{src_name[4:]}.webp")
+        else:
+            path = os.path.join(AIM, "public", "UI", "Resource", "Texture", "Icon", f"UT_Marker_{src_name}.webp")
+            note(path, f"aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_{src_name}.webp")
+        Image.open(path).convert("RGBA").resize((64, 64), Image.LANCZOS).save(
+            os.path.join(OUT, "icons", f"{name}.webp"), "WEBP", lossless=True, method=6)
+
+if A2T:
+    def a2t_key(mid):
+        key = zones.get(str(mid)) or {"1000": "poeta"}.get(str(mid))
+        return key if key in maps else None
+
+    def near_any(pts, x, y, cm):
+        return any((pts[i] - x) ** 2 + (pts[i + 1] - y) ** 2 <= cm * cm for i in range(0, len(pts), 2))
+
+    def human(name):
+        # The client's internal names (M_FE_..., N_FE_...) aren't shown.
+        return bool(name) and "_" not in name and name.isascii()
+
+    # Aion 2 Timers' resource types -> the map's gathering kinds, and the
+    # game's symbol of each.
+    GATHER_KIND = {"herb": "Herb", "metal": "Ore", "tree": "Wood", "jewelry": "Gemstone", "od": "Od",
+                   "berry": "Food", "vegetable": "Food", "shellfish": "Food"}
+    GATHER_ICON = {"herb": "gather_herb", "metal": "gatherl_metal", "tree": "gather_tree", "jewelry": "gatherl_jewelry",
+                   "od": "gather_od", "berry": "gather_berry", "vegetable": "gather_vegetable", "shellfish": "gather_shellfish"}
+    KIND_ICON = {"Herb": "gather_herb", "Ore": "gatherl_metal", "Wood": "gather_tree", "Gemstone": "gatherl_jewelry",
+                 "Od": "gather_od", "Food": "gather_vegetable", "Cotton": "gather_flower"}
+    # Its points -> the map's places (kind), the most telling type first.
+    POINT_KINDS = [("heroquest", "heroquest"), ("districtquest", "districtquest"), ("stronghold", "occupation"),
+                   ("dungeon", "dungeon"), ("rift", "rift"), ("flightring", "flightring"), ("monolith", "monolith"),
+                   ("abyssartifact", "abyssartifact"), ("abysscore", "abysscore"), ("abysscorridor", "abysscorridor"),
+                   ("fieldevent", "fieldevent"), ("movemapcondition", "door"), ("shop", "shop"), ("storage", "storage"),
+                   ("alchemy", "alchemy"), ("blacksmith", "blacksmith"), ("cook", "cook"), ("jewelcraft", "jewelcraft"),
+                   ("tailor", "tailor"), ("npcteleport", "npcteleport")]
+    objects = data["gather"]["objects"]
+    # The Empyrean Traces are the Monolith pieces ("feathers", the AION2
+    # Interactive Map's): 541 of Verteron's 559 lie on one. Out of the
+    # gathering spots; their object ids learn feathers.
+    feather_ids = sorted(env for env, o in objects.items() if o["kind"] == "Fragment")
+    for env in feather_ids:
+        del objects[env]
+        for per in gather_points.values():
+            per.pop(env, None)
+    for o in objects.values():
+        o.setdefault("icon", KIND_ICON.get(o["kind"], "gather"))
+    monsters, npcs, labels, object_kinds, levels = {}, {}, {}, {}, {}
+    a2t_pet_spawns = {}
+    counts = {}
+    for mid, d in a2t_pos.items():
+        key = a2t_key(mid)
+        if not key:
+            continue
+        c = counts.setdefault(key, {})
+        # Kibelisks and field bosses: theirs, on every map they have.
+        kib = [[p["name"], round(p["x"]), round(p["y"]), "dark" if "_dark_" in (p.get("iconPath") or "") else "light"]
+               for p in d["points"] if "teleportartifact" in p["types"]]
+        if kib:
+            kibelisks[key] = kib
+        boss = [[int(p["entity"]["id"]), p["name"], round(p["x"]), round(p["y"])]
+                for p in d["points"] if "boss" in p["types"] and p.get("entity")]
+        if boss:
+            data["bosses"][key] = boss
+        # Their objects' ids, for what the meter sees to be learnt.
+        for p in d["points"]:
+            if not p["id"].startswith("object-"):
+                continue
+            env = p["id"].split("-")[1]
+            kind = "kibelisk" if "teleportartifact" in p["types"] else next((k for t, k in POINT_KINDS if t in p["types"]), None)
+            if kind:
+                object_kinds.setdefault(env, kind)
+        # Places: theirs beside the AION2 Interactive Map's (a sealed
+        # dungeon or outpost it has wins over one of theirs within 50 m).
+        mine = places.setdefault(key, [])
+        aim_at = {}
+        for kind, _, x, y, *_ in mine:
+            aim_at.setdefault(kind, []).extend([x, y])
+        for p in d["points"]:
+            kind = next((k for t, k in POINT_KINDS if t in p["types"]), None)
+            if not kind or "teleportartifact" in p["types"] or "boss" in p["types"]:
+                continue
+            x, y = round(p["x"]), round(p["y"])
+            if kind == "occupation" and near_any(aim_at.get("occupation", []), x, y, 5000):
+                continue
+            if kind == "dungeon" and near_any(aim_at.get("seal", []), x, y, 5000):
+                continue
+            quests = "; ".join(q["name"] for q in p.get("quests") or [] if q.get("name"))
+            mine.append([kind, p["name"], x, y, quests] if quests else [kind, p["name"], x, y])
+            c[kind] = c.get(kind, 0) + 1
+        # Area names where the map has no regions of its own.
+        if not regions.get(key) and d.get("labels"):
+            labels[key] = [[l["name"], l["type"], round(l["x"]), round(l["y"])] for l in d["labels"]]
+        gp = gather_points.setdefault(key, {})
+        for g in d["groups"]:
+            types, e = g["types"], g["entity"]
+            pts = [round(v) for v in g["positions"]]
+            res = next((t[9:] for t in types if t.startswith("resource-")), None)
+            if res in GATHER_KIND:
+                env = str(e["id"])
+                objects.setdefault(env, {"kind": GATHER_KIND[res], "name": e["name"]})
+                objects[env]["icon"] = GATHER_ICON[res]
+                have = gp.setdefault(env, [])
+                for i in range(0, len(pts), 2):
+                    if not near_any(have, pts[i], pts[i + 1], 800):
+                        have += pts[i:i + 2]
+                c["gather"] = c.get("gather", 0) + len(pts) // 2
+            elif "hiddencube" in types:
+                for env in e.get("envObjIds") or []:
+                    if env not in CUBES:
+                        CUBES.append(env)
+                have = gp.setdefault("cube", [])
+                for i in range(0, len(pts), 2):
+                    if not near_any(have, pts[i], pts[i + 1], 800):
+                        have += pts[i:i + 2]
+            elif any(t.startswith("monster-") for t in types) or "npc-other" in types:
+                npc = str(e["id"])
+                into = monsters if any(t.startswith("monster-") for t in types) else npcs
+                if into is npcs and not human(e.get("name")):
+                    continue
+                # In metres: tens of thousands of points.
+                into.setdefault(key, {}).setdefault(npc, []).extend(round(v / 100) for v in g["positions"])
+                if e.get("level"):
+                    levels.setdefault(npc, e["level"])
+                if human(e.get("name")) and npc not in data["npcNames"]:
+                    data["npcNames"][npc] = e["name"]
+                if into is monsters:
+                    a2t_pet_spawns.setdefault(key, {}).setdefault(npc, []).extend(pts)
+    # Every pet monster's spawn points: theirs, as the game has them.
+    pets_of = data["npcPets"]
+    a2t_replaced = 0
+    for key, per in a2t_pet_spawns.items():
+        for npc, pts in per.items():
+            if npc in pets_of:
+                spawns.setdefault(key, {})[npc] = pts
+                a2t_replaced += 1
+    data["cubes"] = CUBES
+    data["monsters"] = monsters
+    data["npcs"] = npcs
+    data["labels"] = labels
+    data["objectKinds"] = object_kinds
+    data["featherIds"] = [int(env) for env in feather_ids]
+    data["monsterLevels"] = levels
+    data["a2t"] = {"site": "aion2timers.com", "build": a2t_catalog.get("build"), "generated": a2t_catalog.get("generated"),
+                   "positions": "the game client's"}
+    print(f"Aion 2 Timers (build {a2t_catalog.get('build')}): pet monsters' spawn points {a2t_replaced}, "
+          f"monsters {sum(len(v) for v in monsters.values())} kinds, NPCs {sum(len(v) for v in npcs.values())}, "
+          f"object ids {len(object_kinds)}, per map: {counts}")
+
 try:
     data["source"]["commit"] = subprocess.run(["git", "-C", SRC, "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
 except (OSError, subprocess.CalledProcessError):
@@ -588,7 +844,13 @@ with open(os.path.join(OUT, "data.js"), "w", encoding="utf8") as f:
     f.write("// The world map pictures (tiles/) of Verteron, Altgard, the Abyss, Poeta and Ishalgen are the\n")
     f.write("// game's own, as the AION2 Interactive Map publishes them (its gh-pages branch).\n")
     f.write("// npcLevels, npcPets: from Pet Finder's sources.js (A2 Tools' Pet Soul Tracker, GPL-3.0).\n")
-    if PET:
+    if A2T:
+        f.write("// Kibelisks, field bosses, gathering spots, Hidden Cube places, places, services, quests,\n")
+        f.write("// monsters' and NPCs' spawn points (monsters, npcs: metres), area names, the pet monsters'\n")
+        f.write("// spawn points and the maps of Eltnen, Morheim and the Abyss's middle and upper layers: from\n")
+        f.write("// Aion 2 Timers' interactive map (see NOTICE-Aion2Timers.txt). icons/: the game's minimap\n")
+        f.write("// symbols, as the AION2 Interactive Map publishes them.\n")
+    elif PET:
         f.write("// The pet monsters' spawn points, and the maps of Eltnen, Morheim and the Abyss's middle and\n")
         f.write("// upper layers: from A2 Tools' Pet Soul Tracker (maps.js, maps/), which has them from\n")
         f.write("// Aion 2 Timers' interactive map (see NOTICE-Aion2Timers.txt).\n")
@@ -602,6 +864,7 @@ with open(os.path.join(OUT, "dev", "provenance.json"), "w", encoding="utf8") as 
                **({"aim": {"repo": data["aim"]["repo"], "commit": aim_commit}} if AIM else {}),
                **({"pictures": data["pictures"]} if GAME else {}),
                **({"petMaps": {"repo": data["petMaps"]["repo"], "commit": pet_commit}} if PET else {}),
+               **({"aion2timers": data["a2t"]} if A2T else {}),
                "calibration": calibration, "sha256": dict(sorted(read.items()))}, f, indent=1)
     f.write("\n")
 

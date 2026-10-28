@@ -32,10 +32,35 @@
     return url;
   }
 
+  // The game's minimap symbols (icons/, make_data.py), loaded once for every
+  // view; a view draws a mark's own shape until its symbol is there.
+  const icons = new Map(); // name -> <img>, once loaded
+  const iconWaiting = new Set(); // views to draw again when one loads
+  function icon(name, redraw) {
+    if (!name) return null;
+    let img = icons.get(name);
+    if (img === undefined) {
+      img = new Image();
+      img.decoding = "async";
+      icons.set(name, img);
+      const shown = img;
+      shown.onload = () => {
+        shown.ready = true;
+        for (const fn of iconWaiting) fn();
+      };
+      tileUrl(`icons/${name}.webp`).then((url) => { shown.src = url; });
+    }
+    if (!img.ready) {
+      iconWaiting.add(redraw);
+      return null;
+    }
+    return img;
+  }
+
   /** World -> the map's own pixels. */
   const toNative = (map, x, y) => [map.ox + map.scale * x, map.oy + map.scale * y];
 
-  function MapView(root, { interactive = true, onView } = {}) {
+  function MapView(root, { interactive = true, onView, onPick } = {}) {
     root.classList.add("mapView");
     const tilesEl = document.createElement("div");
     tilesEl.className = "mapTiles";
@@ -56,7 +81,7 @@
     let marks = [];
     // A fit asked for while the view had no size yet (a hidden dock tab).
     let fitPending = false;
-    let drawn = []; // [sx, sy, r, label] for the tooltip
+    let drawn = []; // [sx, sy, r, label, mark] for the tooltip and clicks
     const imgs = new Map(); // "lo/1_2" -> <img>
     let queued = false;
 
@@ -183,6 +208,7 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
       drawn = [];
+      names = [];
       if (!map) return;
       // Least important first: what matters most lies on top. Zoomed far
       // out the marks shrink, so a whole map of them stays readable.
@@ -215,11 +241,14 @@
           ctx.restore();
           continue;
         }
-        const pad = (m.r || 4) * markScale + 12;
+        const pad = (m.r || 4) * markScale * 2.2 + 12;
         if (sx < -pad || sy < -pad || sx > w + pad || sy > h + pad) continue;
-        drawMark(m, sx, sy);
-        if (m.label) drawn.push([sx, sy, (m.r || 4) * markScale + 3, m.label]);
+        const shown = drawMark(m, sx, sy);
+        // How near the pointer must be: the symbol's size, or the shape's.
+        const reach = shown === "icon" ? (m.r || 4) * 2.1 * shrink * markScale + 2 : (m.r || 4) * markScale + 3;
+        if (m.label && shown !== false) drawn.push([sx, sy, reach, m.label, m]);
       }
+      drawNames();
     }
 
     // Where the game puts a monster the map knows only in part: the
@@ -362,6 +391,17 @@
     let markScale = 1;
     function drawMark(m, sx, sy) {
       const r = (m.r || 4) * (m.kind === "me" ? 1 : shrink) * markScale;
+      // The game's own symbol, where the mark has one: a little larger than
+      // the shape it replaces, a white ring when it is there right now.
+      const img = m.icon && m.kind !== "teleport" ? icon(m.icon, redraw) : null;
+      if (img) {
+        const size = r * 4.2;
+        if (m.live) circle(sx, sy, size * 0.5, "rgba(10,12,16,0.55)", "#ffffff", 2);
+        ctx.drawImage(img, sx - size / 2, sy - size / 2, size, size);
+        if (m.hit) circle(sx, sy, Math.max(size * 0.5 + 2, 7), null, GOLD, 2.5);
+        drawName(m, sx, sy, size * 0.5);
+        return "icon";
+      }
       switch (m.kind) {
         case "me": {
           // Not exact: a ring as large as the guess is uncertain (~10 m).
@@ -457,8 +497,12 @@
           // appear (the search): fainter still.
           cube(sx, sy, r * 1.3, m.all ? 0.45 : 0.7, "rgba(20,8,36,0.85)", m.all ? 1 : 1.25);
           break;
+        case "npc":
+          circle(sx, sy, r * 0.8, "rgba(255,240,200,0.9)", "rgba(0,0,0,0.6)", 1);
+          break;
+        case "feather":
         case "monolith":
-          // A Monolith piece: a small upright bar.
+          // A Monolith piece (a feather): a small upright bar.
           ctx.fillStyle = "#d9c6ff";
           ctx.strokeStyle = "rgba(0,0,0,0.7)";
           ctx.lineWidth = 1;
@@ -477,41 +521,67 @@
         }
         case "region":
           // A region's name, written where it lies (no mark).
-          if (zoom * map.tile >= 70) {
-            ctx.font = "600 12px system-ui, sans-serif";
-            ctx.textAlign = "center";
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = "rgba(0,0,0,0.75)";
-            ctx.fillStyle = "rgba(255,255,255,0.8)";
-            ctx.strokeText(m.text, sx, sy);
-            ctx.fillText(m.text, sx, sy);
-            ctx.textAlign = "start";
-          }
-          return;
+          if (zoom * map.tile < 70) return false;
+          names.push({ text: m.text, x: sx, y: sy, prio: 50, region: true });
+          return true;
         default:
           circle(sx, sy, r, "#ffffff", "rgba(0,0,0,0.6)");
       }
       // What the search or another plugin asked for: a gold ring around it.
       if (m.hit) circle(sx, sy, Math.max(r + 4, 7), null, GOLD, 2.5);
-      // The way's Kibelisk always says its name; other names once zoomed in.
-      if (m.text && (m.kind === "teleport" || zoom * map.tile >= 180)) {
-        ctx.font = `${m.kind === "teleport" ? "600 " : ""}${Math.round(11 * Math.min(1.4, markScale))}px system-ui, sans-serif`;
+      drawName(m, sx, sy, r + (m.kind === "teleport" ? 5 : 0));
+      return true;
+    }
+
+    // The way's Kibelisk always says its name; other names once zoomed in
+    // (merchants, quest givers and passages closer still). Written after the
+    // marks, the most telling first, and none over another.
+    let names = [];
+    const NAME_PRIO = { teleport: 100, boss: 60, kibelisk: 55 };
+    const MINOR = new Set(["shop", "storage", "alchemy", "blacksmith", "cook", "jewelcraft", "tailor", "npcteleport", "heroquest", "districtquest", "door", "fieldevent", "flightring"]);
+    function drawName(m, sx, sy, r) {
+      if (!m.text) return;
+      const prio = m.hit ? 80 : NAME_PRIO[m.kind] ?? (MINOR.has(m.place) ? 20 : 40);
+      const needs = prio === 100 ? 0 : prio <= 20 ? 360 : 180;
+      if (zoom * map.tile < needs) return;
+      names.push({ text: m.text, x: sx + r + 4, y: sy + 4, prio, bold: m.kind === "teleport" });
+    }
+    function drawNames() {
+      const placed = [];
+      const size = Math.round(11 * Math.min(1.4, markScale));
+      names.sort((a, b) => b.prio - a.prio);
+      for (const n of names) {
+        ctx.font = n.region ? "600 12px system-ui, sans-serif" : `${n.bold ? "600 " : ""}${size}px system-ui, sans-serif`;
+        const w = ctx.measureText(n.text).width;
+        const x0 = n.region ? n.x - w / 2 : n.x;
+        const box = [x0 - 2, n.y - size, x0 + w + 2, n.y + 4];
+        if (n.prio < 100 && placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+        placed.push(box);
         ctx.lineWidth = 3;
-        ctx.strokeStyle = "rgba(0,0,0,0.8)";
-        ctx.fillStyle = "#fff";
-        const tx = sx + r + (m.kind === "teleport" ? 9 : 4);
-        ctx.strokeText(m.text, tx, sy + 4);
-        ctx.fillText(m.text, tx, sy + 4);
+        ctx.strokeStyle = n.region ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.8)";
+        ctx.fillStyle = n.region ? "rgba(255,255,255,0.8)" : "#fff";
+        ctx.strokeText(n.text, x0, n.y);
+        ctx.fillText(n.text, x0, n.y);
       }
     }
 
-    // The nearest labelled mark under the pointer, as a tooltip.
-    function hover(px, py) {
+    // The labelled mark under the pointer: one of what is shown (gold ring)
+    // first, then the one the pointer is most inside of, then the one on top.
+    function markAt(px, py) {
       let best = null;
-      for (const [sx, sy, r, label] of drawn) {
+      for (const [sx, sy, r, label, m] of drawn) {
         const d = Math.hypot(sx - px, sy - py);
-        if (d <= Math.max(r, 7) && (!best || d < best[0])) best = [d, label, sx, sy];
+        const reach = Math.max(r, 7);
+        if (d > reach) continue;
+        const score = d / reach - (m?.hit ? 1 : 0) - (m?.z || 0) * 1e-4;
+        if (!best || score <= best[0]) best = [score, label, sx, sy, m];
       }
+      return best;
+    }
+    // ... as a tooltip.
+    function hover(px, py) {
+      const best = markAt(px, py);
+      root.classList.toggle("canPick", !!(best?.[4]?.focus && onPick));
       if (!best) {
         tip.hidden = true;
         return;
@@ -544,7 +614,15 @@
           hover(e.clientX - rect.left, e.clientY - rect.top);
         }
       });
-      window.addEventListener("mouseup", () => { drag = null; });
+      window.addEventListener("mouseup", (e) => {
+        // A click (no drag) on a mark: what it is, everywhere on the map.
+        if (drag && !drag.moved && onPick) {
+          const rect = root.getBoundingClientRect();
+          const m = markAt(e.clientX - rect.left, e.clientY - rect.top)?.[4];
+          if (m?.focus) onPick(m);
+        }
+        drag = null;
+      });
       root.addEventListener("mouseleave", () => { tip.hidden = true; });
       root.addEventListener("wheel", (e) => {
         e.preventDefault();
@@ -553,8 +631,18 @@
         root.dispatchEvent(new CustomEvent("mapzoom", { detail: zoom }));
       }, { passive: false });
     }
+    // A bar shown or hidden above the map (what the search shows) changes
+    // its place and size: what is on screen stays where it was on the page,
+    // so a mark just clicked doesn't slip away under the pointer.
+    let lastRect = null;
     new ResizeObserver(() => {
+      const r = root.getBoundingClientRect();
       if (fitPending && map) fitMap();
+      else if (map && lastRect?.width && lastRect?.height && r.width && r.height) {
+        cx += (r.left - lastRect.left + (r.width - lastRect.width) / 2) / zoom;
+        cy += (r.top - lastRect.top + (r.height - lastRect.height) / 2) / zoom;
+      }
+      lastRect = r;
       redraw();
     }).observe(root);
 

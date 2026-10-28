@@ -22,16 +22,27 @@
   const cubes = new Set(D.cubes.map(String));
 
   // ---------- spots the meter has seen (learnt) ----------
-  // The data knows only the gathering spots and pet monster spawns players'
-  // meters happened to report to SkeeveAN (Asvata: 3 in Altgard). What this
-  // player's meter sees is added: { key: { g: { env: [x, y, ...] }, s: { npc:
-  // [x, y, ...] }, c: [x, y, ...] } } (gathering spots, pet monsters' spawn
-  // points, Hidden Cubes), kept by the plugin.
+  // What this player's meter sees where the map has none of its kind yet is
+  // added: { key: { g: { env: [x, y, ...] }, s: { npc: [x, y, ...] }, c: [x,
+  // y, ...], f: [x, y, ...], o: { kind: [x, y, ...] } } } (gathering spots,
+  // pet monsters' spawn points, Hidden Cubes, feathers, and the other objects
+  // the data knows the ids of: Kibelisks, rifts, dungeon entrances ...),
+  // kept by the plugin.
   let learned = {};
   const LEARN_CAP = 25000; // points per map (a stored value may be 1 MB)
-  const setLearned = (value) => { learned = value && typeof value === "object" ? value : {}; };
+  const setLearned = (value) => {
+    learned = value && typeof value === "object" ? value : {};
+    index = null;
+    counts = null;
+    spawnCache.clear();
+    placeCache.clear();
+  };
+  // What depends on the learnt spots, per map, until they change.
+  const spawnCache = new Map();
+  const placeCache = new Map();
   const count = (lk) => (lk ? Object.values(lk.g || {}).reduce((n, a) => n + a.length / 2, 0)
-    + Object.values(lk.s || {}).reduce((n, a) => n + a.length / 2, 0) + (lk.c || []).length / 2 : 0);
+    + Object.values(lk.s || {}).reduce((n, a) => n + a.length / 2, 0) + (lk.c || []).length / 2
+    + (lk.f || []).length / 2 + Object.values(lk.o || {}).reduce((n, a) => n + a.length / 2, 0) : 0);
   const both = (a, b) => (b && b.length ? (a && a.length ? a.concat(b) : b) : a || []);
   /** A map's gathering spots, the data's and the learnt: { env: [x, y, ...] }. */
   function gatherPoints(key) {
@@ -64,15 +75,53 @@
   /** A map's pet monster spawn points: the data's, the game's middle one
    *  where the data lacks it, and the learnt. */
   function spawnPoints(key) {
+    if (spawnCache.has(key)) return spawnCache.get(key);
     const data = D.spawns[key] || {};
     const mids = gameMids(key);
     const mine = learned[key]?.s;
     const out = { ...data };
     for (const [npc, xy] of Object.entries(mids)) out[npc] = both(out[npc], xy);
     for (const [npc, pts] of Object.entries(mine || {})) out[npc] = both(out[npc], pts);
+    spawnCache.set(key, out);
     return out;
   }
   const cubeSpotPoints = (key) => both(D.cubeSpots?.[key], learned[key]?.c);
+  /** Where every monster (D.monsters) or other NPC (D.npcs) stands on map
+   *  `key`, as the game has them: npc -> [x, y, ...] in cm (the data keeps
+   *  metres). */
+  const cmCache = new Map();
+  function inCm(what, key) {
+    const id = `${what}:${key}`;
+    if (cmCache.has(id)) return cmCache.get(id);
+    const out = {};
+    for (const [npc, pts] of Object.entries(D[what]?.[key] || {})) out[npc] = pts.map((v) => v * 100);
+    cmCache.set(id, out);
+    return out;
+  }
+  const monsterPoints = (key) => inCm("monsters", key);
+  const npcPoints = (key) => inCm("npcs", key);
+  /** A map's feathers (Monolith pieces): the data's and the learnt. */
+  const featherPoints = (key) => both(D.monoliths?.[key], learned[key]?.f);
+  const featherIds = new Set((D.featherIds || []).map(String));
+  /** A map's Kibelisks: [name, x, y, side], the data's and the learnt. */
+  function kibelisksOf(key) {
+    const out = [...(D.kibelisks[key] || [])];
+    const mine = learned[key]?.o?.kibelisk || [];
+    for (let i = 0; i < mine.length; i += 2) out.push(["Kibelisk", mine[i], mine[i + 1], sideOf(key)]);
+    return out;
+  }
+  /** A map's places: [kind, name, x, y, detail?], the data's and the learnt
+   *  objects of a place's kind (no name: the kind's). */
+  function placesOf(key) {
+    if (placeCache.has(key)) return placeCache.get(key);
+    const out = [...(D.places?.[key] || [])];
+    for (const [kind, pts] of Object.entries(learned[key]?.o || {})) {
+      if (kind === "kibelisk") continue;
+      for (let i = 0; i < pts.length; i += 2) out.push([kind, "", pts[i], pts[i + 1]]);
+    }
+    placeCache.set(key, out);
+    return out;
+  }
   const near = (pts, x, y, cm) => {
     for (let i = 0; i < (pts || []).length; i += 2) if ((pts[i] - x) ** 2 + (pts[i + 1] - y) ** 2 <= cm * cm) return true;
     return false;
@@ -98,12 +147,26 @@
     lk.c ||= [];
     let added = 0;
     let room = LEARN_CAP - count(lk);
+    lk.f ||= [];
+    lk.o ||= {};
     for (const [, env, x, y] of world.objects || []) {
       if (room <= 0) break;
       const id = String(env);
+      const kind = D.objectKinds?.[id];
       if (cubes.has(id)) {
         if (near(D.cubeSpots?.[key], x, y, 800) || near(lk.c, x, y, 800)) continue;
         lk.c.push(Math.round(x), Math.round(y));
+      } else if (featherIds.has(id)) {
+        if (near(D.monoliths?.[key], x, y, 800) || near(lk.f, x, y, 800)) continue;
+        lk.f.push(Math.round(x), Math.round(y));
+      } else if (kind) {
+        // A Kibelisk, rift, dungeon entrance ...: where the map has none of
+        // its kind within 30 m.
+        const known = kind === "kibelisk"
+          ? (D.kibelisks[key] || []).flatMap(([, kx, ky]) => [kx, ky])
+          : (D.places?.[key] || []).filter(([k]) => k === kind).flatMap(([, , px, py]) => [px, py]);
+        if (near(known, x, y, 3000) || near(lk.o[kind], x, y, 3000)) continue;
+        (lk.o[kind] ||= []).push(Math.round(x), Math.round(y));
       } else if (D.gather.objects[id]) {
         const kin = sameName.get(id) || [id];
         if (kin.some((e) => near(D.gather.points[key]?.[e], x, y, 800) || near(lk.g[e], x, y, 800))) continue;
@@ -315,24 +378,57 @@
 
   // The gathering kinds as the map names them, and what each holds (the names
   // the game gives its gathering spots).
-  const KIND_ORDER = ["Herb", "Ore", "Wood", "Cotton", "Food", "Gemstone", "Od", "Fragment"];
+  const KIND_ORDER = ["Herb", "Ore", "Wood", "Cotton", "Food", "Gemstone", "Od"];
   const KIND_LABELS = {
     Herb: "Herbs", Ore: "Ore", Wood: "Wood", Cotton: "Fibers", Food: "Cooking", Gemstone: "Gemstones",
-    Od: "Odyle", Fragment: "Empyrean Traces", Cube: "Hidden Cube",
+    Od: "Odyle", Cube: "Hidden Cube",
   };
+  // The game's minimap symbol of each gathering kind (icons/).
+  const KIND_ICONS = {
+    Herb: "gather_herb", Ore: "gatherl_metal", Wood: "gather_tree", Cotton: "gather_flower", Food: "gather_vegetable",
+    Gemstone: "gatherl_jewelry", Od: "gather_od",
+  };
+  const kindIcon = (k) => KIND_ICONS[k] || "gather";
   const kindItems = {};
   for (const o of Object.values(D.gather.objects)) {
     (kindItems[o.kind] ||= new Set()).add(o.name);
   }
   const kindLabel = (k) => KIND_LABELS[k] || k;
   // The places of the AION2 Interactive Map, by kind.
-  const PLACE_LABELS = { seal: "Sealed dungeon", battlefield: "Battlefield", occupation: "Outpost", village: "Village" };
+  const PLACE_LABELS = {
+    seal: "Sealed dungeon", battlefield: "Battlefield", occupation: "Outpost", village: "Village",
+    dungeon: "Dungeon entrance", rift: "Spacetime Rift", flightring: "Flight circle", monolith: "Monolith",
+    abyssartifact: "Abyss artifact", abysscore: "Abyss core", abysscorridor: "Abyss corridor", fieldevent: "Field event",
+    door: "Passage", shop: "Merchant", storage: "Storage", alchemy: "Alchemy Table", blacksmith: "Blacksmithing Table",
+    cook: "Cooking Table", jewelcraft: "Handicrafting Table", tailor: "Armorsmithing Table", npcteleport: "Teleport tower",
+    heroquest: "Hero quest", districtquest: "District quest",
+  };
   const placeLabel = (k) => PLACE_LABELS[k] || k;
+  const PLURALS = { storage: "Storages", heroquest: "Hero quest givers", districtquest: "District quest givers" };
+  const placePlural = (k) => PLURALS[k] || `${placeLabel(k)}s`;
+  /** A place's name and kind for its tooltip ("Alchemy Table" alone, not
+   *  "Alchemy Table (Alchemy Table)"). */
+  const placeText = (kind, name) => {
+    const what = placeLabel(kind);
+    return !name ? what : fold(name) === fold(what) ? name : `${name} (${what})`;
+  };
+  // Which layer each kind of place is in: the merchants and crafting tables
+  // ("Services"), the quest givers ("Quests"), the rest "Places".
+  const SERVICES = new Set(["shop", "storage", "alchemy", "blacksmith", "cook", "jewelcraft", "tailor", "npcteleport"]);
+  const QUESTS = new Set(["heroquest", "districtquest"]);
+  const placeLayer = (k) => (SERVICES.has(k) ? "services" : QUESTS.has(k) ? "quests" : "places");
+  // The Elyos side's maps draw the light Kibelisk and Monolith, the
+  // Asmodian side's the dark ones.
+  const DARK = new Set(["altgard", "morheim", "ishalgen"]);
+  const sideOf = (key) => (DARK.has(key) ? "dark" : "light");
+  // The game's minimap symbol of each kind of place (icons/).
+  const placeIcon = (kind, key) => (kind === "monolith" ? `monolith_${key ? sideOf(key) : "light"}` : kind);
   const kindTitle = (k) => `${kindLabel(k)}: ${[...(kindItems[k] || [])].join(", ")}`;
 
   // ---------- what the search and other plugins ask for ("focus") ----------
-  // { type: "gather" | "pet" | "npc" | "kibelisk" | "cube" | "monolith"
-  //   | "place" | "region", ids: [...], label }
+  // { type: "gather" | "pet" | "npc" (a monster) | "person" (another NPC)
+  //   | "boss" | "kibelisk" | "cube" | "monolith" (feathers) | "place"
+  //   | "region" | "label" (an area's name), ids: [...], label }
   // cube: ids ["spots"] (where one is known to stand) or ["all"] (every place
   // the game may put one); place: ids ["<kind>:<name>"] or ["<kind>:*"].
 
@@ -350,29 +446,49 @@
     } else if (focus.type === "boss") {
       for (const [npc, , x, y] of D.bosses?.[key] || []) if (ids.has(String(npc))) out.push([x, y]);
     } else if (focus.type === "pet" || focus.type === "npc") {
-      for (const [npc, pts] of Object.entries(spawnPoints(key))) {
-        const hit = focus.type === "npc" ? ids.has(npc) : ids.has(String(D.npcPets[npc]));
+      // A pet monster: its spawn points as the pets layer has them (with the
+      // learnt); any other monster: where the game has it, as the monsters
+      // layer draws it.
+      const pets = spawnPoints(key);
+      const mobs = monsterPoints(key);
+      const other = (npc) => D.npcPets[npc] == null && !!mobs[npc];
+      for (const [npc, pts] of Object.entries(pets)) {
+        const hit = focus.type === "npc" ? ids.has(npc) && !other(npc) : ids.has(String(D.npcPets[npc]));
         if (!hit) continue;
         for (let i = 0; i < pts.length; i += 2) out.push([pts[i], pts[i + 1]]);
       }
+      if (focus.type === "npc") {
+        for (const [npc, pts] of Object.entries(mobs)) {
+          if (!ids.has(npc) || (pets[npc] && !other(npc))) continue;
+          for (let i = 0; i < pts.length; i += 2) out.push([pts[i], pts[i + 1]]);
+        }
+      }
+    } else if (focus.type === "person") {
+      for (const [npc, pts] of Object.entries(npcPoints(key))) {
+        if (!ids.has(npc)) continue;
+        for (let i = 0; i < pts.length; i += 2) out.push([pts[i], pts[i + 1]]);
+      }
     } else if (focus.type === "kibelisk") {
-      for (const [name, x, y] of D.kibelisks[key] || []) if (ids.has(name)) out.push([x, y]);
+      for (const [name, x, y] of kibelisksOf(key)) if (ids.has("*") || ids.has(name)) out.push([x, y]);
     } else if (focus.type === "cube" || focus.type === "monolith") {
-      const pts = focus.type === "monolith" ? D.monoliths?.[key]
+      const pts = focus.type === "monolith" ? featherPoints(key)
         : ids.has("all") ? D.gather.points[key]?.cube : cubeSpotPoints(key);
       for (let i = 0; i < (pts || []).length; i += 2) out.push([pts[i], pts[i + 1]]);
     } else if (focus.type === "place") {
-      for (const [kind, name, x, y] of D.places?.[key] || []) {
+      for (const [kind, name, x, y] of placesOf(key)) {
         if (ids.has(`${kind}:*`) || ids.has(`${kind}:${name}`)) out.push([x, y]);
       }
     } else if (focus.type === "region") {
       for (const [name, x, y] of D.regions?.[key] || []) if (ids.has(name)) out.push([x, y]);
+    } else if (focus.type === "label") {
+      for (const [name, , x, y] of D.labels?.[key] || []) if (ids.has(name)) out.push([x, y]);
     }
     return out;
   }
 
-  /** How many places a focus has on each map: { key: count }, most first. */
-  function focusMaps(focus) {
+  /** How many places a focus has on each map, counted from its points:
+   *  { key: count }, most first. */
+  function focusMapsByPoints(focus) {
     const out = {};
     for (const key of Object.keys(D.maps)) {
       const n = focusPoints(focus, key).length;
@@ -380,6 +496,58 @@
     }
     return Object.fromEntries(Object.entries(out).sort((a, b) => b[1] - a[1]));
   }
+
+  // The same, from tables counted once (until the learnt spots change): the
+  // search asks it for hundreds of names at a time.
+  let counts = null;
+  function countTables() {
+    const t = { gather: {}, npc: {}, pet: {}, person: {}, boss: {}, kibelisk: {}, place: {}, region: {}, label: {} };
+    const inc = (table, id, key, n) => {
+      if (!n) return;
+      const per = (table[id] ||= {});
+      per[key] = (per[key] || 0) + n;
+    };
+    for (const key of Object.keys(D.maps)) {
+      for (const [env, pts] of Object.entries(gatherPoints(key))) inc(t.gather, env, key, pts.length / 2);
+      // As focusPoints counts them: a pet monster by its spawn points, any
+      // other monster where the game has it.
+      const pets = spawnPoints(key);
+      const mobs = monsterPoints(key);
+      const other = (npc) => D.npcPets[npc] == null && !!mobs[npc];
+      for (const [npc, pts] of Object.entries(pets)) {
+        if (!other(npc)) inc(t.npc, npc, key, pts.length / 2);
+        if (D.npcPets[npc] != null) inc(t.pet, String(D.npcPets[npc]), key, pts.length / 2);
+      }
+      for (const [npc, pts] of Object.entries(mobs)) if (!pets[npc] || other(npc)) inc(t.npc, npc, key, pts.length / 2);
+      for (const [npc, pts] of Object.entries(npcPoints(key))) inc(t.person, npc, key, pts.length / 2);
+      for (const [npc] of D.bosses?.[key] || []) inc(t.boss, String(npc), key, 1);
+      for (const [name] of kibelisksOf(key)) {
+        inc(t.kibelisk, name, key, 1);
+        inc(t.kibelisk, "*", key, 1);
+      }
+      for (const [kind, name] of placesOf(key)) {
+        inc(t.place, `${kind}:*`, key, 1);
+        inc(t.place, `${kind}:${name}`, key, 1);
+      }
+      for (const [name] of D.regions?.[key] || []) inc(t.region, name, key, 1);
+      for (const [name] of D.labels?.[key] || []) inc(t.label, name, key, 1);
+    }
+    return t;
+  }
+  /** How many places a focus has on each map: { key: count }, most first. */
+  function focusMaps(focus) {
+    const ids = [...new Set((focus?.ids || []).map(String))];
+    if (!focus || !(focus.type in TABLED) || ((focus.type === "place" || focus.type === "kibelisk") && ids.length !== 1)) return focusMapsByPoints(focus);
+    counts ||= countTables();
+    const table = counts[focus.type];
+    const out = {};
+    for (const key of Object.keys(D.maps)) {
+      const n = ids.reduce((sum, id) => sum + (table[id]?.[key] || 0), 0);
+      if (n) out[key] = n;
+    }
+    return Object.fromEntries(Object.entries(out).sort((a, b) => b[1] - a[1]));
+  }
+  const TABLED = { gather: 1, npc: 1, pet: 1, person: 1, boss: 1, kibelisk: 1, place: 1, region: 1, label: 1 };
 
   /**
    * For a monster or pet focus on map `key`, where the game itself puts it
@@ -429,7 +597,7 @@
     if (!focus) return false;
     const ids = (focus.ids || []).map(String);
     if (focus.type === "gather") return kind === "object" && ids.includes(String(id));
-    if (focus.type === "npc" || focus.type === "boss") return kind === "npc" && ids.includes(String(id));
+    if (focus.type === "npc" || focus.type === "boss" || focus.type === "person") return kind === "npc" && ids.includes(String(id));
     if (focus.type === "pet") return kind === "npc" && ids.includes(String(D.npcPets[id]));
     if (focus.type === "cube") return kind === "object" && cubes.has(String(id));
     return false;
@@ -456,84 +624,107 @@
   let index = null;
   function buildIndex() {
     const entries = [];
+    const add = (e) => entries.push(e);
+    const group = (map, name, id) => {
+      if (!map.has(name)) map.set(name, []);
+      if (!map.get(name).includes(id)) map.get(name).push(id);
+    };
     // Gathering spots, by name (all the object ids of that name).
     const byName = new Map();
     for (const [env, o] of Object.entries(D.gather.objects)) {
-      if (o.kind === "Cube") continue;
+      if (o.kind === "Cube" || o.kind === "Fragment") continue;
       const k = `${o.name}\u0000${o.kind}`;
-      if (!byName.has(k)) byName.set(k, { name: o.name, kind: o.kind, ids: [] });
+      if (!byName.has(k)) byName.set(k, { name: o.name, kind: o.kind, icon: o.icon || kindIcon(o.kind), ids: [] });
       byName.get(k).ids.push(env);
     }
     for (const g of byName.values()) {
-      entries.push({ label: g.name, sub: kindLabel(g.kind), focus: { type: "gather", ids: g.ids, label: g.name }, gather: g.kind });
+      add({ label: g.name, sub: kindLabel(g.kind), focus: { type: "gather", ids: g.ids, label: g.name }, gather: g.kind, icon: g.icon, extra: "gathering" });
     }
     // Pets with spawn points, and the monsters that drop them (the data's,
-    // and those only the game's tables place, areas.js).
+    // and those only the game's tables place, areas.js); every other
+    // monster where the game has it.
     const spawned = new Set();
     for (const per of Object.values(D.spawns)) for (const npc of Object.keys(per)) spawned.add(npc);
     for (const [npc, per] of Object.entries(A)) if (Object.keys(per).some((key) => D.maps[key])) spawned.add(npc);
     const petsWith = new Set([...spawned].map((n) => D.npcPets[n]).filter((p) => p != null).map(String));
     for (const pet of petsWith) {
       const name = D.pets[pet]?.name;
-      if (name) entries.push({ label: name, sub: "Pet", focus: { type: "pet", ids: [pet], label: name } });
+      if (name) add({ label: name, sub: "Pet", focus: { type: "pet", ids: [pet], label: name }, mark: "pet" });
     }
+    // (A field boss is found as one, below.)
+    const bossIds = new Set(Object.values(D.bosses || {}).flat().map(([npc]) => String(npc)));
     const npcsByName = new Map();
-    for (const npc of spawned) {
-      const name = D.npcNames[npc];
-      if (!name) continue;
-      if (!npcsByName.has(name)) npcsByName.set(name, []);
-      npcsByName.get(name).push(npc);
+    for (const npc of spawned) if (D.npcNames[npc]) group(npcsByName, D.npcNames[npc], npc);
+    for (const per of Object.values(D.monsters || {})) {
+      for (const npc of Object.keys(per)) if (D.npcNames[npc] && !bossIds.has(npc)) group(npcsByName, D.npcNames[npc], npc);
     }
     for (const [name, npcs] of npcsByName) {
       const pets = [...new Set(npcs.map((n) => D.pets[D.npcPets[n]]?.name).filter(Boolean))];
-      entries.push({ label: name, sub: pets.length ? `Monster · ${pets.join(", ")}` : "Monster", focus: { type: "npc", ids: npcs, label: name } });
+      const lv = [...new Set(npcs.map((n) => D.monsterLevels?.[n] ?? D.npcLevels?.[n]).filter(Boolean))].sort((a, b) => a - b);
+      const level = lv.length ? ` · Lv ${lv[0]}${lv.length > 1 ? `–${lv[lv.length - 1]}` : ""}` : "";
+      add({ label: name, sub: `Monster${level}${pets.length ? ` · ${pets.join(", ")}` : ""}`, focus: { type: "npc", ids: npcs, label: name },
+        mark: pets.length ? "pet" : "monster", extra: "monster mob" });
     }
+    // Other NPCs (townsfolk, guards ...), by name.
+    const peopleByName = new Map();
+    for (const per of Object.values(D.npcs || {})) {
+      for (const npc of Object.keys(per)) if (D.npcNames[npc]) group(peopleByName, D.npcNames[npc], npc);
+    }
+    for (const [name, npcs] of peopleByName) add({ label: name, sub: "NPC", focus: { type: "person", ids: npcs, label: name }, icon: "npc", extra: "npc" });
     // Field bosses, by name.
     const bossNames = new Map();
     for (const list of Object.values(D.bosses || {})) {
-      for (const [npc, name] of list) {
-        if (!name) continue;
-        if (!bossNames.has(name)) bossNames.set(name, []);
-        bossNames.get(name).push(String(npc));
-      }
+      for (const [npc, name] of list) if (name) group(bossNames, name, String(npc));
     }
-    for (const [name, npcs] of bossNames) entries.push({ label: name, sub: "Field boss", focus: { type: "boss", ids: npcs, label: name }, extra: "boss world" });
-    // Kibelisk camps.
+    for (const [name, npcs] of bossNames) add({ label: name, sub: "Field boss", focus: { type: "boss", ids: npcs, label: name }, icon: "boss", extra: "boss world" });
+    // Kibelisk camps, and all of them.
     const camps = new Set();
     for (const list of Object.values(D.kibelisks)) for (const [name] of list) camps.add(name);
-    for (const name of camps) entries.push({ label: name, sub: "Kibelisk", focus: { type: "kibelisk", ids: [name], label: name } });
-    // Hidden Cubes: where one is known to stand (AION2 Interactive Map), and
-    // every place the game may put one (the client's own list, many more).
-    entries.push({ label: "Hidden Cube", sub: "Known spots", focus: { type: "cube", ids: ["spots"], label: "Hidden Cube" }, extra: "cubes hidden box" });
-    entries.push({ label: "Hidden Cube", sub: "Every place one can appear", focus: { type: "cube", ids: ["all"], label: "Hidden Cube (every place)" }, extra: "cubes hidden box all possible", after: 1 });
-    entries.push({ label: "Monolith", sub: "Monolith pieces to collect", focus: { type: "monolith", ids: [], label: "Monolith" }, extra: "monoliths material collectible" });
-    // Sealed dungeons, battlefields, outposts, villages: each kind, and each
-    // by its name.
+    add({ label: "Kibelisks", sub: "All of them", focus: { type: "kibelisk", ids: ["*"], label: "Kibelisks" }, icon: "teleportartifact_light", extra: "kibelisk teleport", after: 1 });
+    for (const name of camps) add({ label: name, sub: "Kibelisk", focus: { type: "kibelisk", ids: [name], label: name }, icon: "teleportartifact_light", extra: "teleport" });
+    // Hidden Cubes: where one is known to stand, and every place the game may
+    // put one (the client's own list, many more).
+    add({ label: "Hidden Cube", sub: "Known spots", focus: { type: "cube", ids: ["spots"], label: "Hidden Cube" }, mark: "cube", extra: "cubes hidden box" });
+    add({ label: "Hidden Cube", sub: "Every place one can appear", focus: { type: "cube", ids: ["all"], label: "Hidden Cube (every place)" }, mark: "cube", extra: "cubes hidden box all possible", after: 1 });
+    // Feathers: the Monolith pieces to collect (the game's Empyrean Traces).
+    add({ label: "Feathers", sub: "Monolith pieces to collect", focus: { type: "monolith", ids: [], label: "Feathers" }, icon: "feather", extra: "feather monolith monoliths pieces fragments empyrean traces collectible" });
+    // Places, services and quest givers: each kind, each by its name, and
+    // each quest by its name.
     const placeKinds = new Set();
     const placeNames = new Map();
+    const quests = new Map();
     for (const list of Object.values(D.places || {})) {
-      for (const [kind, name] of list) {
+      for (const [kind, name, , , detail] of list) {
         placeKinds.add(kind);
         if (name) placeNames.set(`${kind}:${name}`, [kind, name]);
+        for (const q of detail ? String(detail).split("; ") : []) if (q) quests.set(`${q}\u0000${kind}:${name}`, [q, kind, name]);
       }
     }
     for (const kind of placeKinds) {
-      const label = `${placeLabel(kind)}s`;
-      entries.push({ label, sub: "All of them", focus: { type: "place", ids: [`${kind}:*`], label } });
+      const label = placePlural(kind);
+      add({ label, sub: "All of them", focus: { type: "place", ids: [`${kind}:*`], label }, icon: placeIcon(kind, null), place: kind, after: 1 });
     }
     for (const [id, [kind, name]] of placeNames) {
-      entries.push({ label: name, sub: placeLabel(kind), focus: { type: "place", ids: [id], label: name } });
+      add({ label: name, sub: placeLabel(kind), focus: { type: "place", ids: [id], label: name }, icon: placeIcon(kind, null), place: kind });
     }
-    // Regions, by name.
+    for (const [q, kind, name] of quests.values()) {
+      add({ label: q, sub: `${placeLabel(kind)} · ${name}`, focus: { type: "place", ids: [`${kind}:${name}`], label: name }, icon: placeIcon(kind, null), place: kind, extra: "quest" });
+    }
+    // Regions and the areas' names.
     const regionNames = new Set();
     for (const list of Object.values(D.regions || {})) for (const [name] of list) regionNames.add(name);
-    for (const name of regionNames) entries.push({ label: name, sub: "Region", focus: { type: "region", ids: [name], label: name } });
+    for (const name of regionNames) add({ label: name, sub: "Region", focus: { type: "region", ids: [name], label: name }, extra: "area" });
+    const labelNames = new Map();
+    for (const list of Object.values(D.labels || {})) for (const [name, type] of list) if (!regionNames.has(name)) labelNames.set(name, type);
+    for (const [name, type] of labelNames) {
+      add({ label: name, sub: type === "village" ? "Village" : "Area", focus: { type: "label", ids: [name], label: name }, extra: "region area" });
+    }
     for (const e of entries) e.key = fold(`${e.label} ${e.sub} ${e.extra || ""}`);
     return entries;
   }
 
-  /** What matches every word of `query`: [{ label, sub, focus, maps }],
-   *  names starting with the query first. */
+  /** What matches every word of `query`: [{ label, sub, focus, maps, icon
+   *  }], names starting with the query first. */
   function search(query, limit = 30) {
     const words = fold(query).split(/\s+/).filter(Boolean);
     if (!words.length || fold(query).trim().length < 2) return [];
@@ -541,11 +732,13 @@
     const q = fold(query).trim();
     const hits = index.filter((e) => words.every((w) => e.key.includes(w)));
     const scored = hits.map((e) => {
-      const maps = focusMaps(e.focus);
-      const total = Object.values(maps).reduce((a, b) => a + b, 0);
+      // On which maps, worked out once per entry (the index is built again
+      // when the learnt spots change).
+      e.maps ||= focusMaps(e.focus);
+      e.total ??= Object.values(e.maps).reduce((a, b) => a + b, 0);
       const label = fold(e.label);
       const rank = label === q ? 0 : label.startsWith(q) ? 1 : 2;
-      return { ...e, maps, total, rank };
+      return { ...e, rank };
     }).filter((e) => e.total > 0);
     scored.sort((a, b) => a.rank - b.rank || (a.after || 0) - (b.after || 0) || b.total - a.total || a.label.localeCompare(b.label));
     return scored.slice(0, limit);
@@ -614,7 +807,8 @@
         const label = `${petName(pet, tracked)} · ${npcName(npc)}${s.text ? ` · ${s.text}` : ""}`;
         for (let i = 0; i < pts.length; i += 2) {
           const mid = isGameMid(key, npc, pts[i], pts[i + 1]) ? ` · ${midText(key, npc)}` : "";
-          marks.push({ kind: "petSpawn", x: pts[i], y: pts[i + 1], r: s.r, look: s.look, color: s.color, label: label + mid, z: s.z });
+          marks.push({ kind: "petSpawn", x: pts[i], y: pts[i + 1], r: s.r, look: s.look, color: s.color, label: label + mid, z: s.z,
+            focus: { type: "npc", ids: [String(npc)], label: npcName(npc) } });
           consider(pet, pts[i], pts[i + 1], false);
         }
       }
@@ -629,56 +823,94 @@
         around++;
         const s = style(pet);
         const d = me ? ` · ${Math.round(K.metres(me.x, me.y, x, y))} m` : "";
-        marks.push({ kind: "petLive", x, y, r: s.look === "max" ? 4 : 6, look: s.look, color: s.color, label: `${petName(pet, tracked)} · ${npcName(npc)}${s.text ? ` · ${s.text}` : ""}${d}`, z: s.look === "max" ? 7 : 8 });
+        marks.push({ kind: "petLive", x, y, r: s.look === "max" ? 4 : 6, look: s.look, color: s.color, label: `${petName(pet, tracked)} · ${npcName(npc)}${s.text ? ` · ${s.text}` : ""}${d}`, z: s.look === "max" ? 7 : 8,
+          focus: { type: "npc", ids: [String(npc)], label: npcName(npc) } });
         consider(pet, x, y, true);
       } else if (layers.monsters) {
-        marks.push({ kind: "monster", x, y, r: 2.5, label: npcName(npc), z: 4 });
+        const lv = D.monsterLevels?.[npc] ?? D.npcLevels?.[npc];
+        marks.push({ kind: "monster", x, y, r: 2.5, label: `${npcName(npc)}${lv ? ` · Lv ${lv}` : ""}`, z: 4,
+          focus: { type: "npc", ids: [String(npc)], label: npcName(npc) } });
       }
     }
 
+    // Where every monster stands as the game has them (the pet monsters the
+    // pets layer shows aside), small and grey; and the other NPCs.
+    if (layers.monsters) {
+      for (const [npc, pts] of Object.entries(monsterPoints(key))) {
+        const pet = D.npcPets[npc];
+        if (layers.pets && pet != null && wanted(pet)) continue;
+        const lv = D.monsterLevels?.[npc] ?? D.npcLevels?.[npc];
+        const label = `${npcName(npc)}${lv ? ` · Lv ${lv}` : ""}`;
+        const focus = { type: "npc", ids: [String(npc)], label: npcName(npc) };
+        for (let i = 0; i < pts.length; i += 2) marks.push({ kind: "monster", x: pts[i], y: pts[i + 1], r: 2, label, z: 1, focus });
+      }
+    }
+    if (layers.npcs) {
+      for (const [npc, pts] of Object.entries(npcPoints(key))) {
+        const name = npcName(npc);
+        const focus = { type: "person", ids: [String(npc)], label: name };
+        for (let i = 0; i < pts.length; i += 2) marks.push({ kind: "npc", icon: "npc", x: pts[i], y: pts[i + 1], r: 3.5, label: `${name} (NPC)`, z: 3, focus });
+      }
+    }
+
+    // Every mark can be clicked: it shows what it is everywhere on the map,
+    // and the way to the nearest (its focus).
+    const gatherFocus = (env, o) => ({ type: "gather", ids: sameName.get(env) || [env], label: o.name });
     if (layers.gather) {
       for (const [env, pts] of Object.entries(gatherPoints(key))) {
         const o = D.gather.objects[env];
         if (!o || o.kind === "Cube" || gatherKinds[o.kind] === false) continue;
+        const focus = gatherFocus(env, o);
         for (let i = 0; i < pts.length; i += 2) {
-          marks.push({ kind: "gather", gather: o.kind, x: pts[i], y: pts[i + 1], r: 3, label: `${o.name} (${kindLabel(o.kind)})`, z: 2 });
+          marks.push({ kind: "gather", gather: o.kind, icon: o.icon || kindIcon(o.kind), x: pts[i], y: pts[i + 1], r: 3, label: `${o.name} (${kindLabel(o.kind)})`, z: 2, focus });
         }
       }
     }
     for (const [, env, x, y] of world?.objects || []) {
       if (cubes.has(String(env))) {
-        if (layers.cubes) marks.push({ kind: "cube", x, y, r: 6, label: "Hidden Cube", z: 9 });
+        if (layers.cubes) marks.push({ kind: "cube", x, y, r: 6, label: "Hidden Cube", z: 9, focus: { type: "cube", ids: ["spots"], label: "Hidden Cube" } });
         continue;
       }
       const o = D.gather.objects[env];
       if (o && layers.gather && gatherKinds[o.kind] !== false) {
-        marks.push({ kind: "gather", gather: o.kind, live: true, x, y, r: 5, label: `${o.name} (${kindLabel(o.kind)}) · there now`, z: 7 });
+        marks.push({ kind: "gather", gather: o.kind, icon: o.icon || kindIcon(o.kind), live: true, x, y, r: 5, label: `${o.name} (${kindLabel(o.kind)}) · there now`, z: 7, focus: gatherFocus(String(env), o) });
       }
     }
 
     if (layers.kibelisks) {
-      for (const [name, x, y] of D.kibelisks[key] || []) {
-        marks.push({ kind: "kibelisk", x, y, r: 5, label: `Kibelisk: ${name}`, text: name, z: 5 });
+      for (const [name, x, y, side] of kibelisksOf(key)) {
+        marks.push({ kind: "kibelisk", icon: `teleportartifact_${side || sideOf(key)}`, x, y, r: 5, label: `Kibelisk: ${name}`, text: name, z: 5,
+          focus: { type: "kibelisk", ids: [name], label: name } });
       }
     }
     if (layers.cubes) {
       const pts = cubeSpotPoints(key);
       for (let i = 0; i < pts.length; i += 2) {
-        marks.push({ kind: "cubeSpot", x: pts[i], y: pts[i + 1], r: 3.5, label: "Hidden Cube (known spot)", z: 3 });
+        marks.push({ kind: "cubeSpot", x: pts[i], y: pts[i + 1], r: 3.5, label: "Hidden Cube (known spot)", z: 3, focus: { type: "cube", ids: ["spots"], label: "Hidden Cube" } });
       }
     }
     if (layers.monoliths) {
-      const pts = D.monoliths?.[key] || [];
+      const pts = featherPoints(key);
       for (let i = 0; i < pts.length; i += 2) {
-        marks.push({ kind: "monolith", x: pts[i], y: pts[i + 1], r: 3, label: "Monolith piece", z: 2 });
+        marks.push({ kind: "feather", icon: "feather", x: pts[i], y: pts[i + 1], r: 3, label: "Feather (Monolith piece)", z: 2, focus: { type: "monolith", ids: [], label: "Feathers" } });
       }
     }
+    for (const [kind, name, x, y, detail] of placesOf(key)) {
+      if (!layers[placeLayer(kind)]) continue;
+      marks.push({ kind: "place", place: kind, icon: placeIcon(kind, key), x, y, r: 5,
+        label: `${placeText(kind, name)}${detail ? ` · ${detail}` : ""}`, text: name || null, z: 4,
+        focus: { type: "place", ids: [name ? `${kind}:${name}` : `${kind}:*`], label: name || placePlural(kind) } });
+    }
     if (layers.places) {
-      for (const [kind, name, x, y] of D.places?.[key] || []) {
-        marks.push({ kind: "place", place: kind, x, y, r: 5, label: name ? `${name} (${placeLabel(kind)})` : placeLabel(kind), text: name || null, z: 4 });
+      for (const [name, x, y] of D.regions?.[key] || []) {
+        marks.push({ kind: "region", x, y, text: name, label: name, z: 0, focus: { type: "region", ids: [name], label: name } });
       }
-      for (const [name, x, y] of D.regions?.[key] || []) marks.push({ kind: "region", x, y, text: name, z: 0 });
-      for (const [, name, x, y] of D.bosses?.[key] || []) marks.push({ kind: "boss", x, y, r: 5, label: `${name} (field boss)`, text: name, z: 6 });
+      for (const [name, , x, y] of D.labels?.[key] || []) {
+        marks.push({ kind: "region", x, y, text: name, label: name, z: 0, focus: { type: "label", ids: [name], label: name } });
+      }
+      for (const [npc, name, x, y] of D.bosses?.[key] || []) {
+        marks.push({ kind: "boss", icon: "boss", x, y, r: 5, label: `${name} (field boss)`, text: name, z: 6, focus: { type: "boss", ids: [String(npc)], label: name } });
+      }
     }
 
     // The focus: its places with a gold ring, and the nearest one is next
@@ -695,19 +927,25 @@
         }
       };
       const all = (focus.ids || []).includes("all");
-      const placeOf = new Map((D.places?.[key] || []).map(([kind, name, x, y]) => [`${x},${y}`, [kind, name]]));
+      const placeOf = new Map(placesOf(key).map(([kind, name, x, y, detail]) => [`${x},${y}`, [kind, name, detail]]));
+      const g0 = D.gather.objects[focus.ids?.[0]];
       const STYLES = {
-        gather: (x, y) => ({ kind: "gather", gather: D.gather.objects[focus.ids[0]]?.kind, x, y, r: 4 }),
-        kibelisk: (x, y) => ({ kind: "kibelisk", x, y, r: 6, text: focus.label }),
+        gather: (x, y) => ({ kind: "gather", gather: g0?.kind, icon: g0?.icon || kindIcon(g0?.kind), x, y, r: 4 }),
+        kibelisk: (x, y) => ({ kind: "kibelisk", icon: `teleportartifact_${sideOf(key)}`, x, y, r: 6, text: focus.label }),
         cube: (x, y) => ({ kind: "cubeSpot", all, x, y, r: all ? 2.5 : 4.5 }),
-        monolith: (x, y) => ({ kind: "monolith", x, y, r: 3.5 }),
+        monolith: (x, y) => ({ kind: "feather", icon: "feather", x, y, r: 3.5 }),
         place: (x, y) => {
-          const [kind, name] = placeOf.get(`${x},${y}`) || [];
-          return { kind: "place", place: kind, x, y, r: 5.5, text: name || null, label: name ? `${name} (${placeLabel(kind)})` : focus.label };
+          const [kind, name, detail] = placeOf.get(`${x},${y}`) || [];
+          return { kind: "place", place: kind, icon: kind && placeIcon(kind, key), x, y, r: 5.5, text: name || null,
+            label: `${kind ? placeText(kind, name) : focus.label}${detail ? ` · ${detail}` : ""}` };
         },
-        region: (x, y) => ({ kind: "place", place: "village", x, y, r: 5, text: focus.label }),
-        boss: (x, y) => ({ kind: "boss", x, y, r: 6, text: focus.label }),
+        region: (x, y) => ({ kind: "place", place: "village", icon: "village", x, y, r: 5, text: focus.label }),
+        label: (x, y) => ({ kind: "place", place: "village", icon: "village", x, y, r: 5, text: focus.label }),
+        boss: (x, y) => ({ kind: "boss", icon: "boss", x, y, r: 6, text: focus.label }),
+        person: (x, y) => ({ kind: "npc", icon: "npc", x, y, r: 4.5 }),
+        npc: (x, y) => (focusPets ? { kind: "petSpawn", x, y, r: 4.5, look: "need" } : { kind: "monster", x, y, r: 3.5 }),
       };
+      const focusPets = focus.type !== "npc" || (focus.ids || []).some((n) => D.npcPets[n] != null);
       const style = STYLES[focus.type] || ((x, y) => ({ kind: "petSpawn", x, y, r: 4.5, look: "need" }));
       // Where the game puts what the map knows only in part: its subzones'
       // outlines, beneath everything.
@@ -722,19 +960,20 @@
         const midNpc = midOf.get(`${x},${y}`);
         const label = midNpc ? `${focus.label} · ${midText(key, midNpc)}` : focus.label;
         // Every place a cube may appear: many, so no gold ring each.
-        marks.push({ label, ...style(x, y), hit: !all, z: 50 });
+        marks.push({ label, ...style(x, y), hit: !all, z: 50, focus });
         near(x, y, false);
       }
       for (const [, npc, x, y] of world?.npcs || []) {
         if (!focusLive(focus, "npc", npc)) continue;
-        marks.push({ kind: "petLive", x, y, r: 6, look: "need", hit: true, label: `${focus.label} · there now`, z: 60 });
+        marks.push({ kind: "petLive", x, y, r: 6, look: "need", hit: true, label: `${focus.label} · there now`, z: 60, focus });
         near(x, y, true);
       }
       for (const [, env, x, y] of world?.objects || []) {
         if (!focusLive(focus, "object", env)) continue;
+        const o = D.gather.objects[env];
         marks.push(focus.type === "cube"
-          ? { kind: "cube", x, y, r: 6, hit: true, label: "Hidden Cube · there now", z: 60 }
-          : { kind: "gather", gather: D.gather.objects[env]?.kind, live: true, x, y, r: 5, hit: true, label: `${focus.label} · there now`, z: 60 });
+          ? { kind: "cube", x, y, r: 6, hit: true, label: "Hidden Cube · there now", z: 60, focus }
+          : { kind: "gather", gather: o?.kind, icon: o?.icon || kindIcon(o?.kind), live: true, x, y, r: 5, hit: true, label: `${focus.label} · there now`, z: 60, focus });
         near(x, y, true);
       }
       // The way there: to one that is there right now, walking; else to the
@@ -807,6 +1046,6 @@
   const arrow = (deg) => ARROWS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 
   globalThis.MapMarks = Object.freeze({
-    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusPoints, focusArea, focusFit, KIND_ORDER, kindLabel, kindTitle, placeLabel,
+    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusMapsByPoints, focusPoints, focusArea, focusFit, KIND_ORDER, kindLabel, kindTitle, kindIcon, placeLabel, placeLayer, placeIcon, sideOf,
   });
 })();

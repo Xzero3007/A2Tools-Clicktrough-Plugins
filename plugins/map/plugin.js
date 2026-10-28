@@ -10,7 +10,7 @@
   const $ = (s) => document.querySelector(s);
 
   let settings = {
-    layers: { pets: true, monsters: false, gather: false, cubes: true, monoliths: false, kibelisks: false, places: false },
+    layers: { pets: true, monsters: false, gather: false, cubes: true, monoliths: false, kibelisks: false, places: false, services: false, quests: false, npcs: false },
     gatherKinds: {},
     petsMode: "tracked", // "tracked" (Pet Finder's favourites and farmed), "needed" (and every pet not at level 3), "all"
     nextFor: "all", // the next pet: "all" (pinned, then farmed, then needed), "chosen" (pinned and farmed), "off"
@@ -71,7 +71,8 @@
   const learnedCount = (key) => {
     const lk = learned[key];
     if (!lk) return 0;
-    return Object.values(lk.g || {}).reduce((n, a) => n + a.length / 2, 0) + Object.values(lk.s || {}).reduce((n, a) => n + a.length / 2, 0) + (lk.c || []).length / 2;
+    const sum = (o) => Object.values(o || {}).reduce((n, a) => n + a.length / 2, 0);
+    return sum(lk.g) + sum(lk.s) + sum(lk.o) + (lk.c || []).length / 2 + (lk.f || []).length / 2;
   };
 
   const saveLater = (() => {
@@ -82,7 +83,28 @@
     };
   })();
 
-  const view = K.MapView($(".mapBox"), {});
+  // A click on a mark: that thing everywhere on the map, with the way to the
+  // nearest (as the search shows it); on what is shown already: off again.
+  const sameFocus = (a, b) => !!a && !!b && a.type === b.type && String(a.ids) === String(b.ids);
+  const view = K.MapView($(".mapBox"), {
+    onPick: (m) => (sameFocus(m.focus, settings.focus) ? setFocus(null) : setFocus(m.focus, { map: currentKey(), frame: false })),
+  });
+
+  // The game's minimap symbols for the chips and the search (a2.file: a
+  // plugin's own files load no other way once its page has started).
+  const iconUrls = new Map();
+  function iconEl(name) {
+    const img = document.createElement("img");
+    img.className = "ico";
+    img.alt = "";
+    if (!iconUrls.has(name)) {
+      const path = `icons/${name}.webp`;
+      iconUrls.set(name, typeof a2.file === "function" ? a2.file(path).catch(() => path) : Promise.resolve(path));
+    }
+    iconUrls.get(name).then((url) => { img.src = url; });
+    return img;
+  }
+  for (const chip of document.querySelectorAll(".chip[data-icon]")) chip.prepend(iconEl(chip.dataset.icon));
   $(".mapBox").addEventListener("mapdrag", () => {
     if (!settings.follow) return;
     settings.follow = false;
@@ -272,11 +294,11 @@
   }
 
   // ---------- the focus (the search, or a map link in another plugin) ----------
-  function setFocus(focus, { map = null } = {}) {
+  function setFocus(focus, { map = null, frame = true } = {}) {
     settings.focus = focus || null;
     // The search box keeps no word that no longer matches what is shown.
     if (!focus || focus.label !== searchBox.value.trim()) searchBox.value = "";
-    if (focus) {
+    if (focus && frame) {
       const maps = M.focusMaps(focus);
       const here = whereAmI()?.key;
       const key = (map && maps[map] && map) || (here && maps[here] && here) || Object.keys(maps)[0] || null;
@@ -348,9 +370,11 @@
       row.setAttribute("role", "option");
       row.setAttribute("aria-selected", String(i === active));
       const name = Object.assign(document.createElement("strong"), { textContent: r.label });
-      if (r.gather) {
+      if (r.icon) name.prepend(iconEl(r.icon));
+      else {
+        // A pet or monster, a Hidden Cube: a dot in its colour on the map.
         const dot = document.createElement("i");
-        dot.style.background = K.GATHER_COLORS[r.gather];
+        dot.style.background = r.mark === "pet" ? K.PET_RED : r.mark === "cube" ? "#a35cf5" : r.mark === "monster" ? "#dcdcdc" : "#ffffff";
         name.prepend(dot);
       }
       const sub = Object.assign(document.createElement("span"), { className: "muted", textContent: ` ${r.sub}` });
@@ -515,9 +539,7 @@
       b.className = "chip kind";
       b.title = M.kindTitle(k);
       b.setAttribute("aria-pressed", String(settings.gatherKinds[k] !== false));
-      const dot = document.createElement("i");
-      dot.style.background = K.GATHER_COLORS[k];
-      b.append(dot, M.kindLabel(k));
+      b.append(iconEl(M.kindIcon(k)), M.kindLabel(k));
       b.addEventListener("click", () => {
         settings.gatherKinds = { ...settings.gatherKinds, [k]: settings.gatherKinds[k] === false };
         saveLater();

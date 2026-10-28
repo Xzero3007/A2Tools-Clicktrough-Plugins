@@ -18,6 +18,11 @@ regions' outlines kept as polygons, each with its middle for its name. The same 
 this adapted data: it may be shared and adapted for non-commercial purposes
 only, with credit as above. It is not part of the plugin's GPL-licensed code.
 
+The symbols in icons/ (but door and npcteleport) are the game's minimap
+symbols (© NCSOFT), as the AION2 Interactive Map publishes them
+(public/UI/Resource/Texture/Icon/UT_Marker_*), made 64 px; like the map
+pictures, they are the game's artwork, not covered by its licence.
+
 The world map pictures in tiles/ (verteron, altgard, abyss, poeta, ishalgen)
 are the game's own (© NCSOFT), as the AION2 Interactive Map publishes them on
 its site (its gh-pages branch, UI/Map/WorldMap); its licence does not cover

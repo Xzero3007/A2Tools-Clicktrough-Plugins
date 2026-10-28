@@ -49,9 +49,24 @@ follows you over the game.
 - **Next**: a favourite first (however far), then the one you are farming;
   among those, one that is there right now before a spawn point, then the
   nearest. **Next: off** shows none (a search still has its Next).
-- **Monsters**: the monsters around you right now, by name.
+- **The game's own symbols** (0.11.0): every mark is drawn with the symbol
+  the game's minimap uses for it (Kibelisk, gathering by kind, feather,
+  field boss, dungeon entrance, Spacetime Rift, merchant, quest giver ...),
+  the chips above the map and the search too; the Hidden Cubes keep their
+  purple cube. Names show once zoomed in (merchants, quest givers and
+  passages closer still), the most telling first and none over another.
+- **Click a mark** (0.11.0): that thing everywhere on the map, with a gold
+  ring each and the way to the nearest (as the search shows it); the map
+  stays where it is. A click on one with a gold ring turns it off again.
+- **Monsters**: where every monster stands, as the game has them (small and
+  grey; its name and level when the pointer is on it; about 17,000 in
+  Verteron), and the monsters around you right now. The pet monsters the
+  Pets layer shows aren't drawn twice.
 - **Gathering**: the gathering spots by kind, each kind on or off (hover a kind
-  for what it holds); those there right now framed white:
+  for what it holds), all of them as the game has them (0.11.0: about 2,700
+  in Verteron and in Altgard, 1,400 in Eltnen and in Morheim, 240 Odyle in the
+  Abyss; before, the few players' meters had reported); those there right now
+  framed white:
   - Herbs: Aria, Targena, Azpha, Calendula
   - Ore: Orichalcum, Silver, Gold, Platinum, Mithril
   - Wood: Yggdrasil, Asvata
@@ -59,16 +74,25 @@ follows you over the game.
   - Cooking: Mela, Coriolus, Inina, Kukuru and about 30 more
   - Gemstones: Sapphire, Diamond, Ruby, Aquamarine, Topaz and more
   - Odyle: Odyle, Splendent Odyle, Mysterious Odyle
-  - Empyrean Traces: the traces to collect in Verteron
 - **Hidden Cubes**: purple cubes: the spots where a cube is known to stand
   (pale, about 110 per map), and a cube in range right now (solid with a white
   edge, it shows as soon as the game announces it).
-- **Monoliths**: the Monolith pieces to collect (560 in Verteron and in
-  Altgard, about 200 in the Abyss).
-- **Kibelisks**: the Kibelisk camps.
-- **Places**: sealed dungeons, battlefields, outposts and villages, with
-  their names once zoomed in, the names of the regions, and the **field
-  bosses** (an orange crown).
+- **Feathers**: the Monolith pieces to collect, the game's feather (560 in
+  Verteron and in Altgard, about 200 in the Abyss). SkeeveAN's "Empyrean
+  Traces" were the same pieces (541 of Verteron's 559 on one): no longer a
+  gathering kind (0.11.0).
+- **Kibelisks**: the Kibelisk camps, on every map (0.11.0: Eltnen and
+  Morheim 20 each, the Abyss's layers, Poeta, Ishalgen), the light one on the
+  Elyos side, the dark one on the Asmodian side, as the game draws them.
+- **Places**: the **field bosses**, dungeon entrances, sealed dungeons,
+  battlefields, outposts, Spacetime Rifts, flight circles, Monoliths,
+  passages, field events, the Abyss's artifacts and corridors, villages, the
+  names of the regions and areas.
+- **Services** (0.11.0): merchants, storage, the crafting tables and the
+  teleport towers, by name.
+- **Quests** (0.11.0): who gives the hero and district quests, their quests
+  when the pointer is on them; a quest can be searched for by its name.
+- **NPCs** (0.11.0): every other NPC, by name.
 - **Marks 100% to 175%**: how large the marks are, on the map and the
   overlay (125% to begin with).
 - **Every pet monster's spawn points** (0.10.0): all of them, as the game
@@ -77,13 +101,14 @@ follows you over the game.
   spawn points the game's own tables give (Harsh Pino Worker 22, Hill
   Coradon 91; SkeeveAN's data, used before, had none and 9). Every build
   checks each pet monster against the game's count and lists what differs.
-- **What your meter sees is learnt**: the data knows only the gathering
-  spots players' meters happened to report (Asvata: 3 in Altgard). Each
-  gathering spot, Hidden Cube and pet monster your meter sees
-  where the map has none of its kind yet (8 m for a spot, 20 m for a
-  monster), on the map the zone or what is around names, is added, kept
-  (0.5.0 kept nothing past a restart) and shown like the others ("12 spots your meter
-  saw" at the bottom); the more you play, the fuller the map.
+- **What your meter sees is learnt**: each gathering spot, Hidden Cube, pet
+  monster, feather, Kibelisk and place (dungeon entrance, Spacetime Rift,
+  flight circle, Monolith, passage, Abyss artifact ...) your meter sees where
+  the map has none of its kind yet (8 m for a spot or a feather, 20 m for a
+  monster, 30 m for a Kibelisk or a place), on the map the zone or what is
+  around names, is added, kept and shown like the others ("12 spots your
+  meter saw" at the bottom): when the game changes or a new area comes, the
+  map completes itself as you play.
 - **Where the game puts a monster the data lacks** (0.9.0, now a fallback
   for monsters the data doesn't have yet, such as a new area's): the game's
   own tables (Pet Finder's copy of the Pet Soul Tracker's data) know how
@@ -97,10 +122,13 @@ follows you over the game.
   one). It adds each one your meter sees."
 
 **Search** (two letters or more): gathering spots by name (Orichalcum, Aria
-...), pets, the monsters that drop them, Kibelisk camps, **Hidden Cube**
-(the known spots, or every place the game may put one: about 1,400 per map),
-**Monolith**, sealed dungeons, battlefields, outposts and villages (each kind,
-or one by its name) and regions, each with the maps it is on and how often.
+...), pets, every monster (the pets each drops souls for, its level), field
+bosses, NPCs, Kibelisk camps (or all of them), **Hidden Cube** (the known
+spots, or every place the game may put one: about 1,400 per map),
+**Feathers** (also as "Monolith" or "Empyrean"), every kind of place and
+service (each kind, or one by its name: "Alchemy Table", "Merchants"), quest
+givers and their quests by name, regions and areas, each with the maps it is
+on and how often, and the game's symbol.
 Picking one shows all its places with a gold ring, the map framed around them
 (the bar above the map switches between its maps), and **the way there**:
 from your position, walking, or a teleport to the Kibelisk nearest the place
@@ -125,10 +153,9 @@ the game.
 
 Maps: Verteron, Altgard, the Abyss (its lower, middle and upper layers),
 Eltnen, Morheim, Poeta and Ishalgen, whole, as the game draws its world map
-(on its parchment, the sea painted), and 25 instances. Eltnen, Morheim and
-the Abyss's middle and upper layers (0.10.0) have their field bosses but no
-Kibelisks, Hidden Cubes or places yet (no source has them), so the way there
-is on foot.
+(on its parchment, the sea painted), and 25 instances. Eltnen and Morheim at
+the game's full size (8192 px, 0.11.0; 2048 before), with their Kibelisks,
+gathering spots, Hidden Cube places, places, services and quests.
 
 ## How it knows
 
@@ -143,20 +170,29 @@ lets a plugin load no file of its own once its page has started. No network.
 
 ## Data
 
-`data.js` and `tiles/` are generated from SkeeveAN's
+`data.js`, `tiles/` and `icons/` are generated from SkeeveAN's
 [Aion-DPS-Meter](https://github.com/SkeeveAN/Aion-DPS-Meter) (MIT, see
 `NOTICE-SkeeveAN.txt`), the data of the
 [AION2 Interactive Map](https://github.com/aion2-interactive-map/aion2-interactive-map)
 by Yihao Liu (tc-imba) (CC BY-NC 4.0: non-commercial use only, see
-`NOTICE-AION2-Interactive-Map.txt`), and A2 Tools' Pet Soul Tracker's map
-data (`plugins/pet-souls/maps.js` and `maps/` in taengu/A2Tools-Plugins, at
-the commit `original/PIN` names), which has the pet monsters' spawn points
-and the maps it draws on from Aion 2 Timers' interactive map (see
-`NOTICE-Aion2Timers.txt`), with
-`python3 -I dev/make_data.py <Aion-DPS-Meter checkout> . --aim <aion2-interactive-map checkout> --game-maps <its gh-pages checkout> --pet-maps <A2Tools-Plugins checkout>`
+`NOTICE-AION2-Interactive-Map.txt`; the game's minimap symbols as it
+publishes them), A2 Tools' Pet Soul Tracker's map data
+(`plugins/pet-souls/maps.js` and `maps/` in taengu/A2Tools-Plugins, at the
+commit `original/PIN` names), and Aion 2 Timers' interactive map (the game
+client's own spawn data, map by map, and its map pictures, see
+`NOTICE-Aion2Timers.txt`): first
+`python3 -I dev/fetch_aion2timers.py <cache> 1011:5 1111:5 22:3 23:3`
+(Aion 2 Timers' data and the pictures of Eltnen, Morheim and the Abyss's
+middle and upper layers into a cache folder; plain downloads, one at a
+time), then
+`python3 -I dev/make_data.py <Aion-DPS-Meter checkout> . --aim <aion2-interactive-map checkout> --game-maps <its gh-pages checkout> --pet-maps <A2Tools-Plugins checkout> --a2t <cache>`
 (`--no-tiles` keeps `tiles/`, `--tiles <map,map>` writes only those maps'
 tiles); `dev/provenance.json` names the revisions, the calibration and
-every file read. Its spawn points take the place of SkeeveAN's for every
+every file read. Aion 2 Timers' Kibelisks, field bosses, gathering spots,
+Hidden Cube places, places, services, quest givers, monsters, NPCs and area
+names come in; where the AION2 Interactive Map has a sealed dungeon or
+outpost, its own stays. Its pictures of Eltnen and Morheim match the Pet Soul
+Tracker's smaller ones to the pixel (correlation 0.998). Its spawn points take the place of SkeeveAN's for every
 monster it has: SkeeveAN's reader of the client's map files misses whole
 spawn groups. Its pictures give Eltnen, Morheim and the Abyss's middle and
 upper layers, checked against SkeeveAN's spawn points and field bosses
@@ -168,9 +204,9 @@ lack spawn points or a map. The field bosses' places are SkeeveAN's
 (`bosses/field_bosses.json`), their world-map ids the meter's
 (`capture/field_bosses.rs`).
 
-Fuller gathering maps exist (allthings.how and The Hidden Gaming Lair show
-158 Asvata spots in Altgard), but their data is theirs, with no licence to
-reuse it here; so the plugin learns what your own meter sees instead.
+The gathering spots are the game's own (Aion 2 Timers' data, from the
+client); what players collected by hand (allthings.how, The Hidden Gaming
+Lair) isn't used.
 `areas.js` (the fallback above: the count, the middle spawn point and the
 subzones from the game's tables) is generated with
 `python3 -I dev/make_areas.py` from Pet Finder's `sources.js` (the Pet Soul

@@ -119,11 +119,16 @@ and wait. Taken: a line `<id> <commit>` in `original/pins.txt` (or PIN moved,
 which takes every plugin's newest), its links and anything sending removed by
 a patch, `bash build/assemble.sh ../ct-plugins /tmp/x` to see it apply.
 
-**The Map's data.** `plugins/map/dev/make_data.py` builds `data.js` and
-the tiles from SkeeveAN's Aion-DPS-Meter, the AION2 Interactive Map and A2
-Tools' Pet Soul Tracker map data (`--pet-maps`, a checkout of
-taengu/A2Tools-Plugins at `original/PIN`): the command is in the Map's
-README. Its `dev/tests/coverage.test.cjs` checks every pet monster of the
+**The Map's data.** `plugins/map/dev/make_data.py` builds `data.js`, the
+tiles and `icons/` (the game's minimap symbols) from SkeeveAN's
+Aion-DPS-Meter, the AION2 Interactive Map, A2 Tools' Pet Soul Tracker map
+data (`--pet-maps`, a checkout of taengu/A2Tools-Plugins at `original/PIN`)
+and Aion 2 Timers' map (`--a2t <cache>`: `dev/fetch_aion2timers.py
+<cache> 1011:5 1111:5 22:3 23:3` downloads it, everything the map has:
+Kibelisks, gathering, places, services, quests, monsters, NPCs, the big
+pictures; allowed by the person, 2026-10-28): the commands are in the Map's
+README. Run it with `plugins/pet-finder` next to the output folder (it reads
+`../pet-finder/sources.js` for the monsters' levels and pets). Its `dev/tests/coverage.test.cjs` checks every pet monster of the
 game's tables (Pet Finder's `sources.js`) against the map: it fails when one
 has no spawn point on a map the plugin has, or lies on an open-world map
 without a picture, and lists what differs. A new area or new pets: take the

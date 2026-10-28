@@ -17,7 +17,7 @@
       </div>
     </header>
     <div class="searchRow">
-      <input type="search" class="search" placeholder="Search: Orichalcum, Hidden Cube, Monolith, a pet, a monster, a place …" autocomplete="off" spellcheck="false" />
+      <input type="search" class="search" placeholder="Search: Orichalcum, Hidden Cube, Feathers, a pet, a monster, an NPC, a quest, a place …" autocomplete="off" spellcheck="false" />
       <div class="results" role="listbox" hidden></div>
     </div>
     <div class="focusBar" hidden>
@@ -28,12 +28,15 @@
     </div>
     <nav class="layers" aria-label="What the map shows">
       <button type="button" class="chip" data-layer="pets" aria-pressed="true">Pets</button>
-      <button type="button" class="chip" data-layer="monsters" aria-pressed="false" title="The monsters around you right now">Monsters</button>
-      <button type="button" class="chip" data-layer="gather" aria-pressed="false">Gathering</button>
+      <button type="button" class="chip" data-layer="monsters" aria-pressed="false" title="Where every monster stands, as the game has them (small and grey), and the monsters around you right now">Monsters</button>
+      <button type="button" class="chip" data-layer="gather" data-icon="gather" aria-pressed="false" title="Gathering spots, by kind (the row below)">Gathering</button>
       <button type="button" class="chip" data-layer="cubes" aria-pressed="true" title="Where one is known to stand (pale purple cube), and one in range right now (solid, white edge)">Hidden Cubes</button>
-      <button type="button" class="chip" data-layer="monoliths" aria-pressed="false" title="Monolith pieces to collect">Monoliths</button>
-      <button type="button" class="chip" data-layer="kibelisks" aria-pressed="false">Kibelisks</button>
-      <button type="button" class="chip" data-layer="places" aria-pressed="false" title="Sealed dungeons, battlefields, outposts, villages and the names of the regions">Places</button>
+      <button type="button" class="chip" data-layer="monoliths" data-icon="feather" aria-pressed="false" title="Feathers: the Monolith pieces to collect">Feathers</button>
+      <button type="button" class="chip" data-layer="kibelisks" data-icon="teleportartifact_light" aria-pressed="false">Kibelisks</button>
+      <button type="button" class="chip" data-layer="places" data-icon="dungeon" aria-pressed="false" title="Field bosses, dungeon entrances, sealed dungeons, battlefields, outposts, Spacetime Rifts, flight circles, Monoliths, villages and the names of the areas">Places</button>
+      <button type="button" class="chip" data-layer="services" data-icon="shop" aria-pressed="false" title="Merchants, storage, crafting tables and teleport towers">Services</button>
+      <button type="button" class="chip" data-layer="quests" data-icon="heroquest" aria-pressed="false" title="Who gives the hero and district quests (their quests in the tooltip)">Quests</button>
+      <button type="button" class="chip" data-layer="npcs" data-icon="npc" aria-pressed="false" title="Every other NPC, by name">NPCs</button>
       <span class="sep"></span>
       <select class="chip petsMode" title="Whose spawn points show: Pet Finder's favourites and the pet you are farming; those and every pet not at level 3 yet, in its genus colour; or every pet. A pet monster near you that is not at level 3 yet shows either way">
         <option value="tracked">Pets: favourites</option>

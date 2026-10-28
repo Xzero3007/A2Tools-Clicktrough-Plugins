@@ -220,8 +220,12 @@ test("a focus rings its places, and the nearest is next (one there now first)", 
 
 test("the gathering kinds have plain names and say what they hold", () => {
   assert.equal(M.kindLabel("Cotton"), "Fibers");
-  assert.equal(M.kindLabel("Fragment"), "Empyrean Traces");
   assert.ok(M.kindTitle("Ore").includes("Orichalcum"));
+  // The Empyrean Traces were the feathers (Monolith pieces) again: not a
+  // gathering kind any more.
+  assert.ok(!M.KIND_ORDER.includes("Fragment"));
+  assert.ok(!Object.values(D.gather.objects).some((o) => o.kind === "Fragment"));
+  assert.ok(D.featherIds.length >= 1 && D.featherIds.every((id) => !D.gather.objects[id]));
 });
 
 test("the calibration is the game's map bounds, and the Kibelisks agree", () => {
@@ -262,7 +266,7 @@ test("the Hidden Cubes layer shows the known spots, the Places layer places and 
   assert.equal(b.marks.filter((m) => m.kind === "cubeSpot").length, D.cubeSpots.altgard.length / 2);
   assert.ok(b.marks.filter((m) => m.kind === "place").length > 50);
   assert.ok(b.marks.some((m) => m.kind === "region" && m.text === "Safe Haven"));
-  assert.ok(b.marks.filter((m) => m.kind === "monolith").length > 100);
+  assert.ok(b.marks.filter((m) => m.kind === "feather").length > 100);
   const off = M.build({ key: "altgard", world: null, tracked: new Map(), layers: {}, gatherKinds: {}, petsMode: "all" });
   assert.equal(off.marks.length, 0);
 });
@@ -429,4 +433,145 @@ test("Eltnen, Morheim and the Abyss's middle and upper layers are maps of their 
   // Their field bosses.
   assert.equal(D.bosses.eltnen.length, 12);
   assert.equal(D.bosses.morheim.length, 12);
+});
+
+// ---------- 0.11.0: everything Aion 2 Timers' map has, the game's symbols, clicks ----------
+const fs = require("node:fs");
+const iconDir = process.env.ICON_DIR || path.join(__dirname, "..", "..", "icons");
+const all = { pets: true, monsters: true, gather: true, cubes: true, monoliths: true, kibelisks: true, places: true, services: true, quests: true, npcs: true };
+
+test("Eltnen and Morheim at the game's full size (8192 px), calibrated by the game's map bounds", () => {
+  for (const key of ["eltnen", "morheim"]) {
+    const m = D.maps[key];
+    assert.equal(m.tile * m.grid, 8192, key);
+    const [x0, , x1] = D.calibration[key].bounds;
+    assert.ok(Math.abs((m.tile * m.grid) / m.scale / (x1 - x0) - 1) < 1e-9, key);
+    assert.ok(D.kibelisks[key].length >= 15, key);
+  }
+});
+
+test("every symbol a mark or a chip asks for is there (icons/)", () => {
+  const want = new Set(["feather", "boss", "npc", "village", "gather", "dungeon", "shop", "heroquest", "teleportartifact_light", "teleportartifact_dark"]);
+  for (const k of M.KIND_ORDER) want.add(M.kindIcon(k));
+  for (const o of Object.values(D.gather.objects)) if (o.icon) want.add(o.icon);
+  for (const list of Object.values(D.places)) for (const [kind] of list) for (const key of ["verteron", "altgard"]) want.add(M.placeIcon(kind, key));
+  for (const key of Object.keys(D.maps)) {
+    const b = M.build({ key, world: null, tracked: new Map(), heading: 0, layers: all, gatherKinds: {}, petsMode: "all" });
+    for (const m of b.marks) if (m.icon) want.add(m.icon);
+  }
+  const missing = [...want].filter((n) => !fs.existsSync(path.join(iconDir, `${n}.webp`)));
+  assert.deepEqual(missing, []);
+});
+
+test("every mark on the map can be clicked: its focus has it among its places", () => {
+  for (const key of ["verteron", "eltnen", "abyss"]) {
+    const b = M.build({ key, world: null, tracked: new Map(), heading: 0, layers: all, gatherKinds: {}, petsMode: "all" });
+    const kinds = new Set();
+    const cache = new Map();
+    for (const m of b.marks) {
+      if (["me", "route", "teleport", "area"].includes(m.kind)) continue;
+      assert.ok(m.focus, `${key} ${m.kind} ${m.label}`);
+      kinds.add(m.kind);
+      const id = JSON.stringify(m.focus);
+      if (!cache.has(id)) cache.set(id, new Set(M.focusPoints(m.focus, key).map(([x, y]) => `${x},${y}`)));
+      assert.ok(cache.get(id).has(`${m.x},${m.y}`), `${key} ${m.kind} ${m.label}`);
+    }
+    // (Eltnen has no pets' souls and no feathers in the data.)
+    const want = { verteron: ["petSpawn", "monster", "npc", "gather", "feather", "kibelisk", "place", "boss", "region"],
+      eltnen: ["monster", "npc", "gather", "kibelisk", "place", "boss", "region"], abyss: ["petSpawn", "gather", "feather", "kibelisk", "place", "boss"] }[key];
+    for (const k of want) assert.ok(kinds.has(k), `${key} ${k}`);
+  }
+});
+
+test("the layers: places, services and quests apart; monsters and NPCs where the game has them", () => {
+  const only = (l) => M.build({ key: "verteron", world: null, tracked: new Map(), heading: 0, layers: l, gatherKinds: {}, petsMode: "all" }).marks;
+  const services = only({ services: true });
+  assert.ok(services.length > 50 && services.every((m) => m.kind === "place" && ["shop", "storage", "alchemy", "blacksmith", "cook", "jewelcraft", "tailor", "npcteleport"].includes(m.place)));
+  const quests = only({ quests: true });
+  assert.ok(quests.length > 80 && quests.every((m) => ["heroquest", "districtquest"].includes(m.place)));
+  assert.ok(quests.some((m) => m.label.includes(" · ")), "a quest giver's quests in its tooltip");
+  const places = only({ places: true });
+  assert.ok(places.some((m) => m.place === "rift") && places.some((m) => m.place === "dungeon") && places.some((m) => m.kind === "boss"));
+  assert.ok(!places.some((m) => m.place === "shop" || m.place === "heroquest"));
+  const monsters = only({ monsters: true });
+  assert.ok(monsters.length > 10000 && monsters.every((m) => m.kind === "monster"));
+  const npcs = only({ npcs: true });
+  assert.ok(npcs.length > 1000 && npcs.every((m) => m.kind === "npc" && m.icon === "npc"));
+  // The pets layer draws the pet monsters it shows; the monsters layer not again.
+  const both = only({ pets: true, monsters: true }).filter((m) => m.kind === "monster");
+  assert.ok(both.length < monsters.length);
+  assert.ok(both.every((m) => D.npcPets[m.focus.ids[0]] == null));
+});
+
+test("the search finds monsters, NPCs, quests, services, feathers, Kibelisks and the areas' names", () => {
+  const first = (q, type) => M.search(q).find((r) => r.focus.type === type);
+  const bosses = new Set(Object.values(D.bosses).flat().map(([npc]) => String(npc)));
+  const mob = Object.keys(D.monsters.verteron).find((npc) => D.npcPets[npc] == null && D.npcNames[npc] && !bosses.has(npc));
+  const m = first(D.npcNames[mob], "npc");
+  assert.ok(m && m.focus.ids.includes(mob) && m.sub.startsWith("Monster"));
+  const person = Object.keys(D.npcs.verteron).find((n) => D.npcNames[n] && D.npcNames[n].length > 5);
+  const p = first(D.npcNames[person], "person");
+  assert.ok(p && p.sub === "NPC" && p.icon === "npc");
+  const giver = D.places.verteron.find(([kind, , , , detail]) => kind === "heroquest" && detail);
+  const quest = giver[4].split("; ")[0];
+  const q = M.search(quest).find((r) => r.label === quest);
+  assert.ok(q && q.focus.type === "place" && q.focus.ids[0] === `heroquest:${giver[1]}`);
+  assert.ok(first("alchemy table", "place").maps.verteron >= 1);
+  const merchants = M.search("merchants").find((r) => r.focus.ids[0] === "shop:*");
+  assert.ok(merchants && merchants.maps.verteron > 50);
+  for (const word of ["feathers", "empyrean", "monolith"]) {
+    const f = first(word, "monolith");
+    assert.ok(f && f.label === "Feathers" && f.icon === "feather" && f.maps.verteron > 100, word);
+  }
+  const kibs = M.search("kibelisks").find((r) => r.focus.ids[0] === "*");
+  assert.equal(kibs.maps.verteron, D.kibelisks.verteron.length);
+  const [lname] = D.labels.eltnen[0];
+  const l = first(lname, "label");
+  assert.ok(l && l.maps.eltnen >= 1);
+  // A field boss is found as one, not as a monster.
+  assert.equal(M.search("Melted Danar")[0].sub, "Field boss");
+});
+
+test("the meter's sightings complete the map: Kibelisks, feathers and other places", () => {
+  const store = {};
+  const kibEnv = Object.entries(D.objectKinds).find(([, k]) => k === "kibelisk")[0];
+  const riftEnv = Object.entries(D.objectKinds).find(([, k]) => k === "rift")[0];
+  const [kx, ky] = D.kibelisks.verteron[0].slice(1, 3);
+  const far = [kx + 200000, ky + 200000];
+  const world = { me: { x: far[0], y: far[1] }, npcs: [], objects: [
+    [1, Number(kibEnv), kx + 500, ky], // a known Kibelisk: nothing new
+    [2, Number(kibEnv), far[0], far[1]], // one the map lacks
+    [3, D.featherIds[0], far[0] + 5000, far[1]], // a feather it lacks
+    [4, D.featherIds[0], D.monoliths.verteron[0] + 200, D.monoliths.verteron[1]], // and one it has
+    [5, Number(riftEnv), far[0], far[1] + 9000], // a rift it lacks
+  ] };
+  assert.equal(M.learnFrom(store, "verteron", world), 3);
+  assert.deepEqual(store.verteron.o.kibelisk, [Math.round(far[0]), Math.round(far[1])]);
+  assert.equal(store.verteron.f.length, 2);
+  assert.equal(store.verteron.o.rift.length, 2);
+  assert.equal(M.learnFrom(store, "verteron", world), 0, "each once");
+  M.setLearned(store);
+  const b = M.build({ key: "verteron", world: null, tracked: new Map(), heading: 0, layers: all, gatherKinds: {}, petsMode: "all" });
+  assert.ok(b.marks.some((m) => m.kind === "kibelisk" && m.x === Math.round(far[0])));
+  assert.ok(b.marks.some((m) => m.kind === "feather" && m.x === Math.round(far[0] + 5000)));
+  assert.ok(b.marks.some((m) => m.place === "rift" && m.y === Math.round(far[1] + 9000)));
+  M.setLearned({});
+});
+
+test("a click on a mark: the plugin gets the mark, and the same focus twice clears it", () => {
+  const src = fs.readFileSync(path.join(dir, "plugin.js"), "utf8");
+  assert.match(src, /onPick: \(m\) => \(sameFocus\(m\.focus, settings\.focus\) \? setFocus\(null\)/);
+  const r = fs.readFileSync(path.join(dir, "render.js"), "utf8");
+  assert.match(r, /if \(m\?\.focus\) onPick\(m\)/);
+});
+
+test("the search's counts per map are the focus's points, counted ahead", () => {
+  const focuses = [];
+  for (const q of ["an", "al", "ar", "er", "ion", "merchant", "quest", "kibelisk", "table", "village", "hidden", "feather"]) {
+    for (const r of M.search(q, 60)) focuses.push(r.focus);
+  }
+  focuses.push({ type: "npc", ids: Object.keys(D.spawns.verteron).slice(0, 5), label: "x" });
+  focuses.push({ type: "pet", ids: [pet], label: "x" });
+  assert.ok(focuses.length > 300);
+  for (const f of focuses) assert.deepEqual(M.focusMaps(f), M.focusMapsByPoints(f), JSON.stringify(f).slice(0, 100));
 });

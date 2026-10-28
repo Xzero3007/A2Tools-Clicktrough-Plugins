@@ -16,6 +16,12 @@
   "repo": "https://github.com/taengu/A2Tools-Plugins",
   "commit": "ff5715ae478f759844fcfb1bc8d7607fd2e2dbf7"
  },
+ "aion2timers": {
+  "site": "aion2timers.com",
+  "build": "26077854",
+  "generated": "2026-10-21T10:27:44Z",
+  "positions": "the game client's"
+ },
  "calibration": {
   "verteron": {
    "bounds": [
@@ -79,7 +85,7 @@
     408000.0,
     408000.0
    ],
-   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
+   "from": "the game's map bounds, as Aion 2 Timers' map has them"
   },
   "morheim": {
    "bounds": [
@@ -88,7 +94,7 @@
     408000.0,
     408000.0
    ],
-   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
+   "from": "the game's map bounds, as Aion 2 Timers' map has them"
   },
   "abyss_middle": {
    "bounds": [
@@ -97,7 +103,7 @@
     101999.997,
     101999.997
    ],
-   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
+   "from": "the game's map bounds, as Aion 2 Timers' map has them"
   },
   "abyss_upper": {
    "bounds": [
@@ -106,15 +112,47 @@
     101999.997,
     101999.997
    ],
-   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
+   "from": "the game's map bounds, as Aion 2 Timers' map has them"
   }
  },
  "sha256": {
   "A2Tools-Plugins:plugins/pet-souls/maps.js": "92970897e2bab85977f1602275ea173430a0d484156e20677400026e6a24357f",
-  "A2Tools-Plugins:plugins/pet-souls/maps/1011.webp": "cc5b287dbe6a25fa8a8e313af89cda6e3ffef555792dbf357f16e66c12a29752",
-  "A2Tools-Plugins:plugins/pet-souls/maps/1111.webp": "9c63bf735f9e1e2fe052c3002daa4ac89dfd87112aaa7245bddbfe3b602dcc55",
-  "A2Tools-Plugins:plugins/pet-souls/maps/22.webp": "1dddbab2323fb7ff0a358e3c12f445096f05231dbda738b019323bcc321d0eb3",
-  "A2Tools-Plugins:plugins/pet-souls/maps/23.webp": "59dd4128d0578c6a6f0833b26adab40c4f89e406c67aa9c707bf39a636b74b5a",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_AbyssArtifact_Neutral.webp": "0c55202a19145b40e0294555686ed6cb158777b365b61fb11474155ce6c6bc02",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_AbyssPortal.webp": "22749cce0d50bca3615b41b6907d3aa2a74b145d223bd0ce4dc84beb01aeb211",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Alchemist.webp": "24418dd88cce9e68eb1ff7994b59f29d30ef72fa8fa6d9845b65020e39998912",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_BattleField.webp": "4e009a8fa9b58177d4dbbbd240819fa4856b5238e7ebb1366bd0ff0a4c1c8bc7",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_BlackSmith.webp": "07d340c08cbfdc18bd49c22d250483117af5ba2963e38f5de367700b6499cbd7",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Cooking.webp": "f137fbd4a97368fae4061469001cc1b14e0b037b2c713cda6571016718dc9a36",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Dungeon.webp": "bccff33b76208229c1aa8a4e74996639d25ce066e8ecd85b46411254e807f5bf",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Exploration_Occupation.webp": "3d1effcf925b1d10c4ab71ce55d0a5d9c4c9984c679711c72820abb87313702b",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Exploration_Seal.webp": "f6fe27e9374f2fb787d4aad93bdc737e02e752af36e3f019cd24488beeeacb90",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_FlightRing.webp": "36cc10b3cb276383c173f2f8bd8b5d9531aa0de9f128521dd241f50e9b5d22b7",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather.webp": "1910f5bbad021b34da8dfecb12c09351e8baffdd14f70d8f28db2249c9a00894",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather_Berry.webp": "6e4878d11222ccf653ca45b59dece13d0c0efbd1b0b94a5524f28bbd7b8725fe",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather_Flower.webp": "194aed7cfa946dad8f112a65825ab323f4f287b3e403ed69a68011c553a940cc",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather_Herb.webp": "7f8f6d39335c16d7678a215d25bca86b52f1523c98241003b3ff3ed8097727d2",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather_Od.webp": "c66c6947c5a24b4dcdc93430e7e05595e5a3aad281433cf69dcabf93208770c2",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather_Tree.webp": "0ec054c55d2f71030a4bdbea3a77107a7c83ce128aa3f847e9f66ce099c3a554",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather_Vegetable.webp": "26a3fe3ef27a42bc98765b094ed9658923b53c0f9d8cc60f5399da6f21b2a0b5",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gather_shellfish.webp": "f62922a905eb60b439a62791c33b84c9de9e4b8165fb301ff027cbae8ec7f3d0",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gatherl_Jewelry.webp": "ad1a731652548871d57d996cab2aa749302e9f28a2adf6565bbfd9eb957ca1b1",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gatherl_Metal.webp": "ada99fbba47c32b391d9f6265d25c09bbe2d9c0d750fb2a76fe436e90776b112",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Gatherl_RareMetal.webp": "46f13a1b0a1fb0356ccf21efbdeb55da5813d49acfe90fd4dba74b54b3d3871a",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Jewelry.webp": "5bd180b66e21e2e39f69edf44165bebe8b9ef7a2048bdcc4571bf5bcc847158a",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_MonolithFragment.webp": "b7bb92c15360f00c4d4a330032cf0fcaab65c8ffcb24a133f2975ed4eef42584",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Monolith_Dark.webp": "05fd71d33122026a51eeaf1839f963f23669fc0513f4ca5405cb39a5031f42f9",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Monolith_Light.webp": "40abe4e86f301e9b545e460e05578173bf802d5f25c46ae56ed0ef591a2bd2fb",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Monster_Boss.webp": "5de607428f866996927f95bd4af3c806636aeb5852b7ec2999c3bcc5161b9470",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Quest_District_Acquired.webp": "c2471e80ae13f99b647305509c6084cce7a206f0a337587a5bdb2bd1436d0beb",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Quest_Hero_Acquired.webp": "d18a9355b6331904b1c8ec08d1fde43f8702b234c90f4d157cf1ee936033a75c",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Rift.webp": "2b13083a71715802e29aad072151a8ebbc8e5ebe1270b66d5f531e5715abf713",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Shop.webp": "863bf37b485285d092b36dd27a4525f15eb7cbdc1094597d2e2a75fc701cac30",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Storage.webp": "22d2cfdb91f326683b4cf9e041275bbf333a83572d2165fb3a329e6d5dce784b",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Tailor.webp": "eb215b8f4d4ec0cb29e8ddbf7e8b49cc1d137f50b9ce0f3cb0f0508326a12079",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Talk.webp": "0ce6d697bea1d19322d60cc5515e2b59bca841270a7ce813242cd60f51363edd",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_TeleportArtifact_Dark_Engraved.webp": "409666502bc6042273ce3de25677071312c0986a677d0622627e9db723e74891",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_TeleportArtifact_Light_Engraved.webp": "51965d68f1f8fd0d644fc5e9b74fabbead5ba2952eec171c6c86b1ebcb9797cc",
+  "aion2-interactive-map:public/UI/Resource/Texture/Icon/UT_Marker_Vlillage.webp": "9745cb5627b7517c88b24a7a2a1d3589949aeb33fab573c98a68d526db9cbade",
   "aion2-interactive-map:public/data/maps.yaml": "2923c1081dcd2d8ffc4ea290e68220c686619dac78ea6bfc25a9ce1347ab005d",
   "aion2-interactive-map:public/data/markers/Abyss_Reshanta_A.yaml": "a7b9432199cf8fc4a90083d95fedb229e2b03238c4a8e2bf84b92e7a860ab899",
   "aion2-interactive-map:public/data/markers/Abyss_Reshanta_C.yaml": "100a772b21c684a80ecdc191135a71bd906341fc4877299e197f1a2aa89a6189",
@@ -139,6 +177,53 @@
   "aion2-interactive-map:public/locales/en/regions/World_D_Starter.yaml": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
   "aion2-interactive-map:public/locales/en/regions/World_L_A.yaml": "2d76f967abbf722536c43f6497ce8ef981ebb48af38394ae1ffa6bd709a0e638",
   "aion2-interactive-map:public/locales/en/regions/World_L_Starter.yaml": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+  "aion2timers:icons/ut_marker_movemap.webp": "a22c303d2b3f8e71e2bf1d53ca13a427af74a4b04a39638037e283e7d1a777ae",
+  "aion2timers:maps.json": "d006310080bfab418fee9641157f060741f668fc0aa4baa2aecb295ffc189e37",
+  "aion2timers:positions/1000.json": "eda05d5735ef76bfe0abb599879056c0d39072b087b6a622d4106392edee5702",
+  "aion2timers:positions/1010.json": "0f3bfd34c01b15fddadf9e5eb2fc9e1f7698320e835dd367c7db4a6dab818800",
+  "aion2timers:positions/1011.json": "83e9e7c600b27c590f8990d9558d99b288729e9a41a1bea56911b72105785fc9",
+  "aion2timers:positions/1100.json": "4f5c38b7b18f143b40948f44c48cb25049d909d73f6b80f16f00a8985895a607",
+  "aion2timers:positions/1110.json": "748e172bb173be2d1df5c176cc76159d86fc0d3490d9d058fc925afef9272261",
+  "aion2timers:positions/1111.json": "c0ceb66afed5c5c567c550afabad3776dd2307ed2575ba4df51d15f5ca1ce9df",
+  "aion2timers:positions/20.json": "19de1696b6712cc5a0e98ff1ea3514808598e4b982c54bd2cb291ed1a4f11b61",
+  "aion2timers:positions/200001.json": "40af501f434d1d111a68a699b62ca3e63922ac2259ab4840f49b69254a1c656f",
+  "aion2timers:positions/200002.json": "7b87dcffb6cbd3aa664d75a0bd0481bc8ce1fcd1c4f123346446b38a66f0ea17",
+  "aion2timers:positions/200004.json": "a1f554e3b8a4574e7ace12c99fbd2b7605b42e952ef4ce12c635fae0d3936469",
+  "aion2timers:positions/200005.json": "711ac407a48d0a34e7969c83bb03f22781b5933a915f029c868952f0ce152416",
+  "aion2timers:positions/200006.json": "79e38f0c7d70bbc789694230d2383a7e44d81cc78877e7d5bc462157efd16624",
+  "aion2timers:positions/210001.json": "baf6e9f3337204205f8dbc28e5846f4a34095aeb7313fcb69f3e0e85e1e1db96",
+  "aion2timers:positions/210004.json": "6dc93e8de1d836e9f861e1041743389b31fb38eb39d336d0dc7048eff272025e",
+  "aion2timers:positions/210006.json": "76c09ff0968461c38c61039639a849a1482b0065abc2a3b4c32c7f14a5f5977e",
+  "aion2timers:positions/210007.json": "ac1063422ac299958cf1cf4c9daa64b10e22aed35076dbec69e4aaaa6be74b00",
+  "aion2timers:positions/210008.json": "119b177ba5e00a180e17efbf9a44d119beba3cec68babd8ca5c7dd2395838ff4",
+  "aion2timers:positions/210009.json": "4bb6def2f20e09418e96be1523e2cd02b4ff2f6a3137191b13980f5668587ab3",
+  "aion2timers:positions/210010.json": "69d55143c8042e0ea11f7c6dae055648a5bd4593650ec309573631faf325bf2d",
+  "aion2timers:positions/210011.json": "113b51628cf6eb7db791d9d5c71d69bbbf5bd9b60169d19e567b2901a74cbb50",
+  "aion2timers:positions/210012.json": "46491ed01982f5e473cf01335c5f3478c8a62a6b36bb6eb8d5816560b73309ce",
+  "aion2timers:positions/210014.json": "ab14d5bdd033acfe51abb8529b26d33306dcfbd15bdf474a77c96c0bb600b628",
+  "aion2timers:positions/210017.json": "f2e026ed5f6db500c1b418dff9c1052c427e235f950942019ee7eda160594966",
+  "aion2timers:positions/210018.json": "7ad37da46e84d3fbb78757c30448e8a36332c822b250901e5c7c8bdf33ba3b08",
+  "aion2timers:positions/210019.json": "2466f6d75f0b9d07feb30758e06a24491db47737cfaf1ff653e082339ceef6ca",
+  "aion2timers:positions/210027.json": "90389b009109ef4b84cfb9de18fdce3d297fa49c435f6adf0b6eface8e8d1a14",
+  "aion2timers:positions/22.json": "41d344ea592db46f23818b024eca4b41cf61f661527d906b13e9d542981eac55",
+  "aion2timers:positions/220001.json": "c41a775d8180812c5b9a40851fa65fa13482a1dcfea2a91b389817edfa6fa7bf",
+  "aion2timers:positions/220002.json": "1a32ef97a5a899fe2dfb539a72e4dae7b40d22fdba6e305a552c7dad99b1995a",
+  "aion2timers:positions/220006.json": "602c39c8402bf911b7b222ab82020c2d3efe8c4c946128471142fab4bd13ba15",
+  "aion2timers:positions/220007.json": "aa48ec3d7618e06d23db8d7e9a34585641906e473281f7ac4ae8792177f8feeb",
+  "aion2timers:positions/220008.json": "5aa261d50755ff8249833ed798e43102c43a37607c47d0d00c47548beeee513b",
+  "aion2timers:positions/220009.json": "811de6190cfb131b83078876123fd0696c944f4783a3c2a16bf7ac483fbc5094",
+  "aion2timers:positions/220010.json": "89c5e0dfe7445565a411d3396e962425ac5a25f1d05a560183d5413719488c11",
+  "aion2timers:positions/220011.json": "3b699915b31b3e22162babf4aa9c492b62eae9d55c07c2fcd27b697b3ee6de10",
+  "aion2timers:positions/220014.json": "e48fda765bb89a134d875589f8c607523071cce47a867665a25db18afc1f379a",
+  "aion2timers:positions/220019.json": "ba04a6132c3427a489633f3abc7cb8f400a9b80d216b52a8f195d1eb8dbe51f3",
+  "aion2timers:positions/220020.json": "84ba6cd87c98af2bdaf2b57c50f323d554863663b9fdbb6e550ea8c707d4915e",
+  "aion2timers:positions/220021.json": "3d8b097f801d0027e9615f2a61c04d997dd5d7f8d5be63818695ea9f01811800",
+  "aion2timers:positions/220022.json": "2e3b544a6e09a9829fe066e75b4078f3d95dc64a7c749120c52fdd40bd747bf6",
+  "aion2timers:positions/220027.json": "c66f4f2d7419f4d9c406cffcb255c821f51e4ef5c9c2aa7f2d0b934be74a76a2",
+  "aion2timers:positions/23.json": "ace3f2b480ce651daf790a0143126003ce6fc1f3821fd4998c0c0365de7c6c7e",
+  "aion2timers:positions/62.json": "d2949b51bd6e974414ab1e0c8a8143d3ea15e07aeb638cd2ad125b365472476d",
+  "aion2timers:positions/63.json": "c316a2bf16f43e773982dcc406c3214f655b862fad27e1244cdde4470aaa8b74",
+  "aion2timers:positions/64.json": "e6add0832ad3bdba9043dd19f032a4ba52ec28b2a7ee064513c0e0d2403b6904",
   "bosses/field_bosses.json": "d9277e11d61f823fc68ad728aeba9a626dc51a88a774231582823ceb91a75e37",
   "game:UI/Map/WorldMap/Abyss_Reshanta_A/Res/Abyss_Reshanta_A_00_00.webp": "de0d66f452a0c2dd6ab52dbcf59f78389d48c50825b2b114e152ef9c94a3c3be",
   "game:UI/Map/WorldMap/Abyss_Reshanta_A/Res/Abyss_Reshanta_A_00_01.webp": "ecf5efd322387ea70da433a40c5bacd3e1d841e81e2bf04bfe995afc3ae13eea",
