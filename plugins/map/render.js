@@ -191,6 +191,10 @@
       for (const m of ordered) {
         const [nx, ny] = toNative(map, m.x, m.y);
         const [sx, sy] = screenOf(nx, ny);
+        if (m.kind === "area") {
+          drawArea(m);
+          continue;
+        }
         // The way to a place: a dashed line from where it starts (you, or the
         // Kibelisk to teleport to), wherever its ends are.
         if (m.kind === "route") {
@@ -216,6 +220,44 @@
         drawMark(m, sx, sy);
         if (m.label) drawn.push([sx, sy, (m.r || 4) * markScale + 3, m.label]);
       }
+    }
+
+    // Where the game puts a monster the map knows only in part: the
+    // outlines of the subzones its spawn points lie in, faintly filled in
+    // gold, and their names.
+    function drawArea(m) {
+      ctx.save();
+      ctx.beginPath();
+      for (const ring of m.rings) {
+        for (let i = 0; i < ring.length; i += 2) {
+          const [sx, sy] = screenOf(...toNative(map, ring[i], ring[i + 1]));
+          if (i) ctx.lineTo(sx, sy);
+          else ctx.moveTo(sx, sy);
+        }
+        ctx.closePath();
+      }
+      ctx.fillStyle = "rgba(255,214,102,0.12)";
+      ctx.fill("evenodd");
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.stroke();
+      ctx.setLineDash([8, 6]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = GOLD;
+      ctx.stroke();
+      ctx.restore();
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      for (const [name, x, y] of m.labels || []) {
+        const [sx, sy] = screenOf(...toNative(map, x, y));
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(0,0,0,0.8)";
+        ctx.fillStyle = GOLD;
+        ctx.strokeText(name, sx, sy);
+        ctx.fillText(name, sx, sy);
+      }
+      ctx.textAlign = "start";
     }
 
     function circle(sx, sy, r, fill, stroke, width = 1.5) {

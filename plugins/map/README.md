@@ -78,6 +78,18 @@ follows you over the game.
   monster), on the map the zone or what is around names, is added, kept
   (0.5.0 kept nothing past a restart) and shown like the others ("12 spots your meter
   saw" at the bottom); the more you play, the fuller the map.
+- **Where the game puts a monster the data lacks** (0.9.0): the game's own
+  tables (Pet Finder's copy of the Pet Soul Tracker's data) know how many
+  spawn points each pet monster has on a map, the middle one of them and the
+  subzones they lie in, but not every place. A monster the data lacks
+  (Harsh Pino Worker, Hill Ursus, Ellun River Kailin: 39 of 465) now has
+  that middle spawn point, so it shows, can be searched for and has the way
+  there. Shown from a search or a map link while the map knows fewer of its
+  spawn points than the game has (26 more, such as Hill Coradon: 9 of 91),
+  the subzones they lie in are outlined in gold where the map knows them,
+  and the bar says how many it knows: "The game has 22 spawn points here in
+  Aullaeu Village; the map knows 1 (the middle one). It adds each one your
+  meter sees."
 
 **Search** (two letters or more): gathering spots by name (Orichalcum, Aria
 ...), pets, the monsters that drop them, Kibelisk camps, **Hidden Cube**
@@ -137,7 +149,13 @@ the calibration and every file read. The field bosses' places are SkeeveAN's
 
 Fuller gathering maps exist (allthings.how and The Hidden Gaming Lair show
 158 Asvata spots in Altgard), but their data is theirs, with no licence to
-reuse it here; so the plugin learns what your own meter sees instead.
+reuse it here; so the plugin learns what your own meter sees instead. So
+are complete spawn maps (Aion 2 Timers' interactive map, whose spawn points
+the original Pet Soul Tracker shows with their permission, which is A2
+Tools'): `areas.js` takes from the game's tables only what A2 Tools
+publishes under the GPL (the count, the middle spawn point and the subzones),
+generated with `python3 -I dev/make_areas.py` from Pet Finder's
+`sources.js` (the Pet Soul Tracker's, A2 Tools, GPL-3.0).
 
 The world maps are the game's own map pictures as the AION2 Interactive Map
 publishes them (its `gh-pages` branch, `UI/Map/WorldMap`), the way the map
@@ -159,5 +177,5 @@ Unofficial, not affiliated with NCSOFT or A2Tools. Third-party tools can put a
 game account at risk.
 
 The plugin's own code: GPL-3.0-or-later, see `LICENSE`. The monsters' levels
-(`npcLevels` in `data.js`) come from A2 Tools' Pet Soul Tracker data
-(GPL-3.0, https://github.com/taengu/A2Tools-Plugins).
+(`npcLevels` in `data.js`) and `areas.js` come from A2 Tools' Pet Soul
+Tracker data (GPL-3.0, https://github.com/taengu/A2Tools-Plugins).

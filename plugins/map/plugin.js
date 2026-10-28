@@ -292,7 +292,7 @@
     settings.pick = key === whereAmI()?.key ? "auto" : key;
     settings.follow = false;
     view.setMap(key);
-    view.fitPoints(M.focusPoints(settings.focus, key).flat());
+    view.fitPoints(M.focusFit(settings.focus, key));
     saveLater();
     renderTools();
     render();
@@ -314,6 +314,16 @@
       return b;
     }));
     if (!Object.keys(maps).length) $(".focusMaps").textContent = "no known places on these maps";
+    // What the map knows only in part: how much, and where the game puts it.
+    const area = M.focusArea(f, key);
+    const note = $(".focusNote");
+    note.hidden = !area || area.known >= area.game;
+    if (!note.hidden) {
+      const where = area.zones.length ? ` in ${area.zones.join(", ")}` : "";
+      note.textContent = `The game has ${area.game} spawn point${area.game === 1 ? "" : "s"} here${where}; `
+        + `the map knows ${area.known}${area.known === 1 && area.game > 1 ? " (the middle one)" : ""}. `
+        + "It adds each one your meter sees.";
+    }
   }
   $(".focusClear").addEventListener("click", () => setFocus(null));
 
@@ -593,7 +603,7 @@
     renderTools();
     view.setMap(currentKey());
     if (!settings.follow) {
-      const pts = settings.focus ? M.focusPoints(settings.focus, currentKey()).flat() : [];
+      const pts = settings.focus ? M.focusFit(settings.focus, currentKey()) : [];
       if (pts.length) view.fitPoints(pts);
       else view.fit();
     }
@@ -672,7 +682,7 @@
     renderTools();
     if (settings.focus && !settings.follow) {
       view.setMap(currentKey());
-      view.fitPoints(M.focusPoints(settings.focus, currentKey()).flat());
+      view.fitPoints(M.focusFit(settings.focus, currentKey()));
     }
     render();
     if (settings.overlay) applyOverlay();

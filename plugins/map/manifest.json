@@ -1,9 +1,9 @@
 {
   "id": "map",
   "name": "Map",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "apiVersion": 2,
-  "author": "Clicktrough (maps: the game's own; data from SkeeveAN's Aion-DPS-Meter, MIT, and the AION2 Interactive Map, CC BY-NC 4.0)",
+  "author": "Clicktrough (maps: the game's own; data from SkeeveAN's Aion-DPS-Meter, MIT, the AION2 Interactive Map, CC BY-NC 4.0, and A2 Tools' Pet Soul Tracker, GPL-3.0)",
   "description": "The map you are on with your position and region, the pets Pet Finder and Pet Soul Tracker follow, monsters around, gathering spots, Hidden Cubes, Monolith pieces, Kibelisk camps, sealed dungeons and other places, a search over all of them; and an overlay with a small map that follows you.",
   "permissions": [
     "storage",

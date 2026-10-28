@@ -38,6 +38,8 @@ button[aria-pressed="false"] { color: rgba(255, 255, 255, 0.55); }
 .focusText { font-weight: 600; }
 .focusMaps { display: inline-flex; gap: 4px; flex-wrap: wrap; flex: 1; }
 .focusClear { margin-left: auto; padding: 0 7px; font-size: 14px; line-height: 18px; }
+.focusNote { flex-basis: 100%; color: rgba(255, 255, 255, 0.7); }
+.focusNote[hidden] { display: none; }
 
 .layers, .kinds { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .chip { border-radius: 999px; padding: 1px 10px; font-size: 12px; }

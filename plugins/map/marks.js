@@ -5,6 +5,10 @@
 (() => {
   const D = globalThis.MAP_DATA;
   const K = globalThis.MapKit;
+  // Where the game itself puts each pet monster (areas.js, from the game's
+  // tables): npc -> map -> [spawns, x, y, zones], the number of its spawn
+  // points there, the middle one of them and the subzones they lie in.
+  const A = globalThis.MAP_AREAS || {};
   const RANK = { pinned: 3, farming: 2, needed: 1 };
   // A pet's genus colour (the game's categories), as Pet Finder's list shows
   // it: Cogni, Fera, Natura, Varian.
@@ -38,13 +42,34 @@
     for (const [env, pts] of Object.entries(mine)) out[env] = both(out[env], pts);
     return out;
   }
-  /** A map's pet monster spawn points, the data's and the learnt. */
+  /** The game's middle spawn point of each monster on map `key` the data
+   *  doesn't already have (within 20 m): npc -> [x, y]. A real spawn point
+   *  (areas.js), so a monster the data lacks still has one place. */
+  const midCache = new Map();
+  function gameMids(key) {
+    if (midCache.has(key)) return midCache.get(key);
+    const out = {};
+    for (const [npc, per] of Object.entries(A)) {
+      const a = per[key];
+      if (a && !near(D.spawns[key]?.[npc], a[1], a[2], 2000)) out[npc] = [a[1], a[2]];
+    }
+    midCache.set(key, out);
+    return out;
+  }
+  /** Whether x, y is a monster's middle spawn point from the game's tables. */
+  const isGameMid = (key, npc, x, y) => {
+    const m = gameMids(key)[npc];
+    return !!m && m[0] === x && m[1] === y;
+  };
+  /** A map's pet monster spawn points: the data's, the game's middle one
+   *  where the data lacks it, and the learnt. */
   function spawnPoints(key) {
     const data = D.spawns[key] || {};
+    const mids = gameMids(key);
     const mine = learned[key]?.s;
-    if (!mine) return data;
     const out = { ...data };
-    for (const [npc, pts] of Object.entries(mine)) out[npc] = both(out[npc], pts);
+    for (const [npc, xy] of Object.entries(mids)) out[npc] = both(out[npc], xy);
+    for (const [npc, pts] of Object.entries(mine || {})) out[npc] = both(out[npc], pts);
     return out;
   }
   const cubeSpotPoints = (key) => both(D.cubeSpots?.[key], learned[key]?.c);
@@ -91,7 +116,7 @@
       if (room <= 0) break;
       const id = String(npc);
       if (D.npcPets[id] == null) continue;
-      if (near(D.spawns[key]?.[id], x, y, 2000) || near(lk.s[id], x, y, 2000)) continue;
+      if (near(D.spawns[key]?.[id], x, y, 2000) || near(gameMids(key)[id], x, y, 2000) || near(lk.s[id], x, y, 2000)) continue;
       (lk.s[id] ||= []).push(Math.round(x), Math.round(y));
       added++;
       room--;
@@ -282,6 +307,11 @@
 
   const petName = (id, tracked) => tracked.get(String(id))?.name || D.pets[id]?.name || `Pet ${id}`;
   const npcName = (npc) => D.npcNames[npc] || `Monster ${npc}`;
+  /** What the game's middle spawn point of a monster is, for its tooltip. */
+  const midText = (key, npc) => {
+    const a = A[npc]?.[key];
+    return a ? `the middle one of the game's ${a[0]} spawn point${a[0] === 1 ? "" : "s"} here` : "a spawn point from the game's tables";
+  };
 
   // The gathering kinds as the map names them, and what each holds (the names
   // the game gives its gathering spots).
@@ -351,6 +381,49 @@
     return Object.fromEntries(Object.entries(out).sort((a, b) => b[1] - a[1]));
   }
 
+  /**
+   * For a monster or pet focus on map `key`, where the game itself puts it
+   * (areas.js): { game, known, zones, rings, labels }: how many spawn points
+   * the game has there and how many the map knows (the data's, the game's
+   * middle one, the learnt), the subzones they lie in, and the outlines and
+   * name places of those the map's regions know. Null for other focuses or
+   * when the game has none there.
+   */
+  function focusArea(focus, key) {
+    if (!focus || (focus.type !== "pet" && focus.type !== "npc") || !D.maps[key]) return null;
+    const ids = new Set((focus.ids || []).map(String));
+    const pts = spawnPoints(key);
+    let game = 0;
+    let known = 0;
+    const zones = [];
+    for (const [npc, per] of Object.entries(A)) {
+      const a = per[key];
+      if (!a) continue;
+      if (focus.type === "npc" ? !ids.has(npc) : !ids.has(String(D.npcPets[npc]))) continue;
+      game += a[0];
+      known += Math.min(a[0], (pts[npc] || []).length / 2);
+      for (const z of a[3] || []) if (!zones.includes(z)) zones.push(z);
+    }
+    if (!game) return null;
+    const rings = [];
+    const labels = [];
+    for (const [name, lx, ly, rs] of D.regions?.[key] || []) {
+      if (!zones.includes(name)) continue;
+      rings.push(...rs);
+      labels.push([name, lx, ly]);
+    }
+    return { game, known, zones, rings, labels };
+  }
+
+  /** The world points (x, y, ...) to frame a focus on map `key`: its places,
+   *  and the outline of where the game puts what the map knows only in part. */
+  function focusFit(focus, key) {
+    const out = focusPoints(focus, key).flat();
+    const area = focusArea(focus, key);
+    if (area && area.known < area.game) for (const ring of area.rings) out.push(...ring);
+    return out;
+  }
+
   /** Whether something around right now is what the focus asks for. */
   function focusLive(focus, kind, id) {
     if (!focus) return false;
@@ -394,9 +467,11 @@
     for (const g of byName.values()) {
       entries.push({ label: g.name, sub: kindLabel(g.kind), focus: { type: "gather", ids: g.ids, label: g.name }, gather: g.kind });
     }
-    // Pets with spawn points, and the monsters that drop them.
+    // Pets with spawn points, and the monsters that drop them (the data's,
+    // and those only the game's tables place, areas.js).
     const spawned = new Set();
     for (const per of Object.values(D.spawns)) for (const npc of Object.keys(per)) spawned.add(npc);
+    for (const [npc, per] of Object.entries(A)) if (Object.keys(per).some((key) => D.maps[key])) spawned.add(npc);
     const petsWith = new Set([...spawned].map((n) => D.npcPets[n]).filter((p) => p != null).map(String));
     for (const pet of petsWith) {
       const name = D.pets[pet]?.name;
@@ -538,7 +613,8 @@
         const s = style(pet);
         const label = `${petName(pet, tracked)} · ${npcName(npc)}${s.text ? ` · ${s.text}` : ""}`;
         for (let i = 0; i < pts.length; i += 2) {
-          marks.push({ kind: "petSpawn", x: pts[i], y: pts[i + 1], r: s.r, look: s.look, color: s.color, label, z: s.z });
+          const mid = isGameMid(key, npc, pts[i], pts[i + 1]) ? ` · ${midText(key, npc)}` : "";
+          marks.push({ kind: "petSpawn", x: pts[i], y: pts[i + 1], r: s.r, look: s.look, color: s.color, label: label + mid, z: s.z });
           consider(pet, pts[i], pts[i + 1], false);
         }
       }
@@ -633,10 +709,20 @@
         boss: (x, y) => ({ kind: "boss", x, y, r: 6, text: focus.label }),
       };
       const style = STYLES[focus.type] || ((x, y) => ({ kind: "petSpawn", x, y, r: 4.5, look: "need" }));
+      // Where the game puts what the map knows only in part: its subzones'
+      // outlines, beneath everything.
+      const area = focusArea(focus, key);
+      if (area && area.known < area.game && area.rings.length) {
+        marks.push({ kind: "area", rings: area.rings, labels: area.labels, x: area.labels[0][1], y: area.labels[0][2], z: -10 });
+      }
+      const mids = focus.type === "pet" || focus.type === "npc" ? gameMids(key) : {};
+      const midOf = new Map(Object.entries(mids).map(([npc, [x, y]]) => [`${x},${y}`, npc]));
       for (const [x, y] of focusPoints(focus, key)) {
         hits.push(x, y);
+        const midNpc = midOf.get(`${x},${y}`);
+        const label = midNpc ? `${focus.label} · ${midText(key, midNpc)}` : focus.label;
         // Every place a cube may appear: many, so no gold ring each.
-        marks.push({ label: focus.label, ...style(x, y), hit: !all, z: 50 });
+        marks.push({ label, ...style(x, y), hit: !all, z: 50 });
         near(x, y, false);
       }
       for (const [, npc, x, y] of world?.npcs || []) {
@@ -721,6 +807,6 @@
   const arrow = (deg) => ARROWS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 
   globalThis.MapMarks = Object.freeze({
-    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusPoints, KIND_ORDER, kindLabel, kindTitle, placeLabel,
+    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusPoints, focusArea, focusFit, KIND_ORDER, kindLabel, kindTitle, placeLabel,
   });
 })();
