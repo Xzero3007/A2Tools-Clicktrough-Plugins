@@ -11,7 +11,17 @@
         <span class="whereNote muted"></span>
       </div>
       <div class="tools">
-        <select class="mapPick" title="Which map"></select>
+        <div class="mapPick">
+          <button type="button" class="mapPickBtn" aria-haspopup="listbox" aria-expanded="false" aria-label="Which map"><span class="mapPickName">Where you are</span><span class="caret" aria-hidden="true">▾</span></button>
+          <div class="mapPickList" role="listbox" aria-label="Which map" hidden>
+            <div class="mapPickTools">
+              <button type="button" data-hide="hideLater" aria-pressed="false" title="The maps in the game's files that aren't open yet">Hide coming later</button>
+              <button type="button" data-hide="hideInstances" aria-pressed="false">Hide instances</button>
+              <button type="button" data-hide="hideStarters" aria-pressed="true" title="Poeta and Ishalgen, where a character starts">Hide starting areas</button>
+            </div>
+            <div class="mapPickItems"></div>
+          </div>
+        </div>
         <button type="button" class="follow" aria-pressed="true" title="Keep you in the middle (double-click the map)">Follow</button>
         <button type="button" class="overlayBtn" aria-pressed="false" title="A small map that follows you, over the game">Overlay</button>
       </div>

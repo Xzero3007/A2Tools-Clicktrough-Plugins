@@ -1053,11 +1053,35 @@
   const MARK_TEXT = { pinned: "a favourite (Pet Finder ★)", farming: "being farmed", needed: "not at level 3 yet" };
   const markText = (mark) => MARK_TEXT[mark] || MARK_TEXT.needed;
 
+  // ---------- the map picker's groups ----------
+  // The world maps in the game now (Global: Verteron, Altgard and the
+  // Abyss's lower layer, where pets' souls drop), those to come (in the
+  // client, not open yet: no pet's souls drop there), the starting areas,
+  // and the instances. A map to come that the meter has seen you on
+  // (`played`) is in the game.
+  const STARTERS = new Set(["poeta", "ishalgen"]);
+  const LATER = new Set(["eltnen", "morheim", "abyss_middle", "abyss_upper"]);
+  // The Elyos side, the Asmodian side, then the Abyss's layers.
+  const WORLD_ORDER = ["verteron", "eltnen", "altgard", "morheim", "abyss", "abyss_middle", "abyss_upper", "poeta", "ishalgen"];
+  /** { inGame, later, instances, starters }: map keys, in order. */
+  function mapGroups(played = []) {
+    const seen = new Set(played);
+    const rank = (k) => (WORLD_ORDER.includes(k) ? WORLD_ORDER.indexOf(k) : WORLD_ORDER.length);
+    const world = Object.keys(D.maps).filter((k) => !D.maps[k].instance).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    return {
+      inGame: world.filter((k) => !STARTERS.has(k) && (!LATER.has(k) || seen.has(k))),
+      later: world.filter((k) => LATER.has(k) && !seen.has(k)),
+      instances: Object.keys(D.maps).filter((k) => D.maps[k].instance).sort((a, b) => D.maps[a].title.localeCompare(D.maps[b].title)),
+      starters: world.filter((k) => STARTERS.has(k)),
+    };
+  }
+  const isLater = (k) => LATER.has(k);
+
   /** The compass arrow for a bearing (0 = up). */
   const ARROWS = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"];
   const arrow = (deg) => ARROWS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 
   globalThis.MapMarks = Object.freeze({
-    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusMapsByPoints, focusPoints, focusArea, focusFit, KIND_ORDER, kindLabel, kindTitle, kindIcon, gatherCounts, placeLabel, placeLayer, placeIcon, sideOf,
+    build, mergeTracked, neededOf, soulsOf, nearestKinds, nearestByPet, GENUS, genusOf, mapOf, regionAt, arrow, markText, petName, setLearned, learnFrom, routeTo, gatherFor, TELEPORT_M, steady, search, focusMaps, focusMapsByPoints, focusPoints, focusArea, focusFit, KIND_ORDER, kindLabel, kindTitle, kindIcon, gatherCounts, mapGroups, isLater, placeLabel, placeLayer, placeIcon, sideOf,
   });
 })();

@@ -106,6 +106,16 @@ follows you over the game.
 - **NPCs** (0.11.0): every other NPC, by name.
 - **Marks 100% to 175%**: how large the marks are, on the map and the
   overlay (125% to begin with).
+- **Which map** (0.11.4): the picker beside Follow is the plugin's own list
+  (the desktop drew the old one's chosen entry in its blue), the chosen map
+  in gold, in groups: **Where you are**; **In the game** (Verteron, Altgard,
+  the Abyss); **Coming later** (Eltnen, Morheim, the Abyss's middle and upper
+  layers: in the game's files, not open yet, no pet's souls drop there);
+  **Instances**; **Starting areas** (Poeta, Ishalgen). Buttons at its top
+  hide the maps to come, the instances and the starting areas (these hidden
+  at first), remembered. A map to come moves to In the game for good once
+  the zone the meter hears says you are on it. A search and the map links
+  show what is on a hidden map all the same.
 - **The map's buttons** (0.11.2, its top right corner): **+** and **−**
   zoom; **Fit** puts the whole map in the window; **Results** (while
   something is shown) frames everything searched for or clicked again; **Big

@@ -26,6 +26,12 @@
     focus: null, // what the search or another plugin asked to show
     markScale: 1.25, // how large the marks are drawn, on the map and the overlay
     bigMap: false, // the rows of buttons above the map hidden
+    // The map picker: which groups it hides, and the maps to come the meter
+    // has seen you on (in the game, then).
+    hideLater: false,
+    hideInstances: false,
+    hideStarters: true,
+    playedMaps: [],
   };
   let world = null;
   let shared = {};
@@ -180,6 +186,13 @@
     if (inZone && !where.guess && inZone !== settings.lastKey) {
       settings.lastKey = inZone;
       saveLater();
+    }
+    // A map to come the zone says you are on: in the game now, for good.
+    const zoneKey = world?.zone != null ? D.zones[String(world.zone)] : null;
+    if (zoneKey && M.isLater(zoneKey) && !(settings.playedMaps || []).includes(zoneKey)) {
+      settings.playedMaps = [...(settings.playedMaps || []), zoneKey];
+      saveLater();
+      renderTools();
     }
     view.setMap(key);
     if (key !== toolsKey) renderTools();
@@ -592,22 +605,69 @@
     $(".resultsBtn").hidden = !settings.focus;
     const size = sizeName();
     for (const b of document.querySelectorAll(".overlaySizes button")) b.setAttribute("aria-pressed", String(b.dataset.size === size));
-    const pick = $(".mapPick");
-    if (!pick.options.length) {
-      const opt = (value, text) => Object.assign(document.createElement("option"), { value, textContent: text });
-      // The Elyos side, the Asmodian side, then the Abyss's layers.
-      const ORDER = ["verteron", "eltnen", "poeta", "altgard", "morheim", "ishalgen", "abyss", "abyss_middle", "abyss_upper"];
-      const rank = (k) => (ORDER.includes(k) ? ORDER.indexOf(k) : ORDER.length);
-      const open = Object.entries(D.maps).filter(([, m]) => !m.instance).sort((a, b) => rank(a[0]) - rank(b[0]));
-      const inst = Object.entries(D.maps).filter(([, m]) => m.instance).sort((a, b) => a[1].title.localeCompare(b[1].title));
-      const g1 = Object.assign(document.createElement("optgroup"), { label: "World" });
-      g1.append(...open.map(([k, m]) => opt(k, m.title)));
-      const g2 = Object.assign(document.createElement("optgroup"), { label: "Instances" });
-      g2.append(...inst.map(([k, m]) => opt(k, m.title)));
-      pick.append(opt("auto", "Where you are"), g1, g2);
-    }
-    pick.value = D.maps[settings.pick] ? settings.pick : "auto";
+    renderPicker();
   }
+
+  // ---------- the map picker ----------
+  // Its own list, in groups: where you are, the world maps in the game, those
+  // to come, the instances, the starting areas; each group but the first
+  // can be hidden (remembered).
+  const pickBtn = $(".mapPickBtn");
+  const pickList = $(".mapPickList");
+  function renderPicker() {
+    const chosen = D.maps[settings.pick] ? settings.pick : "auto";
+    $(".mapPickName").textContent = chosen === "auto" ? "Where you are" : titleOf(chosen);
+    for (const b of pickList.querySelectorAll("[data-hide]")) b.setAttribute("aria-pressed", String(!!settings[b.dataset.hide]));
+    if (pickList.hidden) return;
+    const groups = M.mapGroups(settings.playedMaps || []);
+    const item = (value, text, cls = "", note = "") => {
+      const b = Object.assign(document.createElement("button"), { type: "button", className: `item ${cls}`.trim() });
+      b.setAttribute("role", "option");
+      b.setAttribute("aria-selected", String(value === chosen));
+      b.dataset.value = value;
+      b.append(text);
+      if (note) b.append(Object.assign(document.createElement("span"), { className: "note", textContent: note }));
+      return b;
+    };
+    const head = (text) => Object.assign(document.createElement("div"), { className: "group", textContent: text });
+    const rows = [item("auto", "Where you are")];
+    const add = (title, keys, cls, note) => {
+      if (!keys.length) return;
+      rows.push(head(title), ...keys.map((k) => item(k, titleOf(k), cls, note)));
+    };
+    add("In the game", groups.inGame);
+    if (!settings.hideLater) add("Coming later", groups.later, "later", "not open yet");
+    if (!settings.hideInstances) add("Instances", groups.instances);
+    if (!settings.hideStarters) add("Starting areas", groups.starters);
+    $(".mapPickItems").replaceChildren(...rows);
+  }
+  function openPicker(open) {
+    pickList.hidden = !open;
+    pickBtn.setAttribute("aria-expanded", String(open));
+    renderPicker();
+    if (open) pickList.querySelector('.item[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+  }
+  pickBtn.addEventListener("click", () => openPicker(pickList.hidden));
+  pickList.addEventListener("click", (e) => {
+    const hide = e.target.closest("[data-hide]");
+    if (hide) {
+      settings[hide.dataset.hide] = !settings[hide.dataset.hide];
+      saveLater();
+      renderPicker();
+      return;
+    }
+    const it = e.target.closest(".item");
+    if (it) {
+      openPicker(false);
+      pickMap(it.dataset.value);
+    }
+  });
+  document.addEventListener("mousedown", (e) => {
+    if (!pickList.hidden && !e.target.closest(".mapPick")) openPicker(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !pickList.hidden) openPicker(false);
+  });
 
   for (const chip of document.querySelectorAll(".layers .chip[data-layer]")) {
     chip.addEventListener("click", () => {
@@ -661,8 +721,8 @@
     a2.widgets.lock(settings.overlayLock).catch(() => {});
     render();
   });
-  $(".mapPick").addEventListener("change", () => {
-    settings.pick = $(".mapPick").value;
+  function pickMap(value) {
+    settings.pick = value;
     if (settings.pick !== "auto") settings.follow = false;
     saveLater();
     renderTools();
@@ -673,7 +733,7 @@
       else view.fit();
     }
     render();
-  });
+  }
   // The map's view buttons: zoom, the whole map, what is shown, big map.
   $(".zoomIn").addEventListener("click", () => view.zoomBy(1.25));
   $(".zoomOut").addEventListener("click", () => view.zoomBy(0.8));

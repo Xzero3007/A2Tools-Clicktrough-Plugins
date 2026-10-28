@@ -615,3 +615,22 @@ test("the map's view buttons: zoom, the whole map, what is shown, big map; and a
   assert.match(r, /zoomBy\(f\)/);
   assert.match(r, /if \(map && fitted && \(fitPending \|\| grew\)\)/);
 });
+
+test("the map picker's groups: in the game, coming later, instances, starting areas", () => {
+  const g = M.mapGroups([]);
+  assert.deepEqual(g.inGame, ["verteron", "altgard", "abyss"]);
+  assert.deepEqual(g.later, ["eltnen", "morheim", "abyss_middle", "abyss_upper"]);
+  assert.deepEqual(g.starters, ["poeta", "ishalgen"]);
+  assert.equal(g.instances.length, Object.values(D.maps).filter((m) => m.instance).length);
+  assert.ok(g.instances.every((k, i) => i === 0 || D.maps[g.instances[i - 1]].title.localeCompare(D.maps[k].title) <= 0));
+  // Every map in exactly one group.
+  assert.equal(new Set([...g.inGame, ...g.later, ...g.instances, ...g.starters]).size, Object.keys(D.maps).length);
+  // A map to come that you have been on is in the game, in its place.
+  const h = M.mapGroups(["eltnen"]);
+  assert.deepEqual(h.inGame, ["verteron", "eltnen", "altgard", "abyss"]);
+  assert.deepEqual(h.later, ["morheim", "abyss_middle", "abyss_upper"]);
+  // The picker is the plugin's own list (a <select> is drawn in the desktop's blue).
+  const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
+  assert.doesNotMatch(html, /<select class="mapPick"/);
+  for (const k of ["hideLater", "hideInstances", "hideStarters"]) assert.match(html, new RegExp(`data-hide="${k}"`));
+});
