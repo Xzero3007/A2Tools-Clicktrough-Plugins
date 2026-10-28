@@ -609,6 +609,8 @@ test("the map's view buttons: zoom, the whole map, what is shown, big map; and a
   const src = fs.readFileSync(path.join(dir, "plugin.js"), "utf8");
   assert.match(src, /scaleBar: true/);
   assert.match(src, /document\.body\.classList\.toggle\("bigMap"/);
+  // A gathering kind the game places nowhere has no chip until one is seen.
+  assert.match(src, /M\.KIND_ORDER\.filter\(\(k\) => anywhere\[k\] > 0\)/);
   const r = fs.readFileSync(path.join(dir, "render.js"), "utf8");
   assert.match(r, /zoomBy\(f\)/);
   assert.match(r, /if \(map && fitted && \(fitPending \|\| grew\)\)/);

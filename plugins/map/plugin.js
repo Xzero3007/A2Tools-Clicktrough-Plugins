@@ -67,6 +67,8 @@
       M.setLearned(learned);
       learnedDirty.add(key);
       saveLearned();
+      // The gathering chips' counts (a kind's first spot brings its chip).
+      if (settings.layers.gather) renderTools();
     }
   }
   const learnedCount = (key) => {
@@ -565,14 +567,14 @@
     toolsKey = currentKey();
     const here = M.gatherCounts(toolsKey);
     const anywhere = M.gatherCounts(null);
-    kinds.replaceChildren(...M.KIND_ORDER.map((k) => {
+    // A kind the game places nowhere (Fibers, for now) has no chip until the
+    // meter sees one of its spots.
+    kinds.replaceChildren(...M.KIND_ORDER.filter((k) => anywhere[k] > 0).map((k) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "chip kind";
       const n = here[k] || 0;
-      b.title = !anywhere[k]
-        ? `${M.kindTitle(k)}. The game's map data places none of them; your meter adds each one it sees.`
-        : `${M.kindTitle(k)}${n ? "" : ". None on this map"}`;
+      b.title = `${M.kindTitle(k)}${n ? "" : ". None on this map"}`;
       b.setAttribute("aria-pressed", String(settings.gatherKinds[k] !== false));
       b.append(iconEl(M.kindIcon(k)), M.kindLabel(k), Object.assign(document.createElement("span"), { className: "n", textContent: n.toLocaleString("en") }));
       b.addEventListener("click", () => {

@@ -79,10 +79,12 @@ follows you over the game.
   - Gemstones: Sapphire, Diamond, Ruby, Aquamarine, Topaz and more
   - Odyle: Odyle, Splendent Odyle, Mysterious Odyle
 
-  Each kind says how many spots this map has (0.11.2). Fibers: none, on any
-  map: the game's own map data places none of them (SkeeveAN's copy of the
-  client's lists them with 0 places each), and Aion 2 Timers has none
-  either; your meter adds each one it sees.
+  Each kind says how many spots this map has (0.11.2). Fibers have no chip
+  (0.11.3): the game places none of them (the client's object list has
+  Ruko, Fess, Remi, Linon, Lapageria, Zoot, Xilix and Anathe with 0 places
+  each, Aion 2 Timers has no fiber spots, and none of the game's 1,082
+  recipes uses a fiber); the chip comes by itself once your meter sees a
+  fiber spot.
 - **Hidden Cubes**: purple cubes: the spots where a cube is known to stand
   (pale, about 110 per map), and a cube in range right now (solid with a white
   edge, it shows as soon as the game announces it).
