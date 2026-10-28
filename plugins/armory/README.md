@@ -67,9 +67,12 @@ value written out (no hovering), and what to do next.
   your levels for the same one; Kinah on average and 9 times in 10, the
   materials), Kinah a point and about how much combat power; for another
   item also what it is worth at +0 and from which level it matches yours.
-  All of them best value first, with the total. **Compare** (in each row)
-  puts any item, found by name, at the levels you set against yours in the
-  same way; the items compared are kept per character.
+  All of them best value first, with the total. **Compare** (in each row):
+  your piece, the reference's and any item found by name, each at the levels
+  you set (enhance, then Amplify from the enhance top on), with its gear
+  score, the difference to what you have and the enhancing it takes. The
+  reference's piece at the levels you set counts in the upgrades and in
+  Goals; the levels and the items compared are kept per character.
 - **Goals**: a target gear score (or combat power, by an estimate), and the
   cheapest way there: enhance and Amplify steps on the gear you wear, and
   (when counted) changing pieces to the reference's or to those you compare,

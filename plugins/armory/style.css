@@ -313,6 +313,7 @@ tr.cmprow > td { background: rgba(255,255,255,.03); padding: 8px; white-space: n
 .cmp .lvin input[type=number] { width: 46px; padding: 1px 3px; }
 table.ups tfoot td { border-top: 1px solid rgba(255,255,255,.18); font-weight: 600; }
 tr.swaprow td { background: rgba(242,196,107,.05); }
+.cmp tr.minerow td { background: rgba(255,255,255,.04); }
 .swapopt { display: block; margin: 0 0 8px; }
 
 @media (max-width: 620px) {
