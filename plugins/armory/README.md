@@ -5,9 +5,14 @@ value written out (no hovering), and what to do next.
 
 - **Overview**: the gear score taken apart (item levels, enhance levels,
   Amplify, Manastones, Theostones, Daevanion points), checked against the
-  game's own number; the deity stats round a wheel and the base stats inside,
-  each with what it gives; the Daevanion boards (points spent of all);
-  titles with their stats; pet and wings.
+  game's own number; the Daevanion boards (points spent of all); titles with
+  their stats; pet and wings.
+- **Stats**: the deity stats round a wheel and the base stats inside, each
+  with what its points give; and **what each stat does**, every one your
+  character has (from deity stats, gear, Manastones, titles, Daevanion), in
+  the game's own words (Double Chance, Perfect, Endurance, Penetration, the
+  caps ...), with where yours come from, and a short "In short" of how they
+  work together; or every stat the game has.
 - **Gear**: each piece with its enhance and Amplify level, item level, its
   stats and what the enhance level adds, sub stats, Manastones (and empty
   slots), Theostones, the extra skill levels it gives, and its next step:
@@ -57,6 +62,8 @@ a shard.
   Average tries count the chance a failure adds; a step that loses a level on
   failure (the Clash Rune) counts the climb back. Enhancement Supplements are
   not counted.
+- **What the stats do**: the game's own stat descriptions, from its files as
+  Aion2Data's stats page lists them (`dev/make_data.py` reads them too).
 - **Prices**: aion2.exchange's market prices of your server, from the fork's
   hourly copy (the Market's).
 - **Combat power**: NC doesn't publish its formula. The goal's combat power

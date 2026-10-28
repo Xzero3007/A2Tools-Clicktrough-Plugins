@@ -5,16 +5,20 @@ enhanceable item (id, name, grade, slot, item level, icon, its tables).
 
 The tables are the game's own, read from AION 2's files by Aion2Data
 (aion2data.com, unofficial), which serves them as one file for its enhance
-calculator. Game data and art belong to NCSOFT.
+calculator. Also what each stat does, in the game's own words (its stat
+descriptions, as Aion2Data's stats page lists them). Game data and art
+belong to NCSOFT.
 
   python3 -I dev/make_data.py <cache folder> [--fetch]
 
---fetch downloads https://aion2data.com/tools/enchant/data.json into the
-cache folder first (and the game version from its text calculator). Without
-it the cached file is used.
+--fetch downloads https://aion2data.com/tools/enchant/data.json and
+https://aion2data.com/stats into the cache folder first (and the game version
+from its text calculator). Without it the cached files are used.
 """
+import html as H
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -23,6 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.dirname(HERE)
 SOURCE = "https://aion2data.com/tools/enchant/data.json"
 VERSION = "https://aion2data.com/calc/tools/enchant?item=110430051&from=14&to=15&format=json"
+STATS = "https://aion2data.com/stats"
 
 
 def fetch(url, path):
@@ -39,6 +44,29 @@ def fetch(url, path):
             last = e
             time.sleep(3 + attempt * 2)
     raise SystemExit(f"could not download {url}: {last}")
+
+
+def glossary(page):
+    """The stats page: each stat's name, its key in the game (the one NC's
+    pages use for an item's stats too), its group in the character window and
+    the game's description. [[name, key, group, description], ...]"""
+    chunks = re.findall(r'self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)', page)
+    payload = "".join(json.loads('"' + c + '"') for c in chunks)
+    keys = dict((i, k) for k, i in re.findall(r'\["\$","li","([^"]*)",\{"id":"([^"]*)"', payload))
+    body = re.sub(r"<script\b.*?</script>", "", page.split("</head>", 1)[-1], flags=re.S)
+    text = lambda s: H.unescape(re.sub(r"<[^>]+>", "", s)).strip()
+    out = []
+    for sec in re.finditer(r'<section[^>]*data-tab="([^"]+)"[^>]*>(.*?)</section>', body, re.S):
+        group = H.unescape(sec.group(1))
+        for li in re.finditer(r'<li[^>]*\bid="([^"]+)"[^>]*>(.*?)</li>', sec.group(2), re.S):
+            a = re.search(r'<a[^>]*href="/stats/[^"]*"[^>]*>(.*?)</a>', li.group(2), re.S)
+            p = re.search(r'<p[^>]*>(.*?)</p>', li.group(2), re.S)
+            if a and p:
+                desc = text(re.sub(r"<br\s*/?>", "\n", p.group(1)))
+                out.append([text(a.group(1)), keys.get(li.group(1)) or "", group, desc])
+    if len(out) < 150:
+        raise SystemExit(f"the stats page gave only {len(out)} stats: its layout changed?")
+    return out
 
 
 def steps(rows, with_stats=False):
@@ -60,9 +88,12 @@ def main():
     os.makedirs(cache, exist_ok=True)
     data_path = os.path.join(cache, "enchant_data.json")
     version_path = os.path.join(cache, "enchant_version.json")
+    stats_path = os.path.join(cache, "stats.html")
     if "--fetch" in sys.argv or not os.path.exists(data_path):
         fetch(SOURCE, data_path)
         fetch(VERSION, version_path)
+    if "--fetch" in sys.argv or not os.path.exists(stats_path):
+        fetch(STATS, stats_path)
     d = json.load(open(data_path, encoding="utf-8"))
     version = ""
     if os.path.exists(version_path):
@@ -92,6 +123,7 @@ def main():
         "amplify": {k: steps(v, True) for k, v in d["exceed"].items()},
         "effects": effects,
         "items": items,
+        "glossary": glossary(open(stats_path, encoding="utf-8").read()),
     }
     text = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
     with open(os.path.join(PLUGIN, "data.js"), "w", encoding="utf-8") as f:
@@ -99,7 +131,8 @@ def main():
         f.write("// read from AION 2's files by Aion2Data (aion2data.com). Game data: NCSOFT.\n")
         f.write("globalThis.ARMORY_DATA = " + text + ";\n")
     print(f"data.js: {len(items)} items, {len(out['enchant'])} enhance tables, "
-          f"{len(out['amplify'])} amplify tables, game version {version or '?'}, {len(text) // 1024} KB")
+          f"{len(out['amplify'])} amplify tables, {len(out['glossary'])} stats explained, "
+          f"game version {version or '?'}, {len(text) // 1024} KB")
 
 
 if __name__ == "__main__":

@@ -226,7 +226,29 @@ test("the history keeps what changed", () => {
   h = C.addHistory(h, C.historyEntry(snap(300, 14)));
   assert.equal(h.length, 2);
   assert.deepEqual(C.historyChanges(h[0], h[1]), ["Nuakum Helm +13 → +14"]);
-  const rate = C.cpPerGearScore([{ cp: 100, gs: 10 }, { cp: 160, gs: 11 }, { cp: 280, gs: 13 }]);
-  assert.deepEqual(rate, { rate: 60, own: true, samples: 2 });
+  // Small gear score steps say little: rises of 5 or more, three of them.
+  assert.deepEqual(C.cpPerGearScore([{ cp: 100, gs: 10 }, { cp: 3000, gs: 11 }, { cp: 3400, gs: 13 }]),
+    { rate: C.CP_PER_GS_SAMPLE, own: false, samples: 0 });
+  const rising = [{ cp: 1000, gs: 100 }, { cp: 1300, gs: 105 }, { cp: 1310, gs: 106 }, { cp: 1700, gs: 110 }, { cp: 2400, gs: 120 }];
+  assert.deepEqual(C.cpPerGearScore(rising), { rate: 70, own: true, samples: 3 });
   assert.equal(C.cpPerGearScore([]).rate, C.CP_PER_GS_SAMPLE);
+});
+
+test("what the stats do: the game's own descriptions", () => {
+  assert.ok(D.glossary.length > 150);
+  assert.equal(C.statName("Combat Speed +7.4%"), "Combat Speed");
+  assert.equal(C.statName("Cooldown -4.8%"), "Cooldown");
+  assert.match(C.explainStat("Double Chance +3.3%").desc, /Double Resist/);
+  assert.equal(C.explainStat("anything", "AmplifyWeaponDamage").name, "Weapon Damage Boost");
+  const list = C.characterStats({
+    stats: { Wisdom: { name: "Wisdom [Lumiel]", value: 33, effects: ["MP Cost -3.3%", "Double Chance +3.3%"] } },
+    items: [{ slot: "MainHand", main: [{ id: "WeaponFixingDamage", name: "Attack" }], sub: [{ id: "CombatSpeed", name: "Combat Speed" }], stones: [{ name: "Critical Hit", value: "+7" }] }],
+    titles: { list: [{ stats: ["Block +10"], equipStats: ["HP +900"] }] },
+    boards: [{ nodes: [{ type: "Stat", open: true, effects: ["Critical Hit +5"] }, { type: "Stat", open: false, effects: ["Evasion +5"] }] }],
+  });
+  const of = (n) => list.find((x) => x.name === n);
+  assert.deepEqual(of("Double Chance").from, ["Wisdom [Lumiel]"]);
+  assert.deepEqual(of("Critical Hit").from.sort(), ["Daevanion", "Manastones"]);
+  assert.equal(of("Evasion"), undefined);
+  assert.ok(list.every((x) => x.entry));
 });

@@ -227,19 +227,6 @@
           : el("span", { class: "gold-t" }, `Sum ${fmt(g.total)}; the game says ${fmt(snap.profile.gs)} (${plusMinus(snap.profile.gs - g.total)}, a part not read)`)),
       el("p", { class: "note" }, "Each worn piece (Arcana too) counts its item level and enhance level; every Amplify level 5; Manastones 1 to 4 by grade (Common, Rare, Legend, Unique); Theostones 3 (Rare) or 5 (Legend); every Daevanion point spent 1. Titles don't count."));
 
-    const stats = snap.stats || {};
-    const refDeity = reference?.deity || {};
-    const wheel = deityWheel(stats, refDeity);
-    const statList = el("div", { class: "kv" });
-    for (const k of [...BASE, ...DEITY]) {
-      const s = stats[k];
-      if (!s) continue;
-      statList.append(el("span", {}, el("span", {}, s.name), s.effects?.length ? el("span", { class: "sub" }, ` · ${s.effects.join(", ")}`) : null), el("b", {}, fmt(s.value)));
-    }
-    const statBox = el("div", { class: "box" }, el("h3", {}, "Stats"), wheel,
-      Object.keys(refDeity).length ? el("p", { class: "note" }, `Gold: the reference (${reference.name || "build"}) where it differs.`) : null,
-      statList);
-
     const boardsBox = el("div", { class: "box boards" }, el("h3", {}, "Daevanion boards"));
     const refBoards = new Map((reference?.boards || []).map((b) => [b.name, b]));
     for (const b of snap.boards || []) {
@@ -267,7 +254,58 @@
         snap.wing ? [el("span", { class: `g-${snap.wing.grade}` }, "Wings: ", el("span", { class: "gname" }, snap.wing.name)), el("b", {}, `+${snap.wing.enchant}`)] : null,
         (snap.rankings || []).map((r) => [el("span", {}, r.name), el("b", {}, `#${fmt(r.rank)} ${r.grade}`)])));
 
-    pane.append(el("div", { class: "cols" }, gsBox, statBox, boardsBox, titleBox, other));
+    pane.append(el("div", { class: "cols" }, gsBox, boardsBox, titleBox, other));
+  }
+
+  // ---- stats and what they do ---------------------------------------------
+  let allStats = false;
+  function renderStats() {
+    const pane = $('[data-pane="stats"]');
+    pane.textContent = "";
+    if (!snap) { pane.append(el("p", { class: "empty" }, "Nothing read yet.")); return; }
+    const stats = snap.stats || {};
+    const refDeity = reference?.deity || {};
+    const statList = el("div", { class: "kv" });
+    for (const k of [...BASE, ...DEITY]) {
+      const s = stats[k];
+      if (!s) continue;
+      statList.append(el("span", {}, el("span", {}, s.name), s.effects?.length ? el("span", { class: "sub" }, ` · ${s.effects.join(", ")}`) : null), el("b", {}, fmt(s.value)));
+    }
+    pane.append(el("div", { class: "cols" },
+      el("div", { class: "box" }, el("h3", {}, "Base and deity stats"), deityWheel(stats, refDeity),
+        Object.keys(refDeity).length ? el("p", { class: "note" }, `Gold: the reference (${reference.name || "build"}) where it differs.`) : null),
+      el("div", { class: "box" }, el("h3", {}, "What each point gives"), statList,
+        el("p", { class: "note" }, "Each point of a base or deity stat gives 0.1 % of what it names, the same for every point."))));
+
+    // Every stat the character has, in the game's own words.
+    const mine = C.characterStats(snap);
+    const list = allStats
+      ? (globalThis.ARMORY_DATA.glossary || []).map(([name, key]) => ({ name, entry: C.explainStat(name, key), from: mine.find((m) => m.name === name)?.from || [] }))
+        .filter((x) => x.entry)
+        .sort((a, b) => (C.STAT_GROUPS.indexOf(a.entry.group) + 100) % 100 - (C.STAT_GROUPS.indexOf(b.entry.group) + 100) % 100)
+      : mine;
+    pane.append(el("div", { class: "refhead" }, el("h3", { style: { margin: "14px 0 6px" } }, allStats ? "What every stat does" : "What your stats do"),
+      el("span", { class: "grow" }),
+      el("label", { class: "muted" }, el("input", { type: "checkbox", checked: allStats, onchange: (e) => { allStats = e.target.checked; renderStats(); } }), " every stat the game has")));
+    pane.append(el("div", { class: "box", style: { marginBottom: "8px" } }, el("h3", {}, "In short"),
+      el("ul", { class: "short" },
+        el("li", {}, el("b", {}, "Bonus or increase: "), "a Bonus adds a flat amount (Attack Bonus +30); an increase multiplies the total (Attack increase +5.6 %)."),
+        el("li", {}, el("b", {}, "Chance, Resist, Penetration: "), "your Perfect and Double Chance are lowered by the target's Perfect and Double Resist; a target's Regeneration and Endurance by your Regeneration and Endurance Penetration; Block by Block Penetration."),
+        el("li", {}, el("b", {}, "Perfect: "), "a hit that deals more damage, from the weapon's Max Attack. ", el("b", {}, "Double: "), "a hit with greatly increased damage, from the final damage. ",
+          el("b", {}, "Multi-hit: "), "up to 4 more hits, by Attack. ", el("b", {}, "Endurance: "), "halves the damage taken. ", el("b", {}, "Regeneration: "), "heals a part of the damage."),
+        el("li", {}, el("b", {}, "Boost and Tolerance: "), "a Damage Boost (also Critical, Weapon, PvE, Boss, PvP) is weakened by the target's Tolerance of the same kind; Attack and Defense against monsters, bosses or characters count only against those."),
+        el("li", {}, el("b", {}, "Caps the game states: "), "Critical Hit rate 50 % (less the target's Critical Hit Resist), Evasion 30 %, Cooldown and MP cost reduction 60 %, Move Speed 150 %, Defense never below 0."))));
+    pane.append(el("p", { class: "note" }, "The game's own descriptions of its stats (its files, as Aion2Data lists them), with where yours come from."));
+    let group = null;
+    const box = el("div", { class: "gloss" });
+    for (const x of list) {
+      const g = x.entry?.group || "Other";
+      if (g !== group) { group = g; box.append(el("div", { class: "ghead" }, g === "Other stats" ? "Base and deity stats, bonuses and increases" : g)); }
+      box.append(el("div", { class: "gitem" },
+        el("div", { class: "gname2" }, x.name, x.from.length ? el("span", { class: "sub" }, ` · from ${x.from.join(", ")}`) : null),
+        el("div", { class: "gdesc" }, x.entry ? x.entry.desc : "The game describes it nowhere.")));
+    }
+    pane.append(box);
   }
 
   /** The ten deity stats round a circle, the six base stats inside, every
@@ -745,7 +783,7 @@
   }
 
   // ---- tabs and rendering -------------------------------------------------
-  const RENDER = { overview: renderOverview, gear: renderGear, skills: renderSkills, reference: renderReference, goals: renderGoals, history: renderHistory };
+  const RENDER = { overview: renderOverview, stats: renderStats, gear: renderGear, skills: renderSkills, reference: renderReference, goals: renderGoals, history: renderHistory };
   function showTab(tab) {
     if (!RENDER[tab]) tab = "overview";
     settings.tab = tab;

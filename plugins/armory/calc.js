@@ -292,20 +292,28 @@
 
   // ---- combat power (an estimate) ----------------------------------------
   /** Combat power gained per gear score point: from the character's own
-   *  history where both changed (the median), else from 24 EU characters
-   *  of all strengths (2026-10-28: about 52 a point). */
+   *  history once it has three rises of 5 points or more (the median of
+   *  their combat power a point; combat power rises with skills, titles and
+   *  stigmas too, so small steps say little), else from 24 EU characters of
+   *  all strengths (2026-10-28: about 52 a point). Kept within 20 and 150. */
   const CP_PER_GS_SAMPLE = 52;
+  const MIN_GS_STEP = 5;
   function cpPerGearScore(history) {
     const rates = [];
     const h = (history || []).filter((e) => e && Number.isFinite(e.cp) && Number.isFinite(e.gs));
+    let from = h[0];
     for (let i = 1; i < h.length; i++) {
-      const dgs = h[i].gs - h[i - 1].gs;
-      const dcp = h[i].cp - h[i - 1].cp;
-      if (dgs > 0 && dcp > 0) rates.push(dcp / dgs);
+      const dgs = h[i].gs - from.gs;
+      if (dgs < 0) { from = h[i]; continue; }
+      if (dgs < MIN_GS_STEP) continue;
+      const dcp = h[i].cp - from.cp;
+      if (dcp > 0) rates.push(dcp / dgs);
+      from = h[i];
     }
-    if (rates.length < 2) return { rate: CP_PER_GS_SAMPLE, own: false, samples: rates.length };
+    if (rates.length < 3) return { rate: CP_PER_GS_SAMPLE, own: false, samples: rates.length };
     rates.sort((a, b) => a - b);
-    return { rate: rates[Math.floor(rates.length / 2)], own: true, samples: rates.length };
+    const rate = Math.min(150, Math.max(20, rates[Math.floor(rates.length / 2)]));
+    return { rate, own: true, samples: rates.length };
   }
 
   // ---- skills -----------------------------------------------------------
@@ -609,6 +617,60 @@
     return out;
   }
 
+  // ---- what the stats do ----------------------------------------------------
+  // The game's own descriptions of its stats (data.js: [name, key, group,
+  // description]); the key is the one NC's pages give an item's stats.
+  let GLOSS = null;
+  function glossIndex() {
+    if (!GLOSS) {
+      GLOSS = { byName: new Map(), byKey: new Map() };
+      for (const [name, key, group, text] of D.glossary || []) {
+        // Some descriptions begin with the stat's own name: once is enough.
+        const lines = String(text || "").split("\n");
+        const desc = (lines[0].trim() === name ? lines.slice(1) : lines).join("\n");
+        const e = { name, key, group, desc };
+        if (!GLOSS.byName.has(name.toLowerCase())) GLOSS.byName.set(name.toLowerCase(), e);
+        if (key && !GLOSS.byKey.has(key)) GLOSS.byKey.set(key, e);
+      }
+    }
+    return GLOSS;
+  }
+  /** "Combat Speed +7.4%", "MP +30", "Cooldown -4.8%" → the stat's name. */
+  const statName = (text) => String(text || "").replace(/\s*[+\-−]\s*[\d.,]+%?\s*$/, "").replace(/:\s*$/, "").trim();
+  /** What a stat does, in the game's words: by its key, else its name. */
+  function explainStat(name, key) {
+    const g = glossIndex();
+    return (key && g.byKey.get(key)) || g.byName.get(statName(name).toLowerCase()) || null;
+  }
+  /** The groups of the character window, in its order. */
+  const STAT_GROUPS = ["Main Ability", "Other stats", "Combat", "Hit Detection", "PvE", "PvP", "Status Effects", "Genus", "Elements", "Resources", "Special"];
+  /** Every stat the character has, explained, with where it comes from:
+   *  [{ name, entry, from: ["Time [Siel]", "Gear", ...] }], by group. */
+  function characterStats(snap) {
+    const found = new Map();
+    const add = (name, key, from) => {
+      const e = explainStat(name, key);
+      const n = e ? e.name : statName(name);
+      if (!n) return;
+      if (!found.has(n)) found.set(n, { name: n, entry: e, from: new Set() });
+      found.get(n).from.add(from);
+    };
+    for (const s of Object.values(snap?.stats || {})) {
+      add(s.name, null, "Your stats");
+      for (const e of s.effects || []) add(e, null, s.name);
+    }
+    for (const it of snap?.items || []) {
+      for (const m of it.main || []) add(m.name, m.id, it.arcana ? "Arcana" : "Gear");
+      for (const m of it.sub || []) add(m.name, m.id, it.arcana ? "Arcana" : "Gear");
+      for (const m of it.stones || []) add(m.name, null, "Manastones");
+    }
+    for (const t of snap?.titles?.list || []) for (const d of [...(t.stats || []), ...(t.equipStats || [])]) add(d, null, "Titles");
+    for (const b of snap?.boards || []) for (const n of b.nodes || []) if (n.type === "Stat" && n.open) for (const e of n.effects || []) add(e, null, "Daevanion");
+    const order = (g) => { const i = STAT_GROUPS.indexOf(g); return i < 0 ? 99 : i; };
+    return [...found.values()].map((x) => ({ ...x, from: [...x.from] }))
+      .sort((a, b) => order(a.entry?.group) - order(b.entry?.group) || a.name.localeCompare(b.name));
+  }
+
   // ---- numbers ------------------------------------------------------------
   const fmt = (v, digits = 0) => (v == null || !Number.isFinite(v) ? "—"
     : Number(v).toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: 0 }));
@@ -628,5 +690,6 @@
     amplifyTable, amplifyTop, material, materialPrice, kinahWorth, planGearScore, gearRoom, cpPerGearScore,
     skillSources, slotsFor, splitLevel, pickByIcon, tokens, readQuestlogPage, mergeReference, referenceGearScore,
     compareGear, compareSkills, historyEntry, addHistory, historyChanges, fmt, short,
+    STAT_GROUPS, statName, explainStat, characterStats,
   });
 })();
