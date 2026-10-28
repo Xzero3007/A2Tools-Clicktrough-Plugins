@@ -55,9 +55,13 @@ follows you over the game.
   the chips above the map and the search too; the Hidden Cubes keep their
   purple cube. Names show once zoomed in (merchants, quest givers and
   passages closer still), the most telling first and none over another.
+  0.11.1: the symbols 40 % larger, in the chips and the search 20 px.
 - **Click a mark** (0.11.0): that thing everywhere on the map, with a gold
   ring each and the way to the nearest (as the search shows it); the map
-  stays where it is. A click on one with a gold ring turns it off again.
+  stays where it is. A click on one with a gold ring turns it off again. A
+  **field boss** (Bodyguard Teegant, Divine Ansas ...) has one place in the
+  game, and the bar says so: "... is a field boss: the game has this one
+  place for it" (0.11.1).
 - **Monsters**: where every monster stands, as the game has them (small and
   grey; its name and level when the pointer is on it; about 17,000 in
   Verteron), and the monsters around you right now. The pet monsters the
@@ -219,7 +223,13 @@ explored them, so Altgard had dark holes (Black Claw Village, Immortal Isle
 and more). Verteron keeps SkeeveAN's sharper picture (twice the pixels) where
 it has one. Each picture covers a fixed rectangle of the world (the client's
 map bounds, as the map sites use them), one pixel 99.6 cm on every map: that
-is the calibration. The Kibelisks of both sources agree with it (60 and 61
+is the calibration. No stripes where the pictures' tiles meet (0.11.1):
+SkeeveAN's Verteron tiles have another place's pixels in their right 8
+columns (a pink band in the grass), so the game's picture shows there and
+SkeeveAN's is blended in from every tile edge; some of the game's own tiles
+(Altgard, Ishalgen, the Abyss, Poeta) have a one-pixel edge line of another
+colour, mended; and a tile made larger is resized with its neighbours
+around it. The Kibelisks of both sources agree with it (60 and 61
 pairs, 6 and 8 m apart on average); 99 % of the spawn points of Verteron and
 the Abyss lie on land with it, and the Hidden Cube spots on places the game
 may put a cube (7 m apart on average). SkeeveAN's own fit was 2 % too small,

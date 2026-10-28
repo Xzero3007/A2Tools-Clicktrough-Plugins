@@ -85,6 +85,7 @@ import shutil
 import subprocess
 import sys
 
+import numpy as np
 from PIL import Image
 
 args = sys.argv[1:]
@@ -206,6 +207,34 @@ def skeeve_tile(jpg, mask, size, out):
     im.save(out, "WEBP", quality=QUALITY, method=6)
 
 
+# SkeeveAN's Verteron tiles (2048 px) have another place's pixels in their
+# right 8 columns (a pink band in the grass): on the map, a stripe at every
+# tile's edge. The game's picture shows there instead; and where two of its
+# tiles meet they don't quite match, so at every edge the game's picture
+# (whole, it has no seams) shows, SkeeveAN's blended in over 12 pixels.
+SKEEVE_BAD_RIGHT = 8
+SKEEVE_BLEND = 12
+
+
+def fix_edges(im):
+    """Some of the game's own tiles (Altgard's, Ishalgen's, the Abyss's) have
+    an edge line of another colour, a pixel wide: on the map, a thin line at
+    every tile's edge. Such a line is made like the one next to it. Returns
+    the picture, and whether it changed."""
+    a = np.asarray(im.convert("RGB")).astype(np.int16)
+    changed = False
+    for edge, inner, inner2 in (((slice(None), 0), (slice(None), 1), (slice(None), 2)),
+                                ((slice(None), -1), (slice(None), -2), (slice(None), -3)),
+                                ((0, slice(None)), (1, slice(None)), (2, slice(None))),
+                                ((-1, slice(None)), (-2, slice(None)), (-3, slice(None)))):
+        off = np.abs(a[edge] - a[inner]).mean()
+        usual = np.abs(a[inner] - a[inner2]).mean()
+        if off > 3 * usual + 2:
+            a[edge] = a[inner]
+            changed = True
+    return (Image.fromarray(a.astype(np.uint8)) if changed else im), changed
+
+
 def game_map(key, skeeve=None):
     """A map from the game's own picture (whole, the sea painted): its tiles,
     with SkeeveAN's on top where they are sharper, and its calibration from
@@ -224,31 +253,63 @@ def game_map(key, skeeve=None):
     sharper = skeeve and skeeve["grid"] == grid and skeeve["tile"] > tex
     size = skeeve["tile"] if sharper else tex
     sk_folder = os.path.join(ASSETS, "maps", key)
-    if not NO_TILES:
+    write = not NO_TILES or key in TILES_FOR
+    if write:
         os.makedirs(os.path.join(tiles_out, key, "lo"), exist_ok=True)
     names = []
     for (c, r), path in sorted(files.items()):
-        n = f"{c}_{r}"
-        names.append(n)
+        names.append(f"{c}_{r}")
         note(path, f"game:UI/Map/WorldMap/{name}/Res/{os.path.basename(path)}")
-        jpg, mask = os.path.join(sk_folder, f"{n}.jpg"), os.path.join(sk_folder, f"{n}_a.png")
-        over = sharper and os.path.exists(jpg) and os.path.exists(mask)
-        if over:
-            note(jpg, f"maps/{key}/{n}.jpg")
-            note(mask, f"maps/{key}/{n}_a.png")
-        if NO_TILES:
-            continue
-        out = os.path.join(tiles_out, key, f"{n}.webp")
-        im = Image.open(path).convert("RGB")
-        if size == tex:
-            shutil.copyfile(path, out)
-        else:
-            im = im.resize((size, size), Image.LANCZOS)
-            if over:
-                im.paste(Image.open(jpg).convert("RGB").resize((size, size), Image.LANCZOS), (0, 0),
-                         Image.open(mask).convert("L").resize((size, size), Image.LANCZOS))
-            im.save(out, "WEBP", quality=QUALITY, method=6)
-        im.resize((LO, LO), Image.LANCZOS).save(os.path.join(tiles_out, key, "lo", f"{n}.webp"), "WEBP", quality=QUALITY, method=6)
+    if not write:
+        for n in names:
+            jpg, mask = os.path.join(sk_folder, f"{n}.jpg"), os.path.join(sk_folder, f"{n}_a.png")
+            if sharper and os.path.exists(jpg) and os.path.exists(mask):
+                note(jpg, f"maps/{key}/{n}.jpg")
+                note(mask, f"maps/{key}/{n}_a.png")
+    else:
+        # The whole picture, its tiles' edge lines mended: a tile made larger
+        # is resized with a margin of its neighbours, so no edge shows where
+        # two tiles meet.
+        whole = Image.new("RGB", (grid * tex, grid * tex))
+        mended = {}
+        for (c, r), path in files.items():
+            im, mended[(c, r)] = fix_edges(Image.open(path))
+            whole.paste(im.convert("RGB"), (c * tex, r * tex))
+        f = size // tex
+        margin = 16
+        for (c, r), path in sorted(files.items()):
+            n = f"{c}_{r}"
+            jpg, mask = os.path.join(sk_folder, f"{n}.jpg"), os.path.join(sk_folder, f"{n}_a.png")
+            over = sharper and os.path.exists(jpg) and os.path.exists(mask)
+            out = os.path.join(tiles_out, key, f"{n}.webp")
+            if size == tex:
+                im = whole.crop((c * tex, r * tex, (c + 1) * tex, (r + 1) * tex))
+                if mended[(c, r)]:
+                    im.save(out, "WEBP", quality=90, method=6)
+                else:
+                    shutil.copyfile(path, out)
+            else:
+                left, top = max(0, c * tex - margin), max(0, r * tex - margin)
+                right, bottom = min(grid * tex, (c + 1) * tex + margin), min(grid * tex, (r + 1) * tex + margin)
+                big = whole.crop((left, top, right, bottom)).resize(((right - left) * f, (bottom - top) * f), Image.LANCZOS)
+                dx, dy = (c * tex - left) * f, (r * tex - top) * f
+                im = big.crop((dx, dy, dx + size, dy + size))
+                if over:
+                    note(jpg, f"maps/{key}/{n}.jpg")
+                    note(mask, f"maps/{key}/{n}_a.png")
+                    alpha = np.asarray(Image.open(mask).convert("L").resize((size, size), Image.LANCZOS)).astype(np.float32)
+                    k = size / Image.open(jpg).size[0]
+                    bad = round(SKEEVE_BAD_RIGHT * k)
+                    ramp = np.linspace(0, 1, round(SKEEVE_BLEND * k) + 2)[1:-1]
+                    alpha[:, size - bad:] = 0
+                    alpha[:, size - bad - len(ramp):size - bad] *= ramp[::-1]
+                    alpha[:, :len(ramp)] *= ramp
+                    alpha[:len(ramp), :] *= ramp[:, None]
+                    alpha[-len(ramp):, :] *= ramp[::-1, None]
+                    im.paste(Image.open(jpg).convert("RGB").resize((size, size), Image.LANCZOS), (0, 0),
+                             Image.fromarray(alpha.astype(np.uint8)))
+                im.save(out, "WEBP", quality=QUALITY, method=6)
+            im.resize((LO, LO), Image.LANCZOS).save(os.path.join(tiles_out, key, "lo", f"{n}.webp"), "WEBP", quality=QUALITY, method=6)
     scale = grid * size / (x1 - x0)
     calibration[key] = {"bounds": [x0, y0, x1, y1], "from": "the game's map bounds"}
     return {"title": title, "tile": size, "grid": grid, "scale": scale, "ox": -x0 * scale, "oy": -y0 * scale,

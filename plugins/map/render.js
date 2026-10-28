@@ -241,11 +241,11 @@
           ctx.restore();
           continue;
         }
-        const pad = (m.r || 4) * markScale * 2.2 + 12;
+        const pad = (m.r || 4) * markScale * 3.1 + 12;
         if (sx < -pad || sy < -pad || sx > w + pad || sy > h + pad) continue;
         const shown = drawMark(m, sx, sy);
         // How near the pointer must be: the symbol's size, or the shape's.
-        const reach = shown === "icon" ? (m.r || 4) * 2.1 * shrink * markScale + 2 : (m.r || 4) * markScale + 3;
+        const reach = shown === "icon" ? (m.r || 4) * (ICON_SIZE / 2) * shrink * markScale + 2 : (m.r || 4) * markScale + 3;
         if (m.label && shown !== false) drawn.push([sx, sy, reach, m.label, m]);
       }
       drawNames();
@@ -387,6 +387,8 @@
     }
 
     let shrink = 1;
+    // A symbol's size, in times its mark's radius (0.11.1: 40 % larger).
+    const ICON_SIZE = 5.9;
     // How large the marks are drawn (the player's setting: 1 = as designed).
     let markScale = 1;
     function drawMark(m, sx, sy) {
@@ -395,7 +397,7 @@
       // the shape it replaces, a white ring when it is there right now.
       const img = m.icon && m.kind !== "teleport" ? icon(m.icon, redraw) : null;
       if (img) {
-        const size = r * 4.2;
+        const size = r * ICON_SIZE;
         if (m.live) circle(sx, sy, size * 0.5, "rgba(10,12,16,0.55)", "#ffffff", 2);
         ctx.drawImage(img, sx - size / 2, sy - size / 2, size, size);
         if (m.hit) circle(sx, sy, Math.max(size * 0.5 + 2, 7), null, GOLD, 2.5);

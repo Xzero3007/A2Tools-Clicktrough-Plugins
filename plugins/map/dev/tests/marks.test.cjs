@@ -575,3 +575,15 @@ test("the search's counts per map are the focus's points, counted ahead", () => 
   assert.ok(focuses.length > 300);
   for (const f of focuses) assert.deepEqual(M.focusMaps(f), M.focusMapsByPoints(f), JSON.stringify(f).slice(0, 100));
 });
+
+test("a field boss's one place is all the game has: the bar says so", () => {
+  // Bodyguard Teegant and Divine Ansas: their pets' souls drop from them alone.
+  for (const [npc, pet] of [["2100079", "1156"], ["2100718", "1206"]]) {
+    assert.ok(Object.values(D.bosses).flat().some(([id]) => String(id) === npc), npc);
+    assert.equal(M.focusPoints({ type: "npc", ids: [npc], label: "x" }, "verteron").length, 1);
+    assert.equal(M.focusPoints({ type: "pet", ids: [pet], label: "x" }, "verteron").length, 1);
+    assert.equal(globalThis.MAP_AREAS[npc].verteron[0], 1, "the game's own count");
+  }
+  const src = fs.readFileSync(path.join(dir, "plugin.js"), "utf8");
+  assert.match(src, /is a field boss: the game has this one place for it\./);
+});

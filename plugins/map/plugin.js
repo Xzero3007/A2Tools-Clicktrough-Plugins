@@ -345,7 +345,30 @@
       note.textContent = `The game has ${area.game} spawn point${area.game === 1 ? "" : "s"} here${where}; `
         + `the map knows ${area.known}${area.known === 1 && area.game > 1 ? " (the middle one)" : ""}. `
         + "It adds each one your meter sees.";
+      return;
     }
+    // A field boss: one place in the game is all there is (Bodyguard
+    // Teegant, Divine Ansas: their souls drop from them alone).
+    if (isBossFocus(f, key)) {
+      const n = M.focusPoints(f, key).length;
+      note.hidden = false;
+      note.textContent = n === 1
+        ? `${f.label} is a field boss: the game has this one place for it.`
+        : `${f.label} is a field boss: the game has ${n} places for it here.`;
+    }
+  }
+  // Whether what is shown on map `key` is field bosses only (a boss, a
+  // monster that is one, or a pet whose souls drop only from bosses here).
+  const bossIds = new Set(Object.values(D.bosses || {}).flat().map(([npc]) => String(npc)));
+  function isBossFocus(f, key) {
+    const ids = (f.ids || []).map(String);
+    let npcs = [];
+    if (f.type === "boss" || f.type === "npc") npcs = ids;
+    else if (f.type === "pet") {
+      npcs = Object.keys(D.npcPets).filter((npc) => ids.includes(String(D.npcPets[npc]))
+        && (D.spawns[key]?.[npc] || D.monsters?.[key]?.[npc]));
+    }
+    return npcs.length > 0 && npcs.every((npc) => bossIds.has(npc)) && M.focusPoints(f, key).length > 0;
   }
   $(".focusClear").addEventListener("click", () => setFocus(null));
 
