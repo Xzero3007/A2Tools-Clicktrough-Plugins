@@ -442,3 +442,33 @@ test("the way to a target gear score with pieces changed: cheaper where a change
   // Nothing to change: the same as enhancing alone.
   assert.equal(C.planWithSwaps(snap, 100, 120, null, []).swaps.length, 0);
 });
+
+test("pieces worn in pairs are put against the reference's item to item", () => {
+  const asc = idOf("Ascension Bracelet"), lib = idOf("Liberator Bracelet");
+  const snap = { items: [{ slot: "Bracelet1", id: lib, name: "Liberator Bracelet" }, { slot: "Bracelet2", id: asc, name: "Ascension Bracelet" }] };
+  const ref = { gear: [{ slot: "Bracelet1", id: asc, name: "Ascension Bracelet" }, { slot: "Bracelet2", id: lib, name: "Liberator Bracelet" }],
+    soul: { Bracelet1: [{ name: "Time [Siel]" }] } };
+  assert.deepEqual(C.pairedSlots(snap, ref), { Bracelet1: "Bracelet2", Bracelet2: "Bracelet1" });
+  const rows = C.compareGear(snap, ref);
+  assert.deepEqual(rows.map((r) => [r.slot, r.mine.name, r.ref.name]), [["Bracelet1", "Liberator Bracelet", "Liberator Bracelet"], ["Bracelet2", "Ascension Bracelet", "Ascension Bracelet"]]);
+  assert.deepEqual(Object.keys(C.alignReference(snap, ref).soul), ["Bracelet2"], "its soul binding goes with it");
+  // Already matched, or nothing to gain: as it was.
+  assert.deepEqual(C.pairedSlots({ items: [{ slot: "Bracelet1", id: asc, name: "Ascension Bracelet" }] }, ref), {});
+});
+
+test("item icons: the game's own name where Aion2Data's list names another", () => {
+  const helm = idOf("Nuakum Helm", 86);
+  assert.match(C.itemIcon(helm), /^Icon_Equip_AR_/);
+  assert.equal(C.itemIcon(idOf("Enraged Kromede Longbow", 86)), D.items[String(idOf("Enraged Kromede Longbow", 86))][4]);
+});
+
+test("Goals: slots left out are neither enhanced nor changed", () => {
+  const kromede = idOf("Enraged Kromede Longbow", 86);
+  const il = D.items[String(kromede)][3];
+  const snap = { items: [{ slot: "MainHand", id: kromede, name: "Bow", il, grade: "Unique", enchant: 10, amplify: 0, maxEnchant: 15, maxAmplify: 5 },
+    { slot: "Belt", id: 1, name: "Old belt", il: 13, grade: "Rare", enchant: 0, amplify: 0, maxEnchant: 0 }] };
+  const plan = C.planWithSwaps(snap, 100, 103, null, [], new Set(["MainHand"]));
+  assert.equal(plan.pieces.length, 0);
+  assert.equal(plan.reached, false);
+  assert.ok(C.planWithSwaps(snap, 100, 103, null, [], null).reached);
+});

@@ -61,21 +61,26 @@ value written out (no hovering), and what to do next.
   haven't and what you took that it leaves. **Edit** changes a slot (any item
   by name, its levels); **Code** shows the reference as text, to keep or
   move.
-- **Upgrades** (Reference tab): for every slot what the reference's piece at
-  its levels gives over yours in gear score (item level, enhance level, 5 an
-  Amplify level), the enhancing it takes (from +0 for another item, from
-  your levels for the same one; Kinah on average and 9 times in 10, the
-  materials), Kinah a point and about how much combat power; for another
-  item also what it is worth at +0 and from which level it matches yours.
-  All of them best value first, with the total. **Compare** (in each row):
-  your piece, the reference's and any item found by name, each at the levels
-  you set (enhance, then Amplify from the enhance top on), with its gear
-  score, the difference to what you have and the enhancing it takes. The
-  reference's piece at the levels you set counts in the upgrades and in
-  Goals; the levels and the items compared are kept per character.
+- **Upgrade calculator** (Reference tab): per slot the upgrade to its
+  target (the reference's piece at the levels you set, or what you pick in
+  Compare): the gear score it gives over yours (item level, enhance level, 5
+  an Amplify level), for another item what it is worth at +0 and from which
+  level it matches yours, the enhancing it takes (from +0 for another item,
+  from your levels for the same one; Kinah on average and 9 times in 10),
+  Kinah a point and about how much combat power; best value first. A tick
+  per row counts it or leaves it out: the ticked ones are summed (gear score
+  from → to, Kinah, materials, combat power), and Goals leaves the unticked
+  slots out. Pieces worn in pairs (earrings, rings, bracelets, runes) are put
+  against the reference's item to item.
+- **Compare** (in each row of the gear table): your piece, the reference's
+  and any item found by name, each at the levels you set (enhance, then
+  Amplify from the enhance top on), with its gear score, the difference to
+  what you have and the enhancing it takes; **Use** makes a row the slot's
+  target (in the calculator and in Goals). Kept per character.
 - **Goals**: a target gear score (or combat power, by an estimate), and the
   cheapest way there: enhance and Amplify steps on the gear you wear, and
-  (when counted) changing pieces to the reference's or to those you compare,
+  (when counted) changing pieces to each slot's target (the reference's, or
+  what you picked in Compare), the slots unticked in the calculator left out,
   whichever is cheaper (the changes first, then the enhancing; "enhancing
   only" beside it), each with its Kinah on average and 9 times in 10, and
   the materials: Enhance Stones, Amplify Stones (in Kinah at your server's

@@ -57,9 +57,12 @@
    *  skills: { skill name: level }, compare: { slot: [{ id, enchant,
    *  amplify }] } (items you compare with your piece), levels: { slot:
    *  { enchant, amplify } } (the levels you aim at on the reference's piece),
-   *  mineAt: { slot: { enchant, amplify } } (your piece enhanced on) }. Kept apart from the references, so
+   *  mineAt: { slot: { enchant, amplify } } (your piece enhanced on), pick:
+   *  { slot: { kind: "mine" | "cand", id } } (the target of a slot when not
+   *  the reference's piece), skip: { slot: true } (left out of the
+   *  calculator and Goals) }. Kept apart from the references, so
    *  another reference leaves them as they are. */
-  let targets = { soul: {}, skills: {}, compare: {}, levels: {}, mineAt: {} };
+  let targets = { soul: {}, skills: {}, compare: {}, levels: {}, mineAt: {}, pick: {}, skip: {} };
   let prices = null; // Map item id -> lowest market price
   let pricesServer = null;
   let loading = false;
@@ -75,7 +78,8 @@
 
   async function loadTargets(key) {
     const t = key ? await a2.storage.get(targetKey(key)).catch(() => null) : null;
-    targets = { soul: t?.soul || {}, skills: t?.skills || {}, compare: t?.compare || {}, levels: t?.levels || {}, mineAt: t?.mineAt || {} };
+    targets = { soul: t?.soul || {}, skills: t?.skills || {}, compare: t?.compare || {}, levels: t?.levels || {}, mineAt: t?.mineAt || {},
+      pick: t?.pick || {}, skip: t?.skip || {} };
   }
   const targetTimers = {};
   function saveTargets() {
@@ -128,6 +132,20 @@
     }
     return images.get(url);
   }
+  /** The character's portrait from NC's portrait server, or why not. */
+  const portraits = new Map();
+  function portraitOf(url) {
+    if (!portraits.has(url)) {
+      const get = a2.web && typeof a2.web.image === "function" ? a2.web.image(url) : Promise.reject(new Error("the meter can't show pictures"));
+      portraits.set(url, Promise.resolve(get).then((data) => (data ? { data } : { error: "an empty answer" }))
+        .catch((e) => ({ error: String(e?.message || e || "unknown").slice(0, 90) })));
+    }
+    return portraits.get(url);
+  }
+  /** A piece's icon: NC's own picture of a worn piece, else the game's icon
+   *  of the item. */
+  const iconOf = (x) => (/^https:\/\//.test(x?.icon || "") ? x.icon : (x?.id && C.itemIcon(x.id)) || x?.icon || null);
+
   function picture(icon, cls = "ico", grade = null) {
     const img = el("img", { class: `${cls}${grade ? ` g-${grade}` : ""}`, alt: "" });
     loadImage(iconUrl(icon)).then((d) => { if (d) img.src = d; });
@@ -236,8 +254,17 @@
     $(".cp .live").textContent = live?.cp && live.cp !== p.cp ? `in the game ${fmt(live.cp)}` : "";
     $(".gs .live").textContent = live?.gs && live.gs !== p.gs ? `in the game ${fmt(live.gs)}` : "";
     const face = $(".face");
+    const why = $(".portrait .why");
     face.hidden = true;
-    if (p?.portrait) loadImage(p.portrait).then((d) => { if (d && snap?.profile === p) { face.src = d; face.hidden = false; } });
+    why.textContent = p ? "no picture" : "";
+    why.title = "";
+    if (p?.portrait) {
+      portraitOf(p.portrait).then((r) => {
+        if (snap?.profile !== p) return;
+        if (r.data) { face.src = r.data; face.hidden = false; why.textContent = ""; }
+        else { why.textContent = `no picture: ${r.error}`; why.title = p.portrait; }
+      });
+    }
     // The character list: the one you play first, then the others read.
     const pick = $(".pick");
     pick.textContent = "";
@@ -477,7 +504,7 @@
   /** The reference's properties of a slot that a piece's binding can give,
    *  as many as it takes, the strongest players' favourites first. */
   function refPicks(slot, pool, cls, card) {
-    const props = reference?.soul?.[slot] || [];
+    const props = refAligned()?.soul?.[slot] || [];
     if (!props.length || !pool) return [];
     const can = new Set([...pool.stats, ...pool.skills].map((p) => p.name.toLowerCase()));
     const t = C.topSlot(cls, slot, card);
@@ -491,7 +518,7 @@
    *  lacks it, the reference's piece in that slot). */
   function soulPieces() {
     const cls = snap.profile?.className || "";
-    const refBySlot = new Map((reference?.gear || []).map((g) => [g.slot, g]));
+    const refBySlot = new Map((refAligned()?.gear || []).map((g) => [g.slot, g]));
     const out = [], none = [];
     for (const slot of C.SLOT_ORDER) {
       const it = (snap.items || []).find((x) => x.slot === slot);
@@ -578,7 +605,7 @@
     const p = wanted.length && cmp.wanted.some((w) => !w.have) ? chanceOf(pool, x.own ? it.id : x.ref.id, wanted) : null;
     const pRef = p != null && x.own && x.refPool && x.refPool.count !== pool.count ? chanceOf(x.refPool, x.ref.id, wanted) : null;
     const open = soulOpen === slot;
-    const refProps = reference?.soul?.[slot] || [];
+    const refProps = refAligned()?.soul?.[slot] || [];
     const card = el("div", { class: `card soulcard g-${it.grade}${open ? " open" : ""}` },
       el("div", { class: "head" }, picture(it.icon, "ico s", it.grade),
         el("div", { class: "t" },
@@ -604,7 +631,7 @@
   function soulPicker(x, cls, wanted, share) {
     const { it, slot, pool } = x;
     const isOn = (name) => wanted.some((w) => w.toLowerCase() === name.toLowerCase());
-    const theirs = new Map((reference?.soul?.[slot] || []).map((r) => [r.name.toLowerCase(), r]));
+    const theirs = new Map((refAligned()?.soul?.[slot] || []).map((r) => [r.name.toLowerCase(), r]));
     const full = wanted.length >= pool.count;
     const option = (o) => {
       const on = isOn(o.name);
@@ -922,23 +949,38 @@
   /** An item at some levels, as a piece. */
   function pieceOf(slot, id, enchant, amplify) {
     const row = C.itemRow(id);
-    return row ? { slot, id: Number(id), name: row[0], grade: row[1], il: row[3], icon: row[4], enchant: enchant || 0, amplify: amplify || 0 } : null;
+    return row ? { slot, id: Number(id), name: row[0], grade: row[1], il: row[3], icon: C.itemIcon(id), enchant: enchant || 0, amplify: amplify || 0 } : null;
   }
   const levelText = (x) => `+${x?.enchant || 0}${x?.amplify ? ` A${x.amplify}` : ""}`;
   const cpRate = () => C.cpPerGearScore(history).rate;
   /** Best value first: Kinah a point, those with a known cost before. */
   const byValue = (a, b) => (a.up.perPoint == null) - (b.up.perPoint == null) || (a.up.perPoint ?? 0) - (b.up.perPoint ?? 0) || b.up.gain - a.up.gain;
 
-  /** The pieces you could change to: the reference's (not Arcana) and the
-   *  ones you compare, each at its levels. */
+  /** The reference with its paired pieces put against yours item to item. */
+  const refAligned = () => (reference && snap ? C.alignReference(snap, reference) : reference);
+
+  /** A slot's target: the reference's piece (at the levels you set), or
+   *  what you picked in Compare (your own piece enhanced on, or an item you
+   *  compare). { piece, from: "reference" | "yours" | "compared" } or null. */
+  function slotTarget(slot, mine, refPiece) {
+    const pick = targets.pick?.[slot];
+    if (pick?.kind === "mine" && mine) return { piece: { ...mine, ...(targets.mineAt?.[slot] || {}) }, from: "yours" };
+    if (pick?.kind === "cand") {
+      const c = (targets.compare[slot] || []).find((x) => x.id === pick.id);
+      const p = c ? pieceOf(slot, c.id, c.enchant, c.amplify) : null;
+      if (p) return { piece: p, from: "compared" };
+    }
+    return refPiece?.id ? { piece: refPieceAt(slot, refPiece), from: "reference" } : null;
+  }
+
+  /** The pieces to change to in Goals: each slot's target where it is
+   *  another item, the slots left out apart. */
   function swapOptions() {
     const out = [];
-    for (const g of reference?.gear || []) if (g.id && g.slot && !/^Arcana/.test(g.slot)) out.push({ slot: g.slot, item: refPieceAt(g.slot, g), from: "reference" });
-    for (const [slot, list] of Object.entries(targets.compare || {})) {
-      for (const c of list) {
-        const p = pieceOf(slot, c.id, c.enchant, c.amplify);
-        if (p) out.push({ slot, item: p, from: "compare" });
-      }
+    for (const r of C.compareGear(snap, reference)) {
+      if (targets.skip?.[r.slot] || /^Arcana/.test(r.slot)) continue;
+      const t = slotTarget(r.slot, r.mine, r.ref);
+      if (t && t.piece.id && !(r.mine && (r.mine.id === t.piece.id || r.mine.name === t.piece.name))) out.push({ slot: r.slot, item: t.piece, from: t.from });
     }
     return out;
   }
@@ -963,6 +1005,68 @@
       onSet({ enchant: amplify > 0 ? etop : clamp(e.value, min?.enchant || 0, etop), amplify });
     });
     return el("span", { class: "lvin" }, el("span", { class: "sub" }, "+"), e, el("span", { class: "sub" }, "A"), a);
+  }
+
+  /** The calculator: per slot the upgrade to its target, a tick to count it
+   *  or leave it out (also in Goals), the ticked ones summed. */
+  function calculator(rows) {
+    const rate = cpRate();
+    const all = [];
+    for (const r of rows) {
+      const t = slotTarget(r.slot, r.mine, r.ref);
+      if (!t) continue;
+      const up = C.upgradeOf(r.mine, t.piece, prices);
+      if (up && up.gain > 0) all.push({ r, t, up, on: !targets.skip?.[r.slot] });
+    }
+    if (!all.length) return el("p", { class: "note" }, "Nothing to upgrade to: every slot is at its target.");
+    all.sort(byValue);
+    const on = all.filter((x) => x.on);
+    const sum = { gain: 0, kinah: 0, kinahP90: 0, mats: {} };
+    for (const x of on) {
+      sum.gain += x.up.gain;
+      if (!x.up.cost.known) continue;
+      sum.kinah += x.up.cost.kinah;
+      sum.kinahP90 += x.up.cost.kinahP90;
+      for (const [m, v] of Object.entries(x.up.cost.mats)) sum.mats[m] = (sum.mats[m] || 0) + v;
+    }
+    const gsNow = snap.profile?.gs ?? C.gearScore(snap).total;
+    const tick = (slots, value) => {
+      for (const sl of slots) { if (value) delete targets.skip[sl]; else targets.skip[sl] = true; }
+      saveTargets();
+      renderReference();
+    };
+    const tb = el("tbody");
+    for (const { r, t, up, on: isOn } of all) {
+      const a = r.mine, b = t.piece;
+      tb.append(el("tr", { class: isOn ? "" : "off" },
+        el("td", {}, el("input", { type: "checkbox", checked: isOn, title: "Count it", onchange: (e) => tick([r.slot], e.target.checked) })),
+        el("td", {}, C.SLOT_LABEL[r.slot] || r.slot),
+        el("td", { class: "l wrap" }, up.same ? `${b.name} ${levelText(up.from)} → ${levelText(up.to)}`
+          : [`${a ? a.name : "nothing"} → `, el("span", { class: `g-${b.grade}` }, el("span", { class: "gname" }, b.name)), ` ${levelText(up.to)}`,
+            el("div", { class: "sub" }, `at +0: ${plusMinus(up.at0)}${!up.evenKnown ? "" : up.even ? ` · even from ${levelText(up.even)}` : " · never even"}`)],
+          t.from !== "reference" ? el("span", { class: "sub gold-t" }, t.from === "yours" ? " · your pick" : " · compared, your pick") : null),
+        el("td", { class: isOn ? "good" : "" }, `+${up.gain}`),
+        el("td", {}, up.cost.known ? short(up.cost.kinah) : "?"),
+        el("td", {}, up.cost.known ? short(up.cost.kinahP90) : "?"),
+        el("td", {}, up.perPoint != null ? short(up.perPoint) : "—"),
+        el("td", {}, plusMinus(Math.round(up.gain * rate)))));
+    }
+    return el("div", { class: "calc" },
+      el("div", { class: "refhead" }, el("h3", { style: { margin: 0 } }, "Upgrade calculator, best value first"),
+        el("span", { class: "grow" }),
+        el("button", { type: "button", onclick: () => tick(all.map((x) => x.r.slot), true) }, "All"),
+        el("button", { type: "button", onclick: () => tick(all.map((x) => x.r.slot), false) }, "None")),
+      el("div", { class: "summary" },
+        el("div", { class: "big" }, `${on.length} of ${all.length} upgrades: `, el("span", { class: "gold-t" }, `+${sum.gain} gear score`),
+          ` (${fmt(gsNow)} → ≈ ${fmt(gsNow + sum.gain)})`),
+        el("div", { class: "muted" }, `Kinah ${short(sum.kinah)} on average, ${short(sum.kinahP90)} 9 times in 10 · combat power ≈ ${plusMinus(Math.round(sum.gain * rate))}`,
+          Object.keys(sum.mats).length ? el("div", {}, `Materials on average: ${matsText(Object.fromEntries(Object.entries(sum.mats).map(([k, v]) => [k, Math.ceil(v)])))}`) : null,
+          on.some((x) => !x.up.cost.known) ? el("div", {}, "Arcana: their enhancing isn't in the data (not in the Kinah).") : null)),
+      el("table", { class: "ups" },
+        el("thead", {}, el("tr", {}, el("th", {}, ""), el("th", {}, "Slot"), el("th", { class: "l" }, "Change"), el("th", {}, "Gear score"), el("th", {}, "Kinah ⌀"), el("th", {}, "9 in 10"),
+          el("th", { title: "Kinah (and priced materials) a gear score point" }, "a point"), el("th", {}, "≈ CP"))),
+        tb),
+      el("p", { class: "note" }, "Tick what you mean to do: the sums above count the ticked ones, and Goals leaves the unticked slots out (no enhancing, no change there). Each slot's target is the reference's piece at the levels you set, or what you pick with “Use” in Compare (your own piece enhanced on, or an item you compare). Gear score by item level, enhance and Amplify levels (Manastones and Theostones apart); Kinah: the enhancing, from +0 for another item (the item itself not counted). “at +0”: another item when you get it, against yours; “even from”: the level from which it matches yours."));
   }
 
   let compareOpen = null; // the slot whose comparison is open
@@ -998,6 +1102,14 @@
       if (p) cands.push({ piece: p, idx: i, inputs: levelInputs(p, null, (lv) => save(list.map((x, j) => (j === i ? { ...x, ...lv } : x)))) });
     });
     for (const x of [...rowsData, ...cands]) x.up = C.upgradeOf(mine, x.piece, prices);
+    const pick = targets.pick?.[slot];
+    const isUsed = (x) => (x.mine ? pick?.kind === "mine" : x.ref ? !pick || (pick.kind === "cand" && !list.some((c) => c.id === pick.id)) : pick?.kind === "cand" && pick.id === x.piece.id);
+    const use = (x) => {
+      if (x.ref) delete targets.pick[slot];
+      else targets.pick[slot] = x.mine ? { kind: "mine" } : { kind: "cand", id: x.piece.id };
+      saveTargets();
+      renderReference();
+    };
     cands.sort(byValue);
     rowsData.push(...cands);
     const tbody = el("tbody");
@@ -1016,7 +1128,12 @@
         el("td", {}, up.cost.known ? short(up.cost.kinahP90) : "?"),
         el("td", {}, up.perPoint != null && up.cost.known ? short(up.perPoint) : "—"),
         el("td", {}, up.gain ? plusMinus(Math.round(up.gain * rate)) : "—"),
-        el("td", {}, x.mine || x.ref ? "" : el("button", { type: "button", class: "mini", title: "Remove", onclick: () => save(list.filter((_, i) => i !== x.idx)) }, "×"))));
+        el("td", {}, isUsed(x) ? el("span", { class: "used" }, "✓ target")
+          : el("button", { type: "button", class: "mini gold", title: "Make it this slot's target: in the calculator and in Goals", onclick: () => use(x) }, "Use")),
+        el("td", {}, x.mine || x.ref ? "" : el("button", { type: "button", class: "mini", title: "Remove", onclick: () => {
+          if (pick?.kind === "cand" && pick.id === x.piece.id) delete targets.pick[slot];
+          save(list.filter((_, i) => i !== x.idx));
+        } }, "×"))));
     }
     const input = el("input", { type: "text", placeholder: "Add an item to compare: its name …" });
     const sugg = el("div", { class: "sugg", hidden: true });
@@ -1044,9 +1161,10 @@
       rowsData.length ? el("table", {},
         el("thead", {}, el("tr", {}, el("th", { class: "l" }, "Item"), el("th", { title: "Set the levels: enhance, then Amplify from the enhance top on" }, "Levels"), el("th", { title: "The piece's gear score at those levels" }, "Gear score"), el("th", { title: "The difference to what you have" }, "Difference"),
           el("th", { title: "Another item when you get it, at +0, against yours" }, "at +0"), el("th", { title: "The level from which it matches yours" }, "even from"),
-          el("th", {}, "Kinah ⌀"), el("th", {}, "9 in 10"), el("th", { title: "Kinah (and priced materials) a gear score point" }, "a point"), el("th", {}, "≈ CP"), el("th", {}, ""))),
+          el("th", {}, "Kinah ⌀"), el("th", {}, "9 in 10"), el("th", { title: "Kinah (and priced materials) a gear score point" }, "a point"), el("th", {}, "≈ CP"),
+          el("th", { title: "The slot's target, in the calculator and in Goals" }, "Target"), el("th", {}, ""))),
         tbody) : el("p", { class: "note" }, "Add an item by its name."),
-      el("p", { class: "note" }, "Set the levels in each row: its gear score and the difference to what you have follow, with the enhancing it takes (from +0 for another item, the item itself not counted; from your levels for yours and the same item). Gear score by item level, enhance level and 5 an Amplify level; Manastones and Theostones stay on the old piece and are not counted. The reference's piece at the levels you set counts in the upgrades above and in Goals, the items you compare in Goals too."));
+      el("p", { class: "note" }, "Set the levels in each row: its gear score and the difference to what you have follow, with the enhancing it takes (from +0 for another item, the item itself not counted; from your levels for yours and the same item). “Use” makes a row this slot's target: the calculator above and Goals count it. Gear score by item level, enhance level and 5 an Amplify level; Manastones and Theostones stay on the old piece and are not counted."));
   }
 
   // ---- reference --------------------------------------------------------
@@ -1200,41 +1318,17 @@
       el("button", { type: "button", onclick: () => { if (confirmTwice("ref", "Press Remove again to remove this reference")) removeReference(); } }, "Remove")));
     pane.append(el("textarea", { class: "refcode", hidden: true, readonly: true, style: { width: "100%", minHeight: "60px", fontSize: "11px" } }, JSON.stringify(reference)));
 
-    // Gear, slot by slot, and what changing to the reference's piece gives.
+    // The calculator: every slot's upgrade to its target (the reference's
+    // piece, or what you picked in Compare), ticked ones summed.
     const rows = C.compareGear(snap, reference);
-    const rate = cpRate();
-    const ups = rows.map((r) => ({ r, up: r.ref ? C.upgradeOf(r.mine, refPieceAt(r.slot, r.ref), prices) : null })).filter((x) => x.up && x.up.gain > 0);
-    if (ups.length && snap) {
-      ups.sort(byValue);
-      const sum = ups.reduce((a, x) => a + x.up.gain, 0);
-      const kinah = ups.reduce((a, x) => a + (x.up.cost.known ? x.up.cost.kinah : 0), 0);
-      const tb = el("tbody");
-      for (const { r, up } of ups) {
-        const a = r.mine, b = r.ref;
-        tb.append(el("tr", {},
-          el("td", {}, C.SLOT_LABEL[r.slot] || r.slot),
-          el("td", { class: "l wrap" }, up.same ? `${b.name} ${levelText(up.from)} → ${levelText(up.to)}`
-            : [`${a ? a.name : "nothing"} → `, el("span", { class: `g-${b.grade}` }, el("span", { class: "gname" }, b.name)), ` ${levelText(up.to)}`,
-              el("div", { class: "sub" }, `at +0: ${plusMinus(up.at0)}${!up.evenKnown ? "" : up.even ? ` · even from ${levelText(up.even)}` : " · never even"}`)]),
-          el("td", { class: "good" }, `+${up.gain}`),
-          el("td", {}, up.cost.known ? short(up.cost.kinah) : "?"),
-          el("td", {}, up.perPoint != null && up.cost.known ? short(up.perPoint) : "—"),
-          el("td", {}, plusMinus(Math.round(up.gain * rate)))));
-      }
-      pane.append(el("h3", {}, "Upgrades to this reference, best value first"), el("table", { class: "ups" },
-        el("thead", {}, el("tr", {}, el("th", {}, "Slot"), el("th", { class: "l" }, "Change"), el("th", {}, "Gear score"), el("th", {}, "Kinah ⌀"),
-          el("th", { title: "Kinah (and priced materials) a gear score point" }, "a point"), el("th", {}, "≈ CP"))),
-        tb,
-        el("tfoot", {}, el("tr", {}, el("td", {}, "All"), el("td", { class: "l sub" }, `${fmt(C.gearScore(snap).total)} → ≈ ${fmt(C.gearScore(snap).total + sum)}`),
-          el("td", { class: "gold-t" }, `+${sum}`), el("td", {}, short(kinah)), el("td", {}, ""), el("td", {}, plusMinus(Math.round(sum * rate)))))),
-      el("p", { class: "note" }, "Gear score by item level, enhance and Amplify levels (Manastones and Theostones apart). Kinah: the enhancing to the reference's levels, from +0 for another item (the item itself not counted), on average. “at +0”: another item when you get it, against yours; “even from”: the level from which it matches yours. Compare (in each row) puts any item against yours."));
-    }
+    if (snap) pane.append(calculator(rows));
     const tbody = el("tbody");
     for (const r of rows) {
       const a = r.mine, b = r.ref;
       const lv = (x) => (x ? `+${x.enchant || 0}${x.amplify ? ` · A${x.amplify}` : ""}` : "");
       const status = { done: "✓ reached", levels: `${r.levelsToGo} level${r.levelsToGo === 1 ? "" : "s"} to go`, other: "another item", missing: "not worn", none: "" }[r.status];
-      const up = b ? C.upgradeOf(a, refPieceAt(r.slot, b), prices) : null;
+      const tgt = slotTarget(r.slot, a, b);
+      const up = tgt ? C.upgradeOf(a, tgt.piece, prices) : null;
       const canCompare = !!CATS_OF_SLOT[r.slot];
       tbody.append(el("tr", {},
         el("td", {}, C.SLOT_LABEL[r.slot] || r.slot,
@@ -1242,13 +1336,15 @@
             compareOpen === r.slot ? "Close" : `Compare${targets.compare[r.slot]?.length ? ` (${targets.compare[r.slot].length})` : ""}`)) : null),
         el("td", { class: "l" }, a ? el("div", { class: `cell g-${a.grade}` }, picture(a.icon, "ico s", a.grade),
           el("div", { class: "txt2" }, el("div", { class: "gname" }, a.name), el("div", { class: "sub" }, `${lv(a)}${a.il ? ` · IL ${a.il}` : ""}`))) : el("span", { class: "faint" }, "—")),
-        el("td", { class: "l" }, editRef ? refEditor(r.slot, b) : b ? el("div", { class: `cell g-${b.grade}` }, picture(b.icon, "ico s", b.grade),
+        el("td", { class: "l" }, editRef ? refEditor(r.slot, b) : b ? el("div", { class: `cell g-${b.grade}` }, picture(iconOf(b), "ico s", b.grade),
           el("div", { class: "txt2" }, el("div", { class: "gname" }, b.name || "?"),
             el("div", { class: "sub" }, `${lv(b)}${b.il ? ` · IL ${b.il}` : ""}`, b.guessed ? " · known by its picture only: one of several items with it (Edit to change)" : ""),
-            reference.soul?.[r.slot]?.length ? el("div", { class: "sub soulref" }, reference.soul[r.slot].map((x) => (x.value ? `${x.name} ${x.value}` : x.name)).join(" · ")) : null)) : el("span", { class: "faint" }, "—")),
-        el("td", {}, up && up.gain ? [el("span", { class: up.gain > 0 ? "good" : "bad" }, plusMinus(up.gain)),
+            refAligned()?.soul?.[r.slot]?.length ? el("div", { class: "sub soulref" }, refAligned().soul[r.slot].map((x) => (x.value ? `${x.name} ${x.value}` : x.name)).join(" · ")) : null)) : el("span", { class: "faint" }, "—")),
+        el("td", { class: targets.skip?.[r.slot] ? "faint" : "" }, up && up.gain ? [el("span", { class: targets.skip?.[r.slot] ? "" : up.gain > 0 ? "good" : "bad" }, plusMinus(up.gain)),
           el("div", { class: "sub" }, up.cost.known ? (up.cost.kinah ? `≈ ${short(up.cost.kinah)}` : "") : "cost ?"),
-          targets.levels?.[r.slot] ? el("div", { class: "sub gold-t" }, `at ${levelText(targets.levels[r.slot])}`) : null] : ""),
+          tgt.from !== "reference" ? el("div", { class: "sub gold-t" }, `to ${tgt.from === "yours" ? "yours" : tgt.piece.name} ${levelText(tgt.piece)}`)
+            : targets.levels?.[r.slot] ? el("div", { class: "sub gold-t" }, `at ${levelText(targets.levels[r.slot])}`) : null,
+          targets.skip?.[r.slot] ? el("div", { class: "sub" }, "left out") : null] : ""),
         el("td", { class: `status-${r.status}` }, status)));
       if (compareOpen === r.slot) tbody.append(el("tr", { class: "cmprow" }, el("td", { colspan: 5, class: "l" }, compareBox(r.slot, a, b))));
     }
@@ -1368,13 +1464,16 @@
 
     // Enhancing what you wear, or changing some pieces first (the
     // reference's, the ones you compare), whichever is cheaper.
+    const skip = new Set(Object.keys(targets.skip || {}));
+    const only = new Set((snap.items || []).filter((it) => !it.arcana && !skip.has(it.slot)).map((it) => it.slot));
     const options = swapOptions();
     const useSwaps = settings.goalSwaps !== false && options.length > 0;
     pane.append(el("label", { class: "muted swapopt" },
       el("input", { type: "checkbox", checked: settings.goalSwaps !== false, onchange: (e) => { settings.goalSwaps = e.target.checked; saveSettings(); renderGoals(); } }),
-      ` Count changing pieces: the reference's${Object.keys(targets.compare || {}).length ? " and those you compare (Reference, Compare)" : " (and those you compare in the Reference tab)"}`));
-    const plain = C.planGearScore(snap, current, goal, prices);
-    const plan = useSwaps ? planCached(current, goal, options) : { ...plain, swaps: [] };
+      " Count changing pieces: each slot's target (the reference's piece, or what you picked in Compare)",
+      skip.size ? el("div", { class: "sub" }, `Left out (unticked in the calculator): ${[...skip].map((sl) => C.SLOT_LABEL[sl] || sl).join(", ")}`) : null));
+    const plain = C.planGearScore(snap, current, goal, prices, only);
+    const plan = useSwaps ? planCached(current, goal, options, skip) : { ...plain, swaps: [] };
     const room = C.gearRoom(snap);
     const need = Math.max(0, goal - current);
     const est = Math.round(plan.total.gain * rate.rate);
@@ -1409,9 +1508,9 @@
     for (const o of plan.swaps) {
       const it = o.item;
       tbody.append(el("tr", { class: "swaprow" },
-        el("td", {}, el("div", { class: `cell g-${it.grade}` }, picture(it.icon, "ico xs", it.grade),
+        el("td", {}, el("div", { class: `cell g-${it.grade}` }, picture(iconOf(it), "ico xs", it.grade),
           el("div", { class: "txt2" }, el("div", { class: "gname" }, it.name), el("div", { class: "sub" }, `${C.SLOT_LABEL[o.slot] || o.slot}: for ${o.mine ? o.mine.name : "nothing worn"}`)))),
-        el("td", { class: "l" }, `Change, +0 → ${levelText(o.up.to)}`, el("div", { class: "sub" }, `${o.from === "reference" ? "the reference's" : "compared"} · at +0: ${plusMinus(o.up.at0)}`)),
+        el("td", { class: "l" }, `Change, +0 → ${levelText(o.up.to)}`, el("div", { class: "sub" }, `${o.from === "reference" ? "the reference's" : "your pick"} · at +0: ${plusMinus(o.up.at0)}`)),
         el("td", {}, `+${o.up.gain}`),
         el("td", {}, short(o.up.cost.kinah)),
         el("td", {}, short(o.up.cost.kinahP90)),
@@ -1437,9 +1536,9 @@
   /** The plan with changed pieces takes a moment: kept while nothing it
    *  depends on changes. */
   let planMemo = { key: null, plan: null };
-  function planCached(current, goal, options) {
-    const key = JSON.stringify([current, goal, snap?.at, prices ? prices.size : 0, options.map((o) => [o.slot, o.item.id, o.item.enchant, o.item.amplify])]);
-    if (planMemo.key !== key) planMemo = { key, plan: C.planWithSwaps(snap, current, goal, prices, options) };
+  function planCached(current, goal, options, skip) {
+    const key = JSON.stringify([current, goal, snap?.at, prices ? prices.size : 0, options.map((o) => [o.slot, o.item.id, o.item.enchant, o.item.amplify]), [...skip]]);
+    if (planMemo.key !== key) planMemo = { key, plan: C.planWithSwaps(snap, current, goal, prices, options, skip) };
     return planMemo.plan;
   }
 

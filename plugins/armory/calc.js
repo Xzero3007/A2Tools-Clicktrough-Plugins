@@ -52,6 +52,8 @@
     return a ? [a[0], a[1], "Arcana", a[2], a[3], null, null, null] : null;
   };
   const itemName = (id) => itemRow(id)?.[0] || `Item ${id}`;
+  /** An item's icon by the game's own name (the one its icon server has). */
+  const itemIcon = (id) => D.soul?.icons?.[String(id)] || itemRow(id)?.[4] || null;
 
   /** An icon's file name as both sites spell it, for matching:
    *  "Icon_Equip_AR_L_Idris_01_Torso.webp" and "Icon_GM_Idris_01_Torso" both
@@ -353,14 +355,14 @@
    *  enhance plan alone, or with some of `swaps` ([{ slot, item }]: a piece
    *  at its levels, enhanced from +0) taken first and the rest enhanced,
    *  whichever reaches the target for the least Kinah worth (or, short of
-   *  it, gets highest). { ...planGearScore's, swaps: [{ slot, mine, item,
-   *  up }] }. */
-  function planWithSwaps(snap, current, target, prices, swaps) {
+   *  it, gets highest); the slots in `skip` neither enhanced nor changed.
+   *  { ...planGearScore's, swaps: [{ slot, mine, item, up }] }. */
+  function planWithSwaps(snap, current, target, prices, swaps, skip = null) {
     const bySlot = new Map((snap?.items || []).map((it) => [it.slot, it]));
     const options = (swaps || []).map((o) => ({ ...o, mine: bySlot.get(o.slot) || null }))
       .map((o) => ({ ...o, up: upgradeOf(o.mine, o.item, prices) }))
       .filter((o) => o.up && !o.up.same && o.up.gain > 0 && o.up.cost.known);
-    const slots = new Set((snap?.items || []).filter((it) => !it.arcana).map((it) => it.slot));
+    const slots = new Set((snap?.items || []).filter((it) => !it.arcana && !skip?.has(it.slot)).map((it) => it.slot));
     const evaluate = (chosen) => {
       const gain = chosen.reduce((a, o) => a + o.up.gain, 0);
       const only = new Set([...slots].filter((sl) => !chosen.some((o) => o.slot === sl)));
@@ -674,9 +676,39 @@
     return points;
   }
 
+  /** The pieces worn in pairs: the reference's two are put against yours
+   *  item to item (your Ascension Bracelet against its Ascension Bracelet),
+   *  whichever of its two slots they came in. */
+  const PAIRS = [["Earring1", "Earring2"], ["Ring1", "Ring2"], ["Bracelet1", "Bracelet2"], ["Rune1", "Rune2"]];
+  const sameItem = (a, b) => !!(a && b && (a.id === b.id || (a.name && a.name === b.name)));
+  /** The reference's slot for each of your slots: { slot: its slot }. */
+  function pairedSlots(snap, ref) {
+    const mine = new Map((snap?.items || []).map((it) => [it.slot, it]));
+    const theirs = new Map((ref?.gear || []).filter((g) => g.slot).map((g) => [g.slot, g]));
+    const map = {};
+    for (const [a, b] of PAIRS) {
+      const straight = sameItem(mine.get(a), theirs.get(a)) + sameItem(mine.get(b), theirs.get(b));
+      const crossed = sameItem(mine.get(a), theirs.get(b)) + sameItem(mine.get(b), theirs.get(a));
+      if (crossed > straight) { map[a] = b; map[b] = a; }
+    }
+    return map;
+  }
+  /** The reference with its paired pieces (and their soul bindings) in the
+   *  slots of yours they match. */
+  function alignReference(snap, ref) {
+    if (!ref) return ref;
+    const map = pairedSlots(snap, ref);
+    if (!Object.keys(map).length) return ref;
+    const to = (slot) => map[slot] ? map[slot] : slot;
+    const soul = {};
+    for (const [slot, v] of Object.entries(ref.soul || {})) soul[to(slot)] = v;
+    return { ...ref, gear: (ref.gear || []).map((g) => (map[g.slot] ? { ...g, slot: map[g.slot] } : g)), soul };
+  }
+
   /** Slot by slot, you against the reference: the same item or another, and
    *  the levels to go. */
-  function compareGear(snap, ref) {
+  function compareGear(snap, ref0) {
+    const ref = alignReference(snap, ref0);
     const mine = new Map((snap?.items || []).map((it) => [it.slot, it]));
     const theirs = new Map((ref?.gear || []).filter((g) => g.slot).map((g) => [g.slot, g]));
     const slots = SLOT_ORDER.filter((s) => mine.has(s) || theirs.has(s));
@@ -749,7 +781,7 @@
             .map((x) => ({ name: D.soul?.statIds?.[x.statId]?.[0] || x.statId, value: x.value, grade: D.soul?.manastones?.[`${x.statId}:${x.value}`] || null }));
           const theostones = Object.values(e.godstone || {}).filter((x) => x && x.id)
             .map((x) => ({ id: Number(x.id), grade: D.soul?.theostones?.[String(x.id)] || null }));
-          gear.push({ slot, id, name: row ? row[0] : "", grade: row ? row[1] : null, il: row ? row[3] : null, icon: row ? row[4] : null,
+          gear.push({ slot, id, name: row ? row[0] : "", grade: row ? row[1] : null, il: row ? row[3] : null, icon: itemIcon(id),
             shown: Number(e.lvl) || 0, enchant: lv.enchant, amplify: lv.amplify, guessed: false, stones, theostones });
           const props = Object.values(e.substats || {}).filter((x) => x && x.id).map((x) => questlogProperty(x.id, x.value)).filter(Boolean);
           if (props.length) soul[slot] = props;
@@ -759,7 +791,7 @@
           const id = Number(e?.id);
           if (!slot || !id) continue;
           const row = itemRow(id);
-          gear.push({ slot, id, name: row ? row[0] : "", grade: row ? row[1] : null, il: row ? row[3] : null, icon: row ? row[4] : null,
+          gear.push({ slot, id, name: row ? row[0] : "", grade: row ? row[1] : null, il: row ? row[3] : null, icon: itemIcon(id),
             shown: Number(e.lvl) || 0, enchant: Number(e.lvl) || 0, amplify: 0, guessed: false });
           const props = Object.values(e.subSkills || {}).filter((x) => x && x.id)
             .map((x) => ({ kind: "skill", name: D.soul?.skillIds?.[String(x.id)] || String(x.id), value: x.lvl ? `+${x.lvl}` : null }));
@@ -1181,7 +1213,7 @@
     skillSources, slotsFor, splitLevel, pickByIcon, tokens, readQuestlogPage, mergeReference, referenceGearScore,
     compareGear, compareSkills, historyEntry, addHistory, historyChanges, fmt, short,
     STAT_GROUPS, statName, explainStat, characterStats,
-    readQuestlogBuilds, questlogReference, referenceBoards, questlogProperty,
+    readQuestlogBuilds, questlogReference, referenceBoards, questlogProperty, itemIcon, pairedSlots, alignReference,
     pieceGearScore, stoneGearScore, tops, evenLevel, enhanceCost, upgradeOf, planWithSwaps,
     soulPool, soulOf, rollQuality, soulCompare, soulChance, topOf, topSlot, topPicks, SLOT_GROUP,
     TARGET_LEVELS, asTarget, topSkillLevels, skillWay, effectParts, isOffensive, statSide, boardWays, nodeOffense, boardOffense,

@@ -88,7 +88,9 @@ def soul_from_questlog(path):
       arcana: { id: [name, grade, item level, icon] } (Aion2Data's list has
       no Arcana),
       manastones: { "<stat id>:<value>": grade } (a Manastone's grade by what
-      it gives), theostones: { id: grade } }"""
+      it gives), theostones: { id: grade },
+      icons: { id: icon } (the game's own icon name, where Aion2Data's list
+      names another: the game's icon server knows only the game's) }"""
     d = json.load(open(path, encoding="utf-8"))
     p = d.get("payload") or {}
     pick = lambda prefix: next((v for k, v in p.items() if k.startswith(prefix)), None)
@@ -142,12 +144,13 @@ def soul_from_questlog(path):
                 key = f'{st["statId"]}:{g["value"]}'
                 manastones[key] = max(manastones.get(key, ""), grades.get(g["grade"], ""), key=lambda x: list(grades.values()).index(x) if x in grades.values() else -1)
     theostones = {str(it["id"]): grades.get(it.get("grade"), "") for it in items if it.get("subCategory") == "getgodstone"}
+    icons = {str(it["id"]): (it.get("icon") or "").rsplit(".", 1)[-1] for it in items if it.get("icon")}
     stat_ids = {sid: [f.get("name") or sid, 1 if "percent" in (f.get("indicator") or "") else 0]
                 for sid, f in fmt.items() if isinstance(f, dict) and not f.get("isDisabled")}
     return {"stats": stat_names, "pct": sorted(pct), "pools": pools, "items": out_items,
             "skills": {g: v for g, v in groups.items() if g in used},
             "statIds": stat_ids, "skillIds": {str(k): v for k, v in names.items()}, "arcana": arcana,
-            "manastones": manastones, "theostones": theostones}
+            "manastones": manastones, "theostones": theostones, "icons": icons}
 
 
 def steps(rows, with_stats=False):
@@ -202,6 +205,8 @@ def main():
     for key, levels in d["effects"].items():
         effects[key] = [lv["stats"] for lv in sorted(levels, key=lambda lv: lv["il"])]
 
+    if soul and soul.get("icons"):
+        soul = {**soul, "icons": {k: v for k, v in soul["icons"].items() if k in items and v and v != items[k][4]}}
     out = {
         "version": version,
         "source": "Aion2Data (aion2data.com), read from AION 2's game files",
