@@ -1,4 +1,4 @@
-From eb1d568b1ab6d0c95a48f8342d2e693ae1165849 Mon Sep 17 00:00:00 2001
+From e96faa146f4da7aa783d3adb1d879bce774c7d13 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Tue, 27 Oct 2026 23:03:12 +0000
 Subject: [PATCH] Roster: values dated as the game reported them; the right
@@ -47,7 +47,7 @@ index 72cff7c..2962186 100644
      tipDutyToday: (n, taken, a) => `${n} heute auf deinen Charakteren erledigt, ${taken} angenommen (das n/5 des Spiels zählt angenommene), Stand ${a}`,
      tipGained: (was, a, gained, extra) => `${was} zuletzt gesehen (${a}), seitdem +${gained} aufgeladen${extra ? `; ${extra} extra` : ""}`,
 diff --git a/plugins/alt-roster/plugin.js b/plugins/alt-roster/plugin.js
-index 91db6a8..1d55626 100644
+index f495166..de39b80 100644
 --- a/plugins/alt-roster/plugin.js
 +++ b/plugins/alt-roster/plugin.js
 @@ -53,6 +53,10 @@ const num = (v) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : n
@@ -61,16 +61,16 @@ index 91db6a8..1d55626 100644
  
  // ── What the meter says ────────────────────────────────────────────────────
  a2.on("character", (c) => {
-@@ -69,7 +73,7 @@ a2.on("character", (c) => {
+@@ -72,7 +76,7 @@ a2.on("character", (c) => {
    if (num(c.gearScore)) ch.gs = c.gearScore;
    const e = c.odyleEnergy;
    if (e && Number.isFinite(e.basic) && Number.isFinite(e.charged)) {
 -    ch.energy = kept(ch.energy, { basic: e.basic, charged: e.charged, at: Date.now() });
 +    ch.energy = stamped(ch.energy, { basic: e.basic, charged: e.charged, at: Date.now() }, c.seenAt?.odyleEnergy);
      // Over 560 can only be with a membership.
-     if (e.basic > CAPS[1]) ch.cap = CAPS[0];
-   }
-@@ -83,7 +87,7 @@ a2.on("character", (c) => {
+     if (e.basic > CAPS[1]) {
+       ch.cap = CAPS[0];
+@@ -91,7 +95,7 @@ a2.on("character", (c) => {
        if (!Array.isArray(v)) continue;
        const home = x.scope === "server" && !x.ofChars ? (state.servers[ch.serverId ?? ""] ||= {}) : ch;
        home.counts ||= {};
@@ -79,7 +79,7 @@ index 91db6a8..1d55626 100644
      }
    }
    // The shop's weekly limits and the crafts made (meter 2.0.78 on), once the
-@@ -91,6 +95,8 @@ a2.on("character", (c) => {
+@@ -99,6 +103,8 @@ a2.on("character", (c) => {
    // Kinah gained today and the week's Abyss Points, with its limit (it
    // grows each week).
    const from = { shop: c.shopLimits, craft: c.crafts, kinah: { today: c.kinahToday }, abyss: { week: c.abyssPoints } };
@@ -87,8 +87,8 @@ index 91db6a8..1d55626 100644
 +  const saidAt = { shop: said.shopLimits, craft: said.crafts, kinah: { today: said.kinahToday }, abyss: { week: said.abyssPoints } };
    for (const x of OTHER) {
      const [kind, id] = x.id.split(":");
-     const v = from[kind]?.[id];
-@@ -104,7 +110,7 @@ a2.on("character", (c) => {
+     const v = from[kind]?.[id] ?? (x.elyos && from[kind]?.[x.elyos]);
+@@ -112,7 +118,7 @@ a2.on("character", (c) => {
      if (x.capFromGame) seen.cap = second;
      else if (second !== undefined) seen.reset = second;
      home.counts ||= {};
@@ -97,7 +97,7 @@ index 91db6a8..1d55626 100644
    }
    // Abyss Corridors: passage 1000000N is the corridor of artifact 100N
    // (Reshanta's Root, Sulfur Tree Island, Siel's Wings: the two run on
-@@ -489,7 +495,11 @@ function cellOf(c, seen, at, now, cls = "") {
+@@ -515,7 +521,11 @@ function cellOf(c, seen, at, now, cls = "") {
    td.append(value, bar, el("div", `cellNote${est?.full ? " isFull" : ""}`, note));
    if (est?.full) td.classList.add("full");
    td.title = !est

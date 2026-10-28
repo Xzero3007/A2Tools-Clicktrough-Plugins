@@ -1,0 +1,51 @@
+From 228e396f5765cdb3eb815bcd1a7f10ff4ceb6b66 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Wed, 28 Oct 2026 09:50:05 +0000
+Subject: [PATCH] Event Timers: the folded Abyss bosses with their live HP
+
+0.6.19 shows a scheduled Abyss boss that is up and fought with its HP from
+the shared feed on the Bosses tab; the folded view (patches 0001 to 0003)
+shows it the same: in Now, its HP and how fresh it is.
+---
+ plugins/event-timers/plugin.js | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
+index 4185adf..5793a9f 100644
+--- a/plugins/event-timers/plugin.js
++++ b/plugins/event-timers/plugin.js
+@@ -1270,17 +1270,21 @@ function renderFoldedBosses(now) {
+   for (const ev of scheduled("boss")) {
+     if (!tz && !ev.utc) continue;
+     const next = nextOf(ev, tz || "UTC", now);
+-    if (!next || next.start - now > limit) continue;
+-    const running = next.start <= now;
+-    items.push({
+-      first: running, at: next.start, part: running ? "now" : next.start - now <= SOON_MS ? "soon" : "later",
+-      li: row({
+-        id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
+-        soon: next.start - now <= SOON_MS,
+-        countdown: running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
+-        at: fmt.format(new Date(next.start)),
+-      }),
++    // An Abyss boss up and fought (0.6.19): now, with its HP from the feed.
++    const live = abyssLive(ev);
++    if (!live && (!next || next.start - now > limit)) continue;
++    const running = !!next && next.start <= now;
++    const first = running || !!live;
++    const li = row({
++      id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running, up: !!live,
++      soon: !!next && next.start - now <= SOON_MS,
++      countdown: live && !running ? words.up
++        : running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
++      at: live ? `${words.hpLeft(live.hp)} · ${words.ago(age(now - live.hpAt * 1000))}` : fmt.format(new Date(next.start)),
+     });
++    if (live) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, live.hp))}%`);
++    li.classList.toggle("hasHp", !!live);
++    items.push({ first, at: first ? 0 : next.start, part: first ? "now" : next.start - now <= SOON_MS ? "soon" : "later", li });
+   }
+   for (const b of fieldBosses()) {
+     const t = fieldTimer(b.id);
+-- 
+2.43.0
+

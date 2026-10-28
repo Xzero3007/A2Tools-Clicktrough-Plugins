@@ -1,4 +1,4 @@
-From 10257369b98f5e5345c1b5787d3fa9c7bc2ac88c Mon Sep 17 00:00:00 2001
+From 27b548cc8d28ed73374006cb7c810bffd5c10396 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Sat, 24 Oct 2026 11:46:50 +0000
 Subject: [PATCH] Event Timers: the folded view side by side
@@ -25,7 +25,7 @@ Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
  3 files changed, 145 insertions(+), 18 deletions(-)
 
 diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
-index 0dde6ba..c5e9802 100644
+index 97dbe16..594c63a 100644
 --- a/plugins/event-timers/index.html
 +++ b/plugins/event-timers/index.html
 @@ -25,9 +25,18 @@
@@ -59,7 +59,7 @@ index 0dde6ba..c5e9802 100644
      <div class="modal" role="dialog" aria-modal="true" hidden>
        <div class="modalBox">
 diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
-index bdda828..b8de53e 100644
+index 887079a..73c3d44 100644
 --- a/plugins/event-timers/plugin.js
 +++ b/plugins/event-timers/plugin.js
 @@ -39,6 +39,14 @@ const els = {
@@ -131,7 +131,7 @@ index bdda828..b8de53e 100644
  // The world boss timers: { server, bosses, at, error }, from the feed and the
  // player's own map, the newest report of each boss kept.
  let feed = null;
-@@ -701,6 +723,10 @@ function renderStatic() {
+@@ -735,6 +757,10 @@ function renderStatic() {
    els.foldedBossLabel.textContent = foldedWords().foldedBosses;
    els.foldedBossSelect.replaceChildren(...FOLDED_BOSS_MINUTES.map((m) => option(m, m ? minutesText(m) : a.off)));
    els.foldedBossSelect.value = String(foldedMinutes());
@@ -142,7 +142,7 @@ index bdda828..b8de53e 100644
    els.soundLabel.textContent = a.sound;
    els.testAlert.textContent = words.testAlert;
    els.alertOptionsBtn.textContent = words.alertOptions;
-@@ -1100,6 +1126,10 @@ function renderFoldedBosses(now) {
+@@ -1146,6 +1172,10 @@ function renderFoldedBosses(now) {
    if (!document.body.classList.contains("compact") || !minutes) {
      els.foldedBoss.replaceChildren();
      els.foldedBossHead.hidden = true;
@@ -153,7 +153,7 @@ index bdda828..b8de53e 100644
      return;
    }
    const limit = minutes * 60_000;
-@@ -1113,7 +1143,7 @@ function renderFoldedBosses(now) {
+@@ -1159,7 +1189,7 @@ function renderFoldedBosses(now) {
      if (!next || next.start - now > limit) continue;
      const running = next.start <= now;
      items.push({
@@ -162,7 +162,7 @@ index bdda828..b8de53e 100644
        li: row({
          id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
          soon: next.start - now <= SOON_MS,
-@@ -1143,12 +1173,32 @@ function renderFoldedBosses(now) {
+@@ -1189,12 +1219,32 @@ function renderFoldedBosses(now) {
      const li = row({ id: `field:${b.id}`, name, where: text(b.where), countdown, at, up, soon: inWindow || next - now <= SOON_MS });
      if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
      li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
@@ -197,7 +197,7 @@ index bdda828..b8de53e 100644
  }
  
  function render() {
-@@ -2053,6 +2103,14 @@ els.foldedBossSelect.addEventListener("change", () => {
+@@ -2100,6 +2150,14 @@ els.foldedBossSelect.addEventListener("change", () => {
    savePrefs();
    render();
  });

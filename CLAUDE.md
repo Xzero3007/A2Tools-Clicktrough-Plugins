@@ -85,6 +85,13 @@ file.
 
 ## Start of a session
 
+**First, the Original watch's open issues** in the app repo (labels
+`plugin-watch` and `original-watch`; the person's decision, 2026-10-28):
+before any other work, and again before a release, tell the person what is
+new there, with an assessment (what changed, what it would bring, whether
+it sends or links anything, the effort, a recommendation). The commands are
+in the app repo's CLAUDE.md ("Start of a session").
+
 ```bash
 bash dev/setup.sh            # ../ct-plugins at PIN with the patches, ~10 s
 bash dev/setup.sh --meter    # and the app repo and ../ct-src (the meter's source), ~1 min

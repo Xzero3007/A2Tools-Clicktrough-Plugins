@@ -1,4 +1,4 @@
-From 051084dc1c69a9edcbd2fa43ffa7910610f4212f Mon Sep 17 00:00:00 2001
+From ba361e414b493cdfa12ea3bd7e5965d51be083c8 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Fri, 23 Oct 2026 13:03:59 +0000
 Subject: [PATCH] Event Timers: the bosses due soon and the Artifact Siege in
@@ -15,12 +15,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TUNxq4V2zBL7bJg3yPJ3oC
 ---
  plugins/event-timers/index.html |   3 +
- plugins/event-timers/plugin.js  | 109 +++++++++++++++++++++++++++++++-
+ plugins/event-timers/plugin.js  | 106 +++++++++++++++++++++++++++++++-
  plugins/event-timers/style.css  |  17 +++++
- 3 files changed, 126 insertions(+), 3 deletions(-)
+ 3 files changed, 124 insertions(+), 2 deletions(-)
 
 diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
-index 99e2639..0dde6ba 100644
+index b6416bb..97dbe16 100644
 --- a/plugins/event-timers/index.html
 +++ b/plugins/event-timers/index.html
 @@ -26,6 +26,8 @@
@@ -41,7 +41,7 @@ index 99e2639..0dde6ba 100644
      <div class="modal" role="dialog" aria-modal="true" hidden>
        <div class="modalBox">
 diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
-index f64af56..bdda828 100644
+index c715955..887079a 100644
 --- a/plugins/event-timers/plugin.js
 +++ b/plugins/event-timers/plugin.js
 @@ -37,6 +37,10 @@ const els = {
@@ -103,7 +103,7 @@ index f64af56..bdda828 100644
  // The world boss timers: { server, bosses, at, error }, from the feed and the
  // player's own map, the newest report of each boss kept.
  let feed = null;
-@@ -669,6 +698,9 @@ function renderStatic() {
+@@ -703,6 +732,9 @@ function renderStatic() {
    els.defaultClosed.value = String(defaultClosed());
    els.scaleSelect.replaceChildren(...SCALES.map((x) => option(x, `${Math.round(x * 100)}%`)));
    els.scaleSelect.value = String(prefs.scale);
@@ -113,24 +113,16 @@ index f64af56..bdda828 100644
    els.soundLabel.textContent = a.sound;
    els.testAlert.textContent = words.testAlert;
    els.alertOptionsBtn.textContent = words.alertOptions;
-@@ -967,12 +999,14 @@ function renderSchedule(list, events, now, { hideable, actions = false }) {
-         render();
-       });
-     }
--    return row({
-+    const li = row({
-       id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running, hide, actions,
-       soon: next.start - now <= SOON_MS,
-       countdown: running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
-       at: fmt.format(new Date(next.start)),
+@@ -1012,6 +1044,7 @@ function renderSchedule(list, events, now, { hideable, actions = false }) {
      });
+     if (live) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, live.hp))}%`);
+     li.classList.toggle("hasHp", !!live);
 +    li.classList.toggle("keepFolded", FOLDED_ALWAYS.has(ev.id));
-+    return li;
+     return li;
    }));
    return shown;
- }
-@@ -1057,10 +1091,71 @@ function renderField(now) {
-   els.field.replaceChildren(...items);
+@@ -1104,10 +1137,71 @@ function fieldItems(bosses, now, withHeads) {
+   return items;
  }
  
 +// Folded: under the next events, the scheduled bosses on now or starting
@@ -201,7 +193,7 @@ index f64af56..bdda828 100644
    // Not while a row's button is pressed; a focused one keeps its focus.
    if (rowPress) return;
    const focused = document.activeElement?.closest?.(".rowBtn");
-@@ -1953,6 +2048,11 @@ els.scaleSelect.addEventListener("change", () => {
+@@ -2001,6 +2095,11 @@ els.scaleSelect.addEventListener("change", () => {
    savePrefs();
    applyScale();
  });
@@ -213,7 +205,7 @@ index f64af56..bdda828 100644
  els.regionSelect.addEventListener("change", () => {
    prefs.region = els.regionSelect.value;
    savePrefs();
-@@ -1991,7 +2091,10 @@ a2.on("bossMap", (m) => {
+@@ -2039,7 +2138,10 @@ a2.on("bossMap", (m) => {
  a2.on("game", (g) => {
    gameRunning = typeof g?.running === "boolean" ? g.running : null;
  });

@@ -1,4 +1,4 @@
-From 79104462a01fe4491981aa3093d5e03aa8353b8b Mon Sep 17 00:00:00 2001
+From 251e6e8008800485ae416aa32e9585eb97c4b576 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Sat, 24 Oct 2026 14:06:24 +0000
 Subject: [PATCH] Event Timers: the folded bosses now, soon and later, each
@@ -23,7 +23,7 @@ Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
  3 files changed, 163 insertions(+), 51 deletions(-)
 
 diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
-index c5e9802..b6bb185 100644
+index 594c63a..33bfacd 100644
 --- a/plugins/event-timers/index.html
 +++ b/plugins/event-timers/index.html
 @@ -25,10 +25,23 @@
@@ -52,7 +52,7 @@ index c5e9802..b6bb185 100644
          <h2 class="group foldedBossHead" hidden></h2>
          <ol class="list foldedBossList"></ol>
 diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
-index b8de53e..45b5a8d 100644
+index 73c3d44..4e145ad 100644
 --- a/plugins/event-timers/plugin.js
 +++ b/plugins/event-timers/plugin.js
 @@ -39,6 +39,10 @@ const els = {
@@ -141,7 +141,7 @@ index b8de53e..45b5a8d 100644
  // The world boss timers: { server, bosses, at, error }, from the feed and the
  // player's own map, the newest report of each boss kept.
  let feed = null;
-@@ -727,6 +769,7 @@ function renderStatic() {
+@@ -761,6 +803,7 @@ function renderStatic() {
    els.foldedLayoutSelect.replaceChildren(...FOLDED_LAYOUTS.map((x) => option(x, foldedWords()[x])));
    els.foldedEventsLabel.textContent = ui().events;
    applyFoldedLayout();
@@ -149,7 +149,7 @@ index b8de53e..45b5a8d 100644
    els.soundLabel.textContent = a.sound;
    els.testAlert.textContent = words.testAlert;
    els.alertOptionsBtn.textContent = words.alertOptions;
-@@ -1124,12 +1167,12 @@ function renderField(now) {
+@@ -1170,12 +1213,12 @@ function fieldItems(bosses, now, withHeads) {
  function renderFoldedBosses(now) {
    const minutes = foldedMinutes();
    if (!document.body.classList.contains("compact") || !minutes) {
@@ -168,7 +168,7 @@ index b8de53e..45b5a8d 100644
      return;
    }
    const limit = minutes * 60_000;
-@@ -1143,7 +1186,7 @@ function renderFoldedBosses(now) {
+@@ -1189,7 +1232,7 @@ function renderFoldedBosses(now) {
      if (!next || next.start - now > limit) continue;
      const running = next.start <= now;
      items.push({
@@ -177,7 +177,7 @@ index b8de53e..45b5a8d 100644
        li: row({
          id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
          soon: next.start - now <= SOON_MS,
-@@ -1173,32 +1216,29 @@ function renderFoldedBosses(now) {
+@@ -1219,32 +1262,29 @@ function renderFoldedBosses(now) {
      const li = row({ id: `field:${b.id}`, name, where: text(b.where), countdown, at, up, soon: inWindow || next - now <= SOON_MS });
      if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
      li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
@@ -230,7 +230,7 @@ index b8de53e..45b5a8d 100644
  }
  
  function render() {
-@@ -2101,6 +2141,7 @@ els.scaleSelect.addEventListener("change", () => {
+@@ -2148,6 +2188,7 @@ els.scaleSelect.addEventListener("change", () => {
  els.foldedBossSelect.addEventListener("change", () => {
    prefs.foldedBossMinutes = Number(els.foldedBossSelect.value);
    savePrefs();
@@ -238,7 +238,7 @@ index b8de53e..45b5a8d 100644
    render();
  });
  const setFoldedLayout = (layout) => {
-@@ -2111,6 +2152,7 @@ const setFoldedLayout = (layout) => {
+@@ -2158,6 +2199,7 @@ const setFoldedLayout = (layout) => {
  };
  els.foldedLayoutSelect.addEventListener("change", () => setFoldedLayout(els.foldedLayoutSelect.value));
  els.foldedLayoutBtn.addEventListener("click", () => setFoldedLayout(foldedColumns() ? "stacked" : "columns"));
