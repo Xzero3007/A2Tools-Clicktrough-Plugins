@@ -399,3 +399,46 @@ test("Daevanion: what the reference takes, summed by stat", () => {
   const [r] = C.boardOffense([board], "pve", new Set([3]));
   assert.deepEqual([r.name, r.have, r.ref, r.closed], ["Critical Hit", 5, 5, 5]);
 });
+
+test("changing a piece: the gear score it gives, at +0, from which level, the enhancing", () => {
+  const kromede = idOf("Enraged Kromede Longbow", 86);
+  const il = D.items[String(kromede)][3];
+  const mine = { slot: "MainHand", id: 1, name: "Old bow", il: 70, enchant: 15, amplify: 1, stones: [{ grade: "Legend" }] };
+  const up = C.upgradeOf(mine, { slot: "MainHand", id: kromede, name: "Enraged Kromede Longbow", il, enchant: 15, amplify: 5 }, null);
+  assert.equal(up.same, false);
+  assert.equal(up.gain, il + 15 + 25 - (70 + 15 + 5));
+  assert.equal(up.at0, il - 90);
+  // Enhance first, then Amplify, to match the old piece's 90.
+  assert.deepEqual(up.even, il >= 90 ? { enchant: 0, amplify: 0 } : { enchant: Math.min(90 - il, 15), amplify: 0 });
+  const full = C.enhanceCost({ id: kromede }, { enchant: 0, amplify: 0 }, { enchant: 15, amplify: 5 });
+  near(up.cost.kinah, full.kinah, 1e-6, "from +0");
+  assert.ok(up.cost.known && up.perPoint > 0);
+  assert.equal(up.stones.mine, 3, "the old piece's Manastones apart");
+  // The same item goes on from its own levels.
+  const same = C.upgradeOf({ ...mine, id: kromede, il }, { id: kromede, il, enchant: 15, amplify: 5 }, null);
+  assert.equal(same.same, true);
+  assert.equal(same.gain, 4 * 5);
+  near(same.cost.kinah, C.enhanceCost({ id: kromede }, { enchant: 15, amplify: 1 }, { enchant: 15, amplify: 5 }).kinah, 1e-6, "from A1");
+  // A piece without tables (an Arcana card): the cost isn't known.
+  const arc = C.upgradeOf({ id: 810130001, il: 80, enchant: 3 }, { id: 810130001, il: 80, enchant: 5 }, null);
+  assert.deepEqual([arc.gain, arc.cost.known, arc.perPoint], [2, false, null]);
+});
+
+test("the way to a target gear score with pieces changed: cheaper where a change is", () => {
+  const kromede = idOf("Enraged Kromede Longbow", 86);
+  const il = D.items[String(kromede)][3];
+  // An old bow at its top: only a change gives more.
+  const snap = { items: [{ slot: "MainHand", id: kromede, name: "Enraged Kromede Longbow", il, grade: "Unique", enchant: 15, amplify: 5, maxEnchant: 15, maxAmplify: 5 },
+    { slot: "Amulet", id: 1, name: "Old amulet", il: 13, grade: "Rare", enchant: 0, amplify: 0, maxEnchant: 0 }] };
+  const amulet = Number(Object.keys(D.items).find((k) => D.items[k][2] === "Amulet" && D.items[k][3] >= 60 && D.items[k][5]));
+  const row = D.items[String(amulet)];
+  const swaps = [{ slot: "Amulet", item: { slot: "Amulet", id: amulet, name: row[0], il: row[3], grade: row[1], enchant: 0, amplify: 0 } }];
+  const plain = C.planGearScore(snap, 100, 120, null);
+  assert.equal(plain.reached, false);
+  const plan = C.planWithSwaps(snap, 100, 120, null, swaps);
+  assert.equal(plan.reached, true);
+  assert.equal(plan.swaps.length, 1);
+  assert.equal(plan.swaps[0].up.gain, row[3] - 13);
+  // Nothing to change: the same as enhancing alone.
+  assert.equal(C.planWithSwaps(snap, 100, 120, null, []).swaps.length, 0);
+});

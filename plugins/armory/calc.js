@@ -283,6 +283,116 @@
     return { reached: gs >= target, gs, pieces, total };
   }
 
+  // ---- changing a piece -------------------------------------------------
+  /** A piece's gear score by its item level, enhance level and Amplify
+   *  level (Manastones and Theostones apart: they stay on the old piece). */
+  const pieceGearScore = (x) => (x ? (x.il || 0) + (x.enchant || 0) + AMPLIFY_POINTS * (x.amplify || 0) : 0);
+  /** The gear score of a piece's Manastones and Theostones. */
+  const stoneGearScore = (x) => (x?.stones || []).reduce((a, s) => a + (GRADE_POINTS[s.grade] || 0), 0)
+    + (x?.theostones || []).reduce((a, t) => a + (THEOSTONE_POINTS[t.grade] || 0), 0);
+
+  /** An item's enhance and Amplify tops (its tables'). */
+  function tops(item) {
+    const et = enchantTable(item);
+    const at = amplifyTable(item);
+    return { enchant: et ? et.filter((s) => s[0] > 0).length : 0, amplify: at ? at.filter((s) => s[0] > 0).length : 0 };
+  }
+
+  /** The lowest levels at which `item` is worth `gs` (enhance first, then
+   *  Amplify), or null when even its tops are not. */
+  function evenLevel(item, gs) {
+    const t = tops(item);
+    const il = item?.il || 0;
+    for (let e = 0; e <= t.enchant; e++) if (il + e >= gs) return { enchant: e, amplify: 0 };
+    for (let a = 1; a <= t.amplify; a++) if (il + t.enchant + AMPLIFY_POINTS * a >= gs) return { enchant: t.enchant, amplify: a };
+    return null;
+  }
+
+  /** The enhancing of `item` from one level to another: { kinah, kinahP90,
+   *  mats, matsP90, known } (known false where its tables are missing). */
+  function enhanceCost(item, from, to) {
+    const out = { kinah: 0, kinahP90: 0, mats: {}, matsP90: {}, known: true };
+    const add = (c) => {
+      out.kinah += c.sum.kinah;
+      out.kinahP90 += c.sum.kinahP90;
+      for (const [m, v] of Object.entries(c.sum.mats)) out.mats[m] = (out.mats[m] || 0) + v;
+      for (const [m, v] of Object.entries(c.sum.matsP90)) out.matsP90[m] = (out.matsP90[m] || 0) + v;
+    };
+    if ((to.enchant || 0) > (from.enchant || 0)) {
+      const et = enchantTable(item);
+      if (et) add(climb(et, from.enchant || 0, to.enchant)); else out.known = false;
+    }
+    if ((to.amplify || 0) > (from.amplify || 0)) {
+      const at = amplifyTable(item);
+      if (at) add(climb(at, from.amplify || 0, to.amplify)); else out.known = false;
+    }
+    return out;
+  }
+
+  /** What changing `mine` for `target` (an item at some levels) gives: the
+   *  same item enhanced on from where it is, another one from +0. { same,
+   *  gain, at0 (another one at +0 against yours), even (the levels where it
+   *  matches yours), cost, worth (Kinah plus priced materials), perPoint,
+   *  stones (yours, the target's where known) }. */
+  function upgradeOf(mine, target, prices) {
+    if (!target) return null;
+    const same = !!(mine && (mine.id === target.id || (mine.name && mine.name === target.name)));
+    const from = same ? { enchant: mine.enchant || 0, amplify: mine.amplify || 0 } : { enchant: 0, amplify: 0 };
+    const to = { enchant: Math.max(from.enchant, target.enchant || 0), amplify: Math.max(from.amplify, target.amplify || 0) };
+    const mineGs = pieceGearScore(mine);
+    const gain = pieceGearScore({ il: target.il, ...to }) - mineGs;
+    const cost = enhanceCost(target, from, to);
+    const worth = kinahWorth(cost.kinah, cost.mats, prices);
+    const known = tops(target).enchant > 0;
+    return { same, from, to, gain, at0: same ? null : (target.il || 0) - mineGs, even: same || !known ? null : evenLevel(target, mineGs), evenKnown: known,
+      cost, worth: worth.total, unpriced: worth.unpriced, perPoint: gain > 0 && cost.known ? worth.total / gain : null,
+      stones: { mine: stoneGearScore(mine), target: target.stones || target.theostones ? stoneGearScore(target) : null } };
+  }
+
+  /** The cheapest way to a target gear score with pieces changed: the
+   *  enhance plan alone, or with some of `swaps` ([{ slot, item }]: a piece
+   *  at its levels, enhanced from +0) taken first and the rest enhanced,
+   *  whichever reaches the target for the least Kinah worth (or, short of
+   *  it, gets highest). { ...planGearScore's, swaps: [{ slot, mine, item,
+   *  up }] }. */
+  function planWithSwaps(snap, current, target, prices, swaps) {
+    const bySlot = new Map((snap?.items || []).map((it) => [it.slot, it]));
+    const options = (swaps || []).map((o) => ({ ...o, mine: bySlot.get(o.slot) || null }))
+      .map((o) => ({ ...o, up: upgradeOf(o.mine, o.item, prices) }))
+      .filter((o) => o.up && !o.up.same && o.up.gain > 0 && o.up.cost.known);
+    const slots = new Set((snap?.items || []).filter((it) => !it.arcana).map((it) => it.slot));
+    const evaluate = (chosen) => {
+      const gain = chosen.reduce((a, o) => a + o.up.gain, 0);
+      const only = new Set([...slots].filter((sl) => !chosen.some((o) => o.slot === sl)));
+      const plan = planGearScore(snap, current + gain, target, prices, only);
+      const total = { gain: plan.total.gain + gain, kinah: plan.total.kinah, kinahP90: plan.total.kinahP90,
+        mats: { ...plan.total.mats }, matsP90: { ...plan.total.matsP90 } };
+      for (const o of chosen) {
+        total.kinah += o.up.cost.kinah;
+        total.kinahP90 += o.up.cost.kinahP90;
+        for (const [m, v] of Object.entries(o.up.cost.mats)) total.mats[m] = (total.mats[m] || 0) + v;
+        for (const [m, v] of Object.entries(o.up.cost.matsP90)) total.matsP90[m] = (total.matsP90[m] || 0) + v;
+      }
+      total.worth = kinahWorth(total.kinah, total.mats, prices);
+      return { reached: plan.reached, gs: plan.gs, pieces: plan.pieces, swaps: chosen, total };
+    };
+    const better = (a, b) => (a.reached !== b.reached ? a.reached
+      : a.reached ? a.total.worth.total < b.total.worth.total - 1e-6
+        : a.gs > b.gs || (a.gs === b.gs && a.total.worth.total < b.total.worth.total - 1e-6));
+    let best = evaluate([]);
+    for (;;) {
+      let next = null;
+      for (const o of options) {
+        if (best.swaps.some((c) => c.slot === o.slot)) continue;
+        const e = evaluate([...best.swaps, o]);
+        if (better(e, next || best)) next = e;
+      }
+      if (!next) break;
+      best = next;
+    }
+    return best;
+  }
+
   /** What the gear can still give at all: every piece at its enhance top
    *  and its Amplify top. */
   function gearRoom(snap) {
@@ -1072,6 +1182,7 @@
     compareGear, compareSkills, historyEntry, addHistory, historyChanges, fmt, short,
     STAT_GROUPS, statName, explainStat, characterStats,
     readQuestlogBuilds, questlogReference, referenceBoards, questlogProperty,
+    pieceGearScore, stoneGearScore, tops, evenLevel, enhanceCost, upgradeOf, planWithSwaps,
     soulPool, soulOf, rollQuality, soulCompare, soulChance, topOf, topSlot, topPicks, SLOT_GROUP,
     TARGET_LEVELS, asTarget, topSkillLevels, skillWay, effectParts, isOffensive, statSide, boardWays, nodeOffense, boardOffense,
   });

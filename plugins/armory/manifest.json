@@ -1,10 +1,10 @@
 {
   "id": "armory",
   "name": "Armory",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "apiVersion": 2,
   "author": "Clicktrough (characters: NC's AION 2 character pages; enhance tables, items and soul bindings: the game's files via Aion2Data and questlog.gg; the strongest players: Shugo.GG's leaderboard; prices: aion2.exchange)",
-  "description": "Your character as NC's character pages show it, every value written out: gear with enhance, Amplify, Manastones and Theostones, stats, skills, Daevanion boards, titles. The soul bindings you want on each piece and the chance of a new binding giving them, target levels for your skills and the way there, the offensive Daevanion nodes still closed and the cheapest way to them, suggestions from the strongest players of your class, reference builds from questlog.gg (every build of a character, with soul bindings, Daevanion nodes and skill levels, through a bookmark) to compare with, the cheapest enhancing to a target gear score or combat power with its cost in Kinah and materials, and the history of every reading.",
+  "description": "Your character as NC's character pages show it, every value written out: gear with enhance, Amplify, Manastones and Theostones, stats, skills, Daevanion boards, titles. The soul bindings you want on each piece and the chance of a new binding giving them, target levels for your skills and the way there, the offensive Daevanion nodes still closed and the cheapest way to them, suggestions from the strongest players of your class, reference builds from questlog.gg (every build of a character, with soul bindings, Daevanion nodes and skill levels, through a bookmark) to compare with, what changing a piece gives and costs (the reference's or any item compared), the cheapest enhancing and changing to a target gear score or combat power with its cost in Kinah and materials, and the history of every reading.",
   "permissions": [
     "storage",
     "events:character",

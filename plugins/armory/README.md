@@ -61,12 +61,24 @@ value written out (no hovering), and what to do next.
   haven't and what you took that it leaves. **Edit** changes a slot (any item
   by name, its levels); **Code** shows the reference as text, to keep or
   move.
+- **Upgrades** (Reference tab): for every slot what the reference's piece at
+  its levels gives over yours in gear score (item level, enhance level, 5 an
+  Amplify level), the enhancing it takes (from +0 for another item, from
+  your levels for the same one; Kinah on average and 9 times in 10, the
+  materials), Kinah a point and about how much combat power; for another
+  item also what it is worth at +0 and from which level it matches yours.
+  All of them best value first, with the total. **Compare** (in each row)
+  puts any item, found by name, at the levels you set against yours in the
+  same way; the items compared are kept per character.
 - **Goals**: a target gear score (or combat power, by an estimate), and the
-  cheapest enhance and Amplify steps on the gear you wear to get there, each
-  with its Kinah on average and 9 times in 10, and the materials: Enhance
-  Stones, Amplify Stones (in Kinah at your server's market price), bound
-  scrolls. What the gear can't give: Daevanion points still open, empty
-  Manastone slots, the reference's better pieces.
+  cheapest way there: enhance and Amplify steps on the gear you wear, and
+  (when counted) changing pieces to the reference's or to those you compare,
+  whichever is cheaper (the changes first, then the enhancing; "enhancing
+  only" beside it), each with its Kinah on average and 9 times in 10, and
+  the materials: Enhance Stones, Amplify Stones (in Kinah at your server's
+  market price), bound scrolls. A changed piece counts its enhancing from +0,
+  not the item itself. What the gear can't give: Daevanion points still
+  open, empty Manastone slots.
 - **History**: every reading kept when something changed (combat power,
   gear score, gear, skills, Daevanion, titles), with a chart; while you play,
   the game's own combat power and gear score as they change.

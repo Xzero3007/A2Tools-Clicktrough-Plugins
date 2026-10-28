@@ -304,6 +304,16 @@ details.refdaev > summary:hover { color: #fff; }
 details.bookmark > summary { cursor: pointer; font-size: 12px; color: var(--muted); }
 details.bookmark > summary:hover { color: #fff; }
 .bmcode { width: 100%; font: 11px ui-monospace, monospace; }
+button.mini { font-size: 11px; padding: 0 6px; margin-top: 2px; }
+button.mini.on { border-color: rgba(242,196,107,.55); color: #ffe2a6; }
+tr.cmprow > td { background: rgba(255,255,255,.03); padding: 8px; white-space: normal; overflow: visible; }
+.cmp table td, .cmp table th { font-size: 12px; }
+.cmp .edit input[type=text] { width: 260px; }
+.cmp .lvin { display: inline-flex; gap: 3px; align-items: center; }
+.cmp .lvin input[type=number] { width: 46px; padding: 1px 3px; }
+table.ups tfoot td { border-top: 1px solid rgba(255,255,255,.18); font-weight: 600; }
+tr.swaprow td { background: rgba(242,196,107,.05); }
+.swapopt { display: block; margin: 0 0 8px; }
 
 @media (max-width: 620px) {
   .top { grid-template-columns: 48px 1fr; }
