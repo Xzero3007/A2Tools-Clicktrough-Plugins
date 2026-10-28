@@ -319,6 +319,7 @@ function render() {
 
   els.list.replaceChildren(...shown.map((p) => rowOf(p, pinned, farming)));
   renderFarm(pinned, farming);
+  fitOpenPics();
   shareWithMap(pinned, ids);
   for (const fn of listeners) fn();
 }
@@ -370,9 +371,56 @@ function rowOf(p, pinned, farming) {
   if (openId === p.id) {
     li.classList.add("open");
     li.append(whereOf(p.id));
+    // Open, the card's portrait grows to its height: the large one.
+    const pic = li.querySelector("img.cardPic");
+    if (pic) bigPortrait(p.id).then((url) => { if (url) pic.src = url; });
   }
   return li;
 }
+
+// The large portraits (portraits/<id>.webp, 256 px), each loaded once, the
+// first time its card opens (a2.file: a plugin's own files load no other
+// way once its page has started).
+const bigPortraits = new Map();
+function bigPortrait(id) {
+  if (!bigPortraits.has(id)) {
+    bigPortraits.set(id, typeof a2.file === "function" && globalThis.PET_IMAGES?.portraits?.[id]
+      ? a2.file(`portraits/${id}.webp`).catch(() => null)
+      : Promise.resolve(null));
+  }
+  return bigPortraits.get(id);
+}
+
+// An open card's portrait: square, as tall as the card, and the card as tall
+// as its sources need beside it. Measured on the page as drawn (its Text
+// size zooms it), a few times: the larger the portrait, the narrower the
+// sources beside it, and the taller the card.
+function fitOpenPics() {
+  if (prefs.layout !== "cards") return;
+  for (const li of document.querySelectorAll("#petsView .pets li.open")) {
+    const pic = li.querySelector(".cardPic");
+    if (!pic) continue;
+    let size = 48;
+    for (let i = 0; i < 6; i += 1) {
+      li.style.setProperty("--pic", `${size}px`);
+      const k = pic.getBoundingClientRect().height / size; // drawn px per CSS px
+      if (!(k > 0)) break;
+      const box = li.getBoundingClientRect();
+      // Inside its border (1 px each side), at most half the card's width.
+      const next = Math.round(Math.min(box.height / k - 2, (box.width / k) * 0.5));
+      if (Math.abs(next - size) < 1) break;
+      size = Math.max(48, next);
+    }
+  }
+}
+// The window made wider or narrower: the open card's portrait again.
+let fittedWidth = 0;
+new ResizeObserver(() => {
+  const w = els.list.getBoundingClientRect().width;
+  if (Math.abs(w - fittedWidth) < 1) return;
+  fittedWidth = w;
+  fitOpenPics();
+}).observe(els.list);
 
 // ---- The farming pop-up (Filters → "Pop up while farming") ---------------
 //

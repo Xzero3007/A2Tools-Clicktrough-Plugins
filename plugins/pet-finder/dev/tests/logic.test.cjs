@@ -129,3 +129,16 @@ test("totals count the 208 pets of the Global game, plus any with progress", () 
   coll.rank(asian.id, 1, 2);
   assert.equal(L.totals(ix, coll).all, 209);
 });
+
+test("every pet with a portrait has its large one, for an open card", () => {
+  require(path.join(PLUGIN, "images.js"));
+  const dir = process.env.PORTRAITS_DIR || path.join(PLUGIN, "portraits");
+  const ids = Object.keys(globalThis.PET_IMAGES.portraits);
+  assert.ok(ids.length > 250);
+  const missing = ids.filter((id) => !fs.existsSync(path.join(dir, `${id}.webp`)));
+  assert.deepEqual(missing, []);
+  // 256 px each: a WebP's size is in its header (VP8X: 24-bit width - 1 at byte 24).
+  const head = fs.readFileSync(path.join(dir, `${ids[0]}.webp`));
+  assert.equal(head.toString("ascii", 12, 16), "VP8X");
+  assert.equal(head.readUIntLE(24, 3) + 1, 256);
+});

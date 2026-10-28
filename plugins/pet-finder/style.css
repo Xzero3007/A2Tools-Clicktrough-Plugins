@@ -399,8 +399,15 @@ body.layout-cards #petsView .cardPic {
   object-fit: cover;
   background: rgba(255, 255, 255, 0.05);
 }
+/* Open: the portrait as tall as the card (--pic, list.js fitOpenPics),
+   the ring, name, steps and sources to its right. */
+body.layout-cards #petsView .pets li.open {
+  grid-template-columns: var(--pic, 48px) 34px minmax(0, 1fr);
+}
 body.layout-cards #petsView .pets li.open .cardPic {
-  margin-bottom: 0;
+  grid-row: 1 / span 2;
+  width: var(--pic, 48px);
+  height: var(--pic, 48px);
 }
 body.layout-cards #petsView .pets li .where {
   grid-column: 2 / -1;
@@ -418,7 +425,7 @@ body.layout-cards #petsView .pets li.farmed {
 }
 body.layout-cards #petsView .pets li.open {
   background:
-    radial-gradient(circle at 75px 24px, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
+    radial-gradient(circle at calc(var(--pic, 48px) + 18px) 24px, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
     rgba(255, 255, 255, 0.05);
 }
 body.layout-cards #petsView .main {

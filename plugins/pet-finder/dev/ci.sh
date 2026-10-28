@@ -40,4 +40,4 @@ if [ -f "$notes/pet-finder/eu-merchant.hex" ]; then
 else
   echo "Pet Finder: the EU merchant test (private notes repo) is not here; left out."
 fi
-PLUGIN_DIR="$work/plugin" node --test "${tests[@]}"
+PLUGIN_DIR="$work/plugin" PORTRAITS_DIR="$plugin/portraits" node --test "${tests[@]}"

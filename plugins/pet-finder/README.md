@@ -7,7 +7,8 @@ for all of them and for the Map plugin:
   its README describes it): every pet's level (0 to 3) and the souls it still
   needs (5, 25, 75), from the game's own pet data, in the meter's language;
   layouts (cards, with the pet's portrait at the left as tall as the card,
-  filled cards, rows, classic), filters (genus, level, regions), the pop-up
+  open as tall as the open card with the sources beside it, filled cards,
+  rows, classic), filters (genus, level, regions), the pop-up
   while farming; a click on a pet shows where its souls
   drop (monsters with level, chance, zone, spawns and the nearest Kibelisk,
   and chests), and **Map** beside a monster shows its spawn points on the Map
@@ -91,6 +92,8 @@ No network.
 `pets.js` and `sources.js` are the Pet Soul Tracker's, generated from the game
 client by its `tools/game-souls/gamesouls.py`. `data.js` and `images.js` are generated from PetTracker
 (`python3 -I dev/make_data.py <PetTracker checkout> .`); `data.js` names the commit.
+The large portraits an open card shows (`portraits/`, 256 px) come from the
+same checkout: `python3 -I dev/make_portraits.py <PetTracker checkout> .`.
 Pet portraits and crystals are game artwork, included as PetTracker includes them;
 Aion 2 names, portraits and game material belong to their respective owners.
 Source relationships come from PetTracker, which assembled them from game data,
