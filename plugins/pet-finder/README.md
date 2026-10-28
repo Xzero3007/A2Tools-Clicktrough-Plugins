@@ -6,8 +6,9 @@ for all of them and for the Map plugin:
 - **Pets** – the **Pet Soul Tracker's list**, whole (A2 Tools' plugin, GPL-3.0;
   its README describes it): every pet's level (0 to 3) and the souls it still
   needs (5, 25, 75), from the game's own pet data, in the meter's language;
-  layouts (cards, filled cards, rows, classic), filters (genus, level,
-  regions), the pop-up while farming; a click on a pet shows where its souls
+  layouts (cards, with the pet's portrait at the left as tall as the card,
+  filled cards, rows, classic), filters (genus, level, regions), the pop-up
+  while farming; a click on a pet shows where its souls
   drop (monsters with level, chance, zone, spawns and the nearest Kibelisk,
   and chests), and **Map** beside a monster shows its spawn points on the Map
   plugin. **Nearest** (beside the sort buttons, with the Map running) sorts
@@ -15,7 +16,8 @@ for all of them and for the Map plugin:
   that drops their souls, as the Pet Soul Tracker 0.5.0 does. ☆ makes a pet a
   favourite. A favourite that reaches level 3 stops
   being one, so the Map no longer follows it; made one again at level 3, it
-  stays.
+  stays. Its highlights (chosen filters, the bar of how far along every pet
+  is, the links) are gold, not blue.
 - **Nearby** – the pet mobs the game has shown you, grouped by pet, with your
   level and souls (the Pets tab's), how far the nearest one is and which way
   (north up); favourites first, then the nearest, a map button for each, and a

@@ -1,7 +1,7 @@
 {
   "id": "pet-finder",
   "name": "Pet Finder",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "apiVersion": 2,
   "author": "Clicktrough (the Pets list: A2 Tools' Pet Soul Tracker, GPL-3.0; nearby and merchant data and packet layouts: PetTracker, GPLv3)",
   "description": "Every pet's level and the souls it still needs, from the game's own data, and where its souls drop (the Pet Soul Tracker's list); the pet mobs near you with how far and which way; and a Black Cloud Merchant shopping list. One list of favourites (★) for every tab and the Map plugin.",

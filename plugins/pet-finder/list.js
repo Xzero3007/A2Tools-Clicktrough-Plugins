@@ -485,7 +485,7 @@ const el = (tag, cls, text) => {
 };
 // Its pin, its name (double-click to rename), its genus (unless the layout
 // shows it elsewhere) and, while farmed, the tag.
-function nameOf(p, { pinned, farming }, { genus = true } = {}) {
+function nameOf(p, { pinned, farming }, { genus = true, pic = true } = {}) {
   const name = el("span", "name");
   const pin = el("button", "pin", pinned ? "★" : "☆");
   pin.type = "button";
@@ -495,7 +495,7 @@ function nameOf(p, { pinned, farming }, { genus = true } = {}) {
   text.title = `${p.name}${p.genus ? ` · ${genusName(p.genus)}` : ""} (double-click to rename)`;
   text.addEventListener("dblclick", () => rename(p.id, text));
   // Its portrait, as the Nearby and Merchant tabs show it (images.js).
-  const src = globalThis.PET_IMAGES?.portraits?.[p.id];
+  const src = pic ? globalThis.PET_IMAGES?.portraits?.[p.id] : null;
   if (src) {
     const img = document.createElement("img");
     img.className = "petPic";
@@ -532,18 +532,18 @@ function stepsOf(p) {
 const leftTitle = (p) => (p.target ? `${p.left} souls to level 3` : "");
 
 const LAYOUTS = {
-  // A card: the level ring, the name and the souls left in its corner, and
-  // under them the three steps.
+  // A card: the pet's portrait as tall as the card, the level ring, the name
+  // and the souls left in its corner, and under them the three steps.
   cards(p, flags) {
     const li = el("li");
     const left = el("span", "left");
     if (p.target) left.append(el("b", "", String(p.left)), " left");
     left.title = leftTitle(p);
     const top = el("div", "line");
-    top.append(nameOf(p, flags), left);
+    top.append(nameOf(p, flags, { pic: false }), left);
     const main = el("div", "main");
     main.append(top, stepsOf(p));
-    li.append(levelRing(p), main);
+    li.append(cardPic(p), levelRing(p), main);
     return li;
   },
   // A card that fills with the souls toward the next level: its genus icon,
@@ -590,6 +590,18 @@ const LAYOUTS = {
   },
 };
 const LAYOUT_NAMES = { cards: "Cards", filled: "Filled cards", rows: "Rows", classic: "Classic" };
+
+// A card's portrait (images.js); without one, an empty square of its size.
+function cardPic(p) {
+  const src = globalThis.PET_IMAGES?.portraits?.[p.id];
+  if (!src) return el("span", "cardPic");
+  const img = document.createElement("img");
+  img.className = "cardPic";
+  img.alt = "";
+  img.src = src;
+  img.decoding = "async";
+  return img;
+}
 
 // Each genus's mark: an eye (Cogni), a paw (Fera), a leaf (Natura), a
 // spiral (Varian).

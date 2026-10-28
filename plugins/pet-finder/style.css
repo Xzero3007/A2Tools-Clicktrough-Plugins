@@ -29,8 +29,10 @@ body {
 }
 body {
   padding: 10px 12px;
-  --accent: var(--a2-accent, #8fc2ff);
+  /* No blue: the highlights (chosen filters, their count, the bar of how far
+     along every pet is, the links) in gold, not the meter's accent. */
   --gold: #f5c542;
+  --accent: var(--gold);
   --line: rgba(255, 255, 255, 0.08);
 }
 body.compact #petsView .controls,
@@ -373,7 +375,7 @@ body.layout-cards #petsView .pets {
 }
 body.layout-cards #petsView .pets li {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 48px 34px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 7px 10px 7px 9px;
@@ -381,8 +383,27 @@ body.layout-cards #petsView .pets li {
   border-left: 3px solid color-mix(in srgb, var(--g) 70%, transparent);
   border-radius: 4px 9px 9px 4px;
   background:
-    radial-gradient(circle at 26px 50%, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
+    radial-gradient(circle at 75px 50%, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
     rgba(255, 255, 255, 0.03);
+}
+/* The pet's portrait at the card's left, as tall as the card (folded); the
+   ring, the name and the steps beside it. Open, it stays at the top left
+   and the sources sit to its right. */
+body.layout-cards #petsView .cardPic {
+  grid-row: 1;
+  align-self: start;
+  width: 48px;
+  height: 48px;
+  margin: -7px 0 -7px -9px;
+  border-radius: 1px 0 0 1px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.05);
+}
+body.layout-cards #petsView .pets li.open .cardPic {
+  margin-bottom: 0;
+}
+body.layout-cards #petsView .pets li .where {
+  grid-column: 2 / -1;
 }
 body.layout-cards #petsView .pets li.hasWhere:hover {
   border-top-color: rgba(255, 255, 255, 0.16);
@@ -397,7 +418,7 @@ body.layout-cards #petsView .pets li.farmed {
 }
 body.layout-cards #petsView .pets li.open {
   background:
-    radial-gradient(circle at 26px 24px, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
+    radial-gradient(circle at 75px 24px, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
     rgba(255, 255, 255, 0.05);
 }
 body.layout-cards #petsView .main {
@@ -880,7 +901,7 @@ body.farmOnly #petsView .foot {
   transition: border-color 120ms ease, background-color 120ms ease;
 }
 #petsView select:hover { border-color: rgba(255, 255, 255, 0.3); background-color: rgba(255, 255, 255, 0.09); }
-#petsView select:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
+#petsView select:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 1px; }
 #petsView select:disabled { opacity: 0.5; cursor: default; }
 #petsView select option,
 #petsView select optgroup { background: var(--a2-panel, #0e1420); color: #fff; }
