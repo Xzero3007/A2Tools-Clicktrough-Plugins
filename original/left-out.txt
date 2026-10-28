@@ -1,0 +1,3 @@
+# The original's plugins this build never ships or runs, an id a line.
+# pet-souls: Pet Soul Tracker; its list is Pet Finder's Pets tab.
+pet-souls

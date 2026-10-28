@@ -1,0 +1,115 @@
+From eb1d568b1ab6d0c95a48f8342d2e693ae1165849 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Tue, 27 Oct 2026 23:03:12 +0000
+Subject: [PATCH] Roster: values dated as the game reported them; the right
+ hint for shop and crafts
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The meter (Clicktrough patch 0028) says when the game last reported each
+value of the character event (seenAt), also when unchanged. The roster
+took the first time it saw a value: the same count reported again a week
+later kept last week's time and showed as reset (≈0). Where the meter
+says, its time is taken now.
+
+A shop or craft row not seen yet said "log in to this character", but the
+game sends those only as the shop or the crafting window opens: the hint
+says so now.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RahWACwaxzLAcYgwc9jk8C
+---
+ plugins/alt-roster/i18n.js   |  4 ++++
+ plugins/alt-roster/plugin.js | 18 ++++++++++++++----
+ 2 files changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/plugins/alt-roster/i18n.js b/plugins/alt-roster/i18n.js
+index 72cff7c..2962186 100644
+--- a/plugins/alt-roster/i18n.js
++++ b/plugins/alt-roster/i18n.js
+@@ -35,6 +35,8 @@ globalThis.ROSTER_UI = {
+     tipNoneHeld: "Your side holds none of the corridors' artifacts until the next siege.",
+     allDone: "all done", doneToday: (t) => `done today · new in ${t}`, full: "full", plusIn: (n, t) => `+${n} in ${t}`,
+     tipUnknownRecord: "The game's record for this isn't known yet", tipNotSeen: "Not seen yet: log in to this character",
++    tipOpenShop: "Not seen yet: open the shop on this character (the game sends it only then)",
++    tipOpenCrafting: "Not seen yet: open the crafting window on this character (the game sends it only then)",
+     tipDutyReset: (n) => `${n} completed before the reset; none since, as far as known`,
+     tipDutyToday: (n, taken, a) => `${n} completed today on your characters, ${taken} taken (the game's n/5 counts taken), as of ${a}`,
+     tipGained: (was, a, gained, extra) => `${was} when last seen (${a}), +${gained} recharged since${extra ? `; ${extra} extra` : ""}`,
+@@ -164,6 +166,8 @@ globalThis.ROSTER_UI = {
+     tipNoneHeld: "Deine Seite hält bis zur nächsten Belagerung keines der Artefakte der Korridore.",
+     allDone: "alles erledigt", doneToday: (t) => `heute erledigt · neu in ${t}`, full: "voll", plusIn: (n, t) => `+${n} in ${t}`,
+     tipUnknownRecord: "Der Eintrag des Spiels dafür ist noch unbekannt", tipNotSeen: "Noch nicht gesehen: mit diesem Charakter einloggen",
++    tipOpenShop: "Noch nicht gesehen: auf diesem Charakter den Laden öffnen (das Spiel sendet es nur dann)",
++    tipOpenCrafting: "Noch nicht gesehen: auf diesem Charakter das Herstellungsfenster öffnen (das Spiel sendet es nur dann)",
+     tipDutyReset: (n) => `${n} vor dem Reset erledigt; seitdem keine, soweit bekannt`,
+     tipDutyToday: (n, taken, a) => `${n} heute auf deinen Charakteren erledigt, ${taken} angenommen (das n/5 des Spiels zählt angenommene), Stand ${a}`,
+     tipGained: (was, a, gained, extra) => `${was} zuletzt gesehen (${a}), seitdem +${gained} aufgeladen${extra ? `; ${extra} extra` : ""}`,
+diff --git a/plugins/alt-roster/plugin.js b/plugins/alt-roster/plugin.js
+index 91db6a8..1d55626 100644
+--- a/plugins/alt-roster/plugin.js
++++ b/plugins/alt-roster/plugin.js
+@@ -53,6 +53,10 @@ const num = (v) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : n
+ // again on Wednesday is still Monday's, and its reset has passed since.
+ const same = (a, b) => JSON.stringify({ ...a, at: 0 }) === JSON.stringify({ ...b, at: 0 });
+ const kept = (prev, next) => (prev && same(prev, next) ? prev : next);
++// Clicktrough: the meter says when the game last reported each value
++// (c.seenAt, also when unchanged): that time, where it says, rather than the
++// first time this page saw the value.
++const stamped = (prev, next, at) => (Number.isFinite(at) && at > 0 ? { ...next, at } : kept(prev, next));
+ 
+ // ── What the meter says ────────────────────────────────────────────────────
+ a2.on("character", (c) => {
+@@ -69,7 +73,7 @@ a2.on("character", (c) => {
+   if (num(c.gearScore)) ch.gs = c.gearScore;
+   const e = c.odyleEnergy;
+   if (e && Number.isFinite(e.basic) && Number.isFinite(e.charged)) {
+-    ch.energy = kept(ch.energy, { basic: e.basic, charged: e.charged, at: Date.now() });
++    ch.energy = stamped(ch.energy, { basic: e.basic, charged: e.charged, at: Date.now() }, c.seenAt?.odyleEnergy);
+     // Over 560 can only be with a membership.
+     if (e.basic > CAPS[1]) ch.cap = CAPS[0];
+   }
+@@ -83,7 +87,7 @@ a2.on("character", (c) => {
+       if (!Array.isArray(v)) continue;
+       const home = x.scope === "server" && !x.ofChars ? (state.servers[ch.serverId ?? ""] ||= {}) : ch;
+       home.counts ||= {};
+-      home.counts[x.id] = kept(home.counts[x.id], { v: [Number(v[0]) || 0, Number(v[1]) || 0], at });
++      home.counts[x.id] = stamped(home.counts[x.id], { v: [Number(v[0]) || 0, Number(v[1]) || 0], at }, c.seenAt?.contentCounts?.[x.id]);
+     }
+   }
+   // The shop's weekly limits and the crafts made (meter 2.0.78 on), once the
+@@ -91,6 +95,8 @@ a2.on("character", (c) => {
+   // Kinah gained today and the week's Abyss Points, with its limit (it
+   // grows each week).
+   const from = { shop: c.shopLimits, craft: c.crafts, kinah: { today: c.kinahToday }, abyss: { week: c.abyssPoints } };
++  const said = c.seenAt || {};
++  const saidAt = { shop: said.shopLimits, craft: said.crafts, kinah: { today: said.kinahToday }, abyss: { week: said.abyssPoints } };
+   for (const x of OTHER) {
+     const [kind, id] = x.id.split(":");
+     const v = from[kind]?.[id];
+@@ -104,7 +110,7 @@ a2.on("character", (c) => {
+     if (x.capFromGame) seen.cap = second;
+     else if (second !== undefined) seen.reset = second;
+     home.counts ||= {};
+-    home.counts[x.id] = kept(home.counts[x.id], seen);
++    home.counts[x.id] = stamped(home.counts[x.id], seen, saidAt[kind]?.[id]);
+   }
+   // Abyss Corridors: passage 1000000N is the corridor of artifact 100N
+   // (Reshanta's Root, Sulfur Tree Island, Siel's Wings: the two run on
+@@ -489,7 +495,11 @@ function cellOf(c, seen, at, now, cls = "") {
+   td.append(value, bar, el("div", `cellNote${est?.full ? " isFull" : ""}`, note));
+   if (est?.full) td.classList.add("full");
+   td.title = !est
+-    ? (c.id == null ? t.tipUnknownRecord : c.siege ? (seen ? t.tipAfterSiege : t.tipCorridorsUnknown) : t.tipNotSeen)
++    ? (c.id == null ? t.tipUnknownRecord : c.siege ? (seen ? t.tipAfterSiege : t.tipCorridorsUnknown)
++      // Clicktrough: the game sends these only as that window opens.
++      : String(c.id).startsWith("shop:") ? (t.tipOpenShop || UI.en.tipOpenShop)
++      : String(c.id).startsWith("craft:") ? (t.tipOpenCrafting || UI.en.tipOpenCrafting)
++      : t.tipNotSeen)
+     : c.used
+       ? (c.id !== 0 ? (est.reset ? t.tipUsedReset(seen.v[0]) : c.id.startsWith("shop:") || c.id.startsWith("craft:") ? t.tipUsed(est.left, ago(seen.at, now)) : t.tipSaid(ago(seen.at, now), 0))
+         : est.reset ? t.tipDutyReset(seen.v[0]) : t.tipDutyToday(est.left, seen.v[1], ago(seen.at, now)))
+-- 
+2.43.0
+

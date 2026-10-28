@@ -1,0 +1,30 @@
+From 156cfb3abc87c8dbeee59c1bf5fc4f307d3d3034 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Tue, 27 Oct 2026 00:48:49 +0000
+Subject: [PATCH] Enhanced Boss Telegraph: no link to the original's issue
+ tracker
+
+This build links to no website the player hasn't chosen: the line asking
+to report a missing mechanic on GitHub is gone.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RahWACwaxzLAcYgwc9jk8C
+---
+ plugins/boss-telegraph/index.html | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/plugins/boss-telegraph/index.html b/plugins/boss-telegraph/index.html
+index 9c9eac4..ec5b850 100644
+--- a/plugins/boss-telegraph/index.html
++++ b/plugins/boss-telegraph/index.html
+@@ -37,7 +37,6 @@
+       <p class="note info" data-t="callOffNote">Unticking a call turns it off completely, countdown too.</p>
+       <div class="groups"></div>
+       <p class="note" data-t="boundary">Only what the game shows a sighted player.</p>
+-      <p class="note"><a href="https://github.com/taengu/A2Tools-Plugins/issues" data-t="report">A mechanic missing or wrong? Report it here.</a></p>
+     </section>
+ 
+     <section class="pane" data-pane="look" id="pane-look" role="tabpanel" aria-labelledby="tab-look" hidden>
+-- 
+2.43.0
+

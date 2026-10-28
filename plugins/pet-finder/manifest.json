@@ -1,0 +1,715 @@
+{
+  "id": "pet-finder",
+  "name": "Pet Finder",
+  "version": "0.4.3",
+  "apiVersion": 2,
+  "author": "Clicktrough (the Pets list: A2 Tools' Pet Soul Tracker, GPL-3.0; nearby and merchant data and packet layouts: PetTracker, GPLv3)",
+  "description": "Every pet's level and the souls it still needs, from the game's own data, and where its souls drop (the Pet Soul Tracker's list); the pet mobs near you with how far and which way; and a Black Cloud Merchant shopping list. One list of favourites (★) for every tab and the Map plugin.",
+  "permissions": [
+    "storage",
+    "notify",
+    "window",
+    "events:character",
+    "events:world",
+    "events:shared",
+    "share",
+    "decoder:pet-list",
+    "decoder:soul-gained",
+    "decoder:level-up",
+    "decoder:npc-spawn-40a",
+    "decoder:npc-spawn-40b",
+    "decoder:npc-spawn-41a",
+    "decoder:npc-spawn-41b",
+    "decoder:npc-spawn-42a",
+    "decoder:npc-spawn-42b",
+    "decoder:npc-removed",
+    "decoder:npc-removed-more",
+    "decoder:market-a",
+    "decoder:market-b",
+    "decoder:market-c",
+    "decoder:market-more",
+    "decoder:market-seen"
+  ],
+  "decoders": [
+    {
+      "name": "pet-list",
+      "opcode": "00 90",
+      "fields": [
+        {
+          "type": "skip:4"
+        },
+        {
+          "name": "levels",
+          "type": "list",
+          "count": "varint",
+          "fields": [
+            {
+              "name": "pet",
+              "type": "u32"
+            },
+            {
+              "type": "skip:4"
+            },
+            {
+              "name": "level",
+              "type": "u32"
+            }
+          ]
+        },
+        {
+          "name": "points",
+          "type": "list",
+          "count": "varint",
+          "fields": [
+            {
+              "name": "pet",
+              "type": "u32"
+            },
+            {
+              "name": "points",
+              "type": "u32"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "soul-gained",
+      "opcode": "0D 90",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "souls",
+          "type": "list",
+          "count": "u8",
+          "fields": [
+            {
+              "name": "pet",
+              "type": "u32"
+            },
+            {
+              "name": "amount",
+              "type": "u32"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "level-up",
+      "opcode": "14 90",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "status",
+          "type": "u16"
+        },
+        {
+          "name": "pet",
+          "type": "u32"
+        },
+        {
+          "name": "level",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "npc-spawn-40a",
+      "opcode": "40 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "name": "npc",
+          "type": "u32"
+        },
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "marker",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "npc-spawn-40b",
+      "opcode": "40 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "name": "npc",
+          "type": "u32"
+        },
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "marker",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "npc-spawn-41a",
+      "opcode": "41 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "name": "npc",
+          "type": "u32"
+        },
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "marker",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "npc-spawn-41b",
+      "opcode": "41 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "name": "npc",
+          "type": "u32"
+        },
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "marker",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "npc-spawn-42a",
+      "opcode": "42 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "name": "npc",
+          "type": "u32"
+        },
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "marker",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "npc-spawn-42b",
+      "opcode": "42 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "type": "skip:2"
+        },
+        {
+          "name": "npc",
+          "type": "u32"
+        },
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "marker",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "npc-removed",
+      "opcode": "42 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "zero",
+          "type": "u8"
+        },
+        {
+          "name": "reason",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "npc-removed-more",
+      "opcode": "42 36",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "entity",
+          "type": "varint"
+        },
+        {
+          "name": "zero",
+          "type": "u8"
+        },
+        {
+          "name": "reason",
+          "type": "u8"
+        },
+        {
+          "name": "more",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "market-a",
+      "opcode": "91 56",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "tab",
+          "type": "u8"
+        },
+        {
+          "name": "count",
+          "type": "u8"
+        },
+        {
+          "name": "e0_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e0_item",
+          "type": "u32"
+        },
+        {
+          "name": "e0_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e0_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e0_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e0_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e0_price",
+          "type": "u64"
+        },
+        {
+          "name": "m36",
+          "type": "u8"
+        },
+        {
+          "name": "e1_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e1_item",
+          "type": "u32"
+        },
+        {
+          "name": "e1_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e1_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e1_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e1_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e1_price",
+          "type": "u64"
+        },
+        {
+          "name": "e2_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e2_item",
+          "type": "u32"
+        },
+        {
+          "name": "e2_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e2_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e2_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e2_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e2_price",
+          "type": "u64"
+        },
+        {
+          "name": "e3_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e3_item",
+          "type": "u32"
+        },
+        {
+          "name": "e3_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e3_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e3_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e3_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e3_price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "market-b",
+      "opcode": "91 56",
+      "immediate": true,
+      "fields": [
+        {
+          "type": "skip:139"
+        },
+        {
+          "name": "e4_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e4_item",
+          "type": "u32"
+        },
+        {
+          "name": "e4_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e4_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e4_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e4_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e4_price",
+          "type": "u64"
+        },
+        {
+          "name": "m173",
+          "type": "u8"
+        },
+        {
+          "name": "e5_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e5_item",
+          "type": "u32"
+        },
+        {
+          "name": "e5_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e5_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e5_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e5_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e5_price",
+          "type": "u64"
+        },
+        {
+          "name": "e6_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e6_item",
+          "type": "u32"
+        },
+        {
+          "name": "e6_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e6_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e6_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e6_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e6_price",
+          "type": "u64"
+        },
+        {
+          "name": "e7_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e7_item",
+          "type": "u32"
+        },
+        {
+          "name": "e7_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e7_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e7_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e7_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e7_price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "market-c",
+      "opcode": "91 56",
+      "immediate": true,
+      "fields": [
+        {
+          "type": "skip:276"
+        },
+        {
+          "name": "e8_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e8_item",
+          "type": "u32"
+        },
+        {
+          "name": "e8_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e8_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e8_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e8_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e8_price",
+          "type": "u64"
+        },
+        {
+          "name": "m310",
+          "type": "u8"
+        },
+        {
+          "name": "e9_offer",
+          "type": "u32"
+        },
+        {
+          "name": "e9_item",
+          "type": "u32"
+        },
+        {
+          "name": "e9_qty",
+          "type": "u64"
+        },
+        {
+          "name": "e9_disc",
+          "type": "u8"
+        },
+        {
+          "name": "e9_cur",
+          "type": "u8"
+        },
+        {
+          "name": "e9_orig",
+          "type": "u64"
+        },
+        {
+          "name": "e9_price",
+          "type": "u64"
+        },
+        {
+          "name": "refresh",
+          "type": "u64"
+        },
+        {
+          "name": "tail",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "market-more",
+      "opcode": "91 56",
+      "immediate": true,
+      "fields": [
+        {
+          "type": "skip:357"
+        },
+        {
+          "name": "more",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "market-seen",
+      "opcode": "91 56",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "tab",
+          "type": "u8"
+        }
+      ]
+    }
+  ],
+  "ui": {
+    "panel": {
+      "width": 420,
+      "height": 600
+    }
+  }
+}

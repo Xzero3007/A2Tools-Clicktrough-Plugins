@@ -1,0 +1,59 @@
+/* The overlay: a dark card like the meter's, transparent around it. --alpha
+   (the slider) sets how much of the game shows through the card and the map;
+   the marks and the words stay solid. */
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; background: transparent; overflow: hidden;
+  font: 13px/1.3 "Segoe UI", system-ui, sans-serif; color: rgba(255, 255, 255, 0.92); }
+body { --alpha: 0.86; }
+.card { position: absolute; inset: 0; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden;
+  background: rgba(14, 16, 20, var(--alpha)); border: 1px solid rgba(255, 255, 255, calc(0.04 + var(--alpha) * 0.1)); }
+.head { display: flex; align-items: center; gap: 6px; padding: 6px 12px; cursor: move; user-select: none; }
+.title { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+.opacity { width: 64px; min-width: 40px; flex: 0 1 64px; margin: 0; accent-color: #c8ccd2; }
+/* The size buttons and the slider show while the pointer is on the overlay;
+   else the title has the room. */
+.card:not(:hover) .sizes, .card:not(:hover) .opacity:not(:focus) { display: none; }
+.sizes { display: inline-flex; flex: none; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.18); }
+.sizes button { background: rgba(255, 255, 255, 0.04); border: 0; color: rgba(255, 255, 255, 0.75); font-family: inherit; font-weight: 600; font-size: 11px; line-height: 1;
+  padding: 3px 6px; cursor: pointer; }
+.sizes button + button { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.sizes button:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.sizes button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.close { background: none; border: 0; color: rgba(255, 255, 255, 0.6); font-size: 16px; line-height: 1; padding: 0 2px; cursor: pointer; }
+.close:hover { color: #fff; }
+body.locked .close, body.locked .opacity, body.locked .sizes, body.locked .corner, body.noResize .corner { display: none; }
+body.locked .head { cursor: default; }
+.mapBox { position: relative; flex: 1; margin: 0 6px; border-radius: 7px; overflow: hidden; background: rgba(0, 0, 0, calc(var(--alpha) * 0.35)); }
+.mapTiles { position: absolute; inset: 0; overflow: hidden; z-index: 0; opacity: var(--alpha); }
+.mapTiles img { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.mapMarks { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+.mapTip { display: none; }
+.nextChip { position: absolute; z-index: 4; top: 8px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  max-width: calc(100% - 16px); box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; text-align: center;
+  padding: 3px 10px; border-radius: 999px; font-size: 12px;
+  background: rgba(10, 12, 16, 0.88); border: 1px solid rgba(255, 255, 255, 0.18); }
+.nextChip .label { color: rgba(255, 255, 255, 0.55); }
+.nextChip .dist { color: rgba(255, 255, 255, 0.7); }
+/* By teleport: the way on a line of its own. */
+.nextChip.via { white-space: normal; border-radius: 10px; }
+.nextChip.via .dist { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Short of the corner on the right, so its × stays clickable. */
+.foot { margin: 6px 8px 8px; align-self: flex-start; max-width: calc(100% - 44px); box-sizing: border-box; display: flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; background: rgba(10, 12, 16, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); }
+.footText { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Showing what the search asked for: gold, as its rings, with a × to stop. */
+.foot.focus { border-color: rgba(255, 214, 102, 0.55); padding-right: 4px; }
+.focusClear { flex: none; background: rgba(255, 255, 255, 0.08); border: 0; border-radius: 999px; color: rgba(255, 255, 255, 0.8);
+  font-size: 14px; line-height: 16px; width: 18px; height: 18px; padding: 0; cursor: pointer; }
+.focusClear:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+body.locked .focusClear { display: none; }
+/* The corners to resize it from: big enough to hit, a bracket that shows
+   while the pointer is on the overlay. */
+.corner { position: absolute; width: 26px; height: 26px; z-index: 6; box-sizing: border-box; border: 0 solid rgba(255, 255, 255, 0);
+  transition: border-color 120ms; }
+.card:hover .corner { border-color: rgba(255, 255, 255, 0.45); }
+.card .corner:hover { border-color: rgba(255, 255, 255, 0.95); background: rgba(255, 255, 255, 0.08); }
+.corner.nw { left: 0; top: 0; border-width: 3px 0 0 3px; border-top-left-radius: 10px; cursor: nwse-resize; }
+.corner.ne { right: 0; top: 0; border-width: 3px 3px 0 0; border-top-right-radius: 10px; cursor: nesw-resize; }
+.corner.sw { left: 0; bottom: 0; border-width: 0 0 3px 3px; border-bottom-left-radius: 10px; cursor: nesw-resize; }
+.corner.se { right: 0; bottom: 0; border-width: 0 3px 3px 0; border-bottom-right-radius: 10px; cursor: nwse-resize; }

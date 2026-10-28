@@ -1,0 +1,30 @@
+From 0a75e944a7fb2d96313e476328bc8ee8e6622878 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Tue, 27 Oct 2026 01:24:43 +0000
+Subject: [PATCH] Event Timers: the credit to Aion 2 Timers as text, not a link
+
+This build links to no website: the credit under the world bosses names
+Aion 2 Timers without linking to their site.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RahWACwaxzLAcYgwc9jk8C
+---
+ plugins/event-timers/index.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
+index b6bb185..7a8d420 100644
+--- a/plugins/event-timers/index.html
++++ b/plugins/event-timers/index.html
+@@ -58,7 +58,7 @@
+       <h2 class="group fieldHead"><button type="button" class="foldBtn" data-fold="field" aria-expanded="true" aria-controls="fieldList"><svg class="chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span class="foldLabel">World bosses</span></button></h2>
+       <p class="note fieldNote"></p>
+       <ol class="list fieldList" id="fieldList"></ol>
+-      <p class="note fieldCredit" hidden>World boss data: <a href="https://www.aion2timers.com">Aion 2 Timers</a></p>
++      <p class="note fieldCredit" hidden>World boss data: Aion 2 Timers</p>
+     </section>
+     <section class="view alerts" hidden>
+       <button type="button" class="btn alertOptionsBtn" hidden>Config</button>
+-- 
+2.43.0
+

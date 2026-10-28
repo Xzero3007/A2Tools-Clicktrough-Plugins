@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="widget.css" />
+  </head>
+  <body>
+    <div class="card">
+      <header class="head">
+        <strong class="title">Map</strong>
+        <span class="sizes" role="group" aria-label="Size">
+          <button type="button" data-size="s" title="Small">S</button>
+          <button type="button" data-size="m" title="Medium">M</button>
+          <button type="button" data-size="l" title="Large">L</button>
+          <button type="button" data-size="xl" title="Extra large">XL</button>
+        </span>
+        <input type="range" class="opacity" min="20" max="100" step="5" title="Opacity" aria-label="Opacity" />
+        <button type="button" class="close" title="Close the overlay" aria-label="Close the overlay">×</button>
+      </header>
+      <div class="mapBox">
+        <div class="nextChip" hidden></div>
+      </div>
+      <footer class="foot" hidden>
+        <span class="footText"></span>
+        <button type="button" class="focusClear" title="Stop showing it" aria-label="Stop showing it" hidden>×</button>
+      </footer>
+      <div class="corner nw" data-edge="nw" title="Drag to resize"></div>
+      <div class="corner ne" data-edge="ne" title="Drag to resize"></div>
+      <div class="corner sw" data-edge="sw" title="Drag to resize"></div>
+      <div class="corner se" data-edge="se" title="Drag to resize"></div>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="data.js"></script>
+    <script src="render.js"></script>
+    <script src="marks.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+{
+ "repo": "https://github.com/SkeeveAN/Aion-DPS-Meter",
+ "commit": "03026182c4ae2059b41804189852af6e945e365a",
+ "sha256": {
+  "Client/assets/aion2/craft/recipes.json@HEAD": "b5fcf0bd64da075aaa40493055767d52d1d886ef17a342035d55325e106f2161",
+  "Client/assets/aion2/items/item_names.json@2d4d2f1": "4fa6cadb55884c53ebf6efc90706206c94539bc95770018ff915fb37f7bb7c71"
+ }
+}

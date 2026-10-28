@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <div class="where">
+        <strong class="mapName">Map</strong>
+        <span class="whereNote muted"></span>
+      </div>
+      <div class="tools">
+        <select class="mapPick" title="Which map"></select>
+        <button type="button" class="follow" aria-pressed="true" title="Keep you in the middle (double-click the map)">Follow</button>
+        <button type="button" class="overlayBtn" aria-pressed="false" title="A small map that follows you, over the game">Overlay</button>
+      </div>
+    </header>
+    <div class="searchRow">
+      <input type="search" class="search" placeholder="Search: Orichalcum, Hidden Cube, Monolith, a pet, a monster, a place …" autocomplete="off" spellcheck="false" />
+      <div class="results" role="listbox" hidden></div>
+    </div>
+    <div class="focusBar" hidden>
+      <span class="focusText"></span>
+      <span class="focusMaps"></span>
+      <button type="button" class="focusClear" title="Stop showing it" aria-label="Stop showing it">×</button>
+    </div>
+    <nav class="layers" aria-label="What the map shows">
+      <button type="button" class="chip" data-layer="pets" aria-pressed="true">Pets</button>
+      <button type="button" class="chip" data-layer="monsters" aria-pressed="false" title="The monsters around you right now">Monsters</button>
+      <button type="button" class="chip" data-layer="gather" aria-pressed="false">Gathering</button>
+      <button type="button" class="chip" data-layer="cubes" aria-pressed="true" title="Where one is known to stand (pale purple cube), and one in range right now (solid, white edge)">Hidden Cubes</button>
+      <button type="button" class="chip" data-layer="monoliths" aria-pressed="false" title="Monolith pieces to collect">Monoliths</button>
+      <button type="button" class="chip" data-layer="kibelisks" aria-pressed="false">Kibelisks</button>
+      <button type="button" class="chip" data-layer="places" aria-pressed="false" title="Sealed dungeons, battlefields, outposts, villages and the names of the regions">Places</button>
+      <span class="sep"></span>
+      <select class="chip petsMode" title="Whose spawn points show: Pet Finder's favourites and the pet you are farming; those and every pet not at level 3 yet, in its genus colour; or every pet. A pet monster near you that is not at level 3 yet shows either way">
+        <option value="tracked">Pets: favourites</option>
+        <option value="needed">Pets: not at level 3</option>
+        <option value="all">Pets: all</option>
+      </select>
+      <select class="chip nextFor" title="Which pet the Next pointer leads to: your favourites (Pet Finder's ★) first, then the one you are farming">
+        <option value="all">Next: pinned first</option>
+        <option value="chosen">Next: pinned &amp; farmed only</option>
+        <option value="off">Next: off</option>
+      </select>
+      <select class="chip markScale" title="How large the marks are, on the map and the overlay">
+        <option value="1">Marks 100%</option>
+        <option value="1.25">Marks 125%</option>
+        <option value="1.5">Marks 150%</option>
+        <option value="1.75">Marks 175%</option>
+      </select>
+    </nav>
+    <nav class="kinds" aria-label="Gathering" hidden></nav>
+    <section class="overlaySettings" hidden>
+      <span class="sizeLabel">Overlay size
+        <span class="overlaySizes" role="group" aria-label="Overlay size">
+          <button type="button" data-size="s">S</button><button type="button" data-size="m">M</button><button type="button" data-size="l">L</button><button type="button" data-size="xl">XL</button>
+        </span>
+      </span>
+      <label>Opacity <input type="range" class="overlayOpacity" min="20" max="100" step="5" /></label>
+      <label class="check"><input type="checkbox" class="overlayLock" /> Lock it (clicks go to the game)</label>
+      <span class="muted">Or drag one of its corners.</span>
+    </section>
+    <div class="mapBox"></div>
+    <ol class="nearKinds" hidden aria-label="The nearest monsters that drop souls you still need"></ol>
+    <div class="legend" aria-label="The pet marks">
+      <span><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0,-7.2 L1.99,-2.74 L6.85,-2.23 L3.22,1.05 L4.23,5.83 L0,3.38 L-4.23,5.83 L-3.22,1.05 L-6.85,-2.23 L-1.99,-2.74 Z" fill="#ffd666" stroke="rgba(0,0,0,0.8)" stroke-width="1.2" stroke-linejoin="round"/><circle r="1.6" fill="#e5484d"/></svg>favourite</span>
+      <span><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle r="6.4" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/><circle r="5" fill="#e5484d" stroke="#fff" stroke-width="2.2"/><circle r="1.6" fill="#fff"/></svg>being farmed</span>
+      <span><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle r="5.6" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/><circle r="4.4" fill="#e5484d" stroke="#fff" stroke-width="1.6"/></svg>not at level 3 yet</span>
+      <span><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle r="2.6" fill="rgba(175,175,175,0.7)" stroke="rgba(0,0,0,0.5)" stroke-width="1"/></svg>level 3</span>
+      <span><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle r="7" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="1.2"/><circle r="4" fill="#e5484d" stroke="#fff" stroke-width="1.4"/></svg>there now</span>
+      <span class="genusKey" title="A pet not at level 3 yet in the colour of its genus">colour:
+        <i style="background:#b99bff"></i>Cogni <i style="background:#ff9f66"></i>Fera <i style="background:#74d99a"></i>Natura <i style="background:#5cc9e6"></i>Varian</span>
+    </div>
+    <footer class="status">
+      <span class="next"></span>
+      <span class="counts muted"></span>
+    </footer>
+    <script src="/_sdk/a2.js"></script>
+    <script src="data.js"></script>
+    <script src="render.js"></script>
+    <script src="marks.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

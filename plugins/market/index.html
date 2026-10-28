@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <select class="server" title="Whose market: the server, and with it the faction's recipes"></select>
+      <button type="button" class="refresh" title="Get the prices again">Update</button>
+      <span class="seg faction" role="group" aria-label="Faction" title="Whose items: the gathered materials and recipes of your side">
+        <button type="button" data-faction="Asmodian" aria-pressed="false">Asmodian</button><button type="button" data-faction="Elyos" aria-pressed="false">Elyos</button>
+      </span>
+      <button type="button" class="favFirst" aria-pressed="false" title="Your favourites (the stars) first, in every tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3.1-5.4 3.1 1.2-6-4.5-4.2 6.1-.7z"/></svg>Favorites</button>
+      <span class="status muted"></span>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab" data-tab="gather">Gatherables</button>
+      <button type="button" class="tab" data-tab="odyle">Odyle morph</button>
+      <button type="button" class="tab" data-tab="recipes">Recipes</button>
+      <button type="button" class="tab" data-tab="materials">Materials</button>
+    </nav>
+
+    <section class="pane" data-pane="gather">
+      <input type="search" class="search" data-for="gather" placeholder="Search: Orichalcum, Aria, Odyle …" autocomplete="off" spellcheck="false" />
+      <div class="gatherList"></div>
+    </section>
+
+    <section class="pane" data-pane="odyle">
+      <p class="note">Substance Morph turns one Odyle into one gathered material of the same grade (Odyle → base, Fine → Fine / Fresh, Pure → Pure, Radiant → Radiant), always. What it makes is <strong>bound</strong>: it goes into your own crafting, not onto the market. Click a material for the recipes that need it.</p>
+      <div class="energy"></div>
+      <div class="odyleList"></div>
+    </section>
+
+    <section class="pane" data-pane="recipes">
+      <div class="controls">
+        <span class="chips profs"></span>
+      </div>
+      <div class="controls">
+        <input type="search" class="search" data-for="recipes" placeholder="Search a product or material …" autocomplete="off" spellcheck="false" />
+        <label class="check"><input type="checkbox" class="priced" /> Sold on the market</label>
+        <label>Sort <select class="sort">
+          <option value="profit">Profit</option>
+          <option value="margin">Margin</option>
+          <option value="level">Level</option>
+          <option value="name">Name</option>
+        </select></label>
+        <label title="What the market keeps of a sale">Fee <input type="number" class="fee" min="0" max="50" step="0.5" />%</label>
+      </div>
+      <p class="note">One craft that succeeds: failures and combos are not counted. <span class="buyCol">Market</span> buys every material; <span class="bestCol">Morph</span> takes the Odyle instead where that is cheaper. The product sells at its lowest listing, less the fee.</p>
+      <div class="recipeList"></div>
+      <details class="npcBox">
+        <summary>NPC prices of the bound tools</summary>
+        <p class="note">What the NPC shops ask (as MetaBot.GG lists it from the game files); change one if the shop asks otherwise.</p>
+        <div class="npcList"></div>
+      </details>
+    </section>
+
+    <section class="pane" data-pane="materials">
+      <div class="controls">
+        <input type="search" class="search" data-for="materials" placeholder="Search a material …" autocomplete="off" spellcheck="false" />
+        <span class="chips kinds"></span>
+      </div>
+      <div class="materialList"></div>
+    </section>
+
+    <footer class="credit muted">Prices: aion2.exchange (players' collected market prices) · recipes and names: the game client, via SkeeveAN's Aion-DPS-Meter</footer>
+    <script src="/_sdk/a2.js"></script>
+    <script src="data.js"></script>
+    <script src="calc.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

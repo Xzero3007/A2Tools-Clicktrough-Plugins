@@ -1,0 +1,39 @@
+From aeaa4da9b4441c7be5e8ef371b6291f7e7a6c939 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Sat, 24 Oct 2026 18:16:14 +0000
+Subject: [PATCH] Event Timers: a world boss in its window is soon, not now
+
+Folded, a world boss whose spawn window had opened (it may come any
+moment, but nobody has seen it yet) stood under "now", with the bosses
+that are up. Now is only for a boss that is up and a scheduled boss that
+is running; one in its window goes to "soon", ahead of those due within
+15 minutes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
+---
+ plugins/event-timers/plugin.js | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
+index 45b5a8d..58c4368 100644
+--- a/plugins/event-timers/plugin.js
++++ b/plugins/event-timers/plugin.js
+@@ -1216,10 +1216,12 @@ function renderFoldedBosses(now) {
+     const li = row({ id: `field:${b.id}`, name, where: text(b.where), countdown, at, up, soon: inWindow || next - now <= SOON_MS });
+     if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
+     li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
+-    items.push({ first: up || inWindow, at: up ? 0 : next, part: up || inWindow ? "now" : next - now <= SOON_MS ? "soon" : "later", li });
++    // In its window it may come any moment, but it isn't there yet: soon,
++    // first of the soon ones; now is only a boss that is up.
++    items.push({ first: up, at: up ? 0 : next, part: up ? "now" : inWindow || next - now <= SOON_MS ? "soon" : "later", li });
+   }
+   items.sort((x, y) => Number(y.first) - Number(x.first) || x.at - y.at);
+-  // Three parts: up, running or in their window (now); due within 15
++  // Three parts: up or running (now); in their window or due within 15
+   // minutes (soon); the rest within the chosen time (later), each with its
+   // heading, picked with the buttons at the top. Below each other an empty
+   // part leaves no gap; side by side its column stays, marked empty, so the
+-- 
+2.43.0
+

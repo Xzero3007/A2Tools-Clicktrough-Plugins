@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pet Finder</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <nav id="tabs"></nav>
+
+    <!-- Pets: the Pet Soul Tracker's list (list.js). -->
+    <section id="petsView">
+      <div class="controls">
+        <div class="totals">
+          <div class="summary"></div>
+          <div class="overall" aria-hidden="true"><span></span></div>
+          <div class="status"></div>
+        </div>
+        <div class="toolbar">
+          <input type="search" class="search" placeholder="Search pets" aria-label="Search pets" spellcheck="false" />
+          <button type="button" class="toFarm" hidden title="Only the pets you are farming">Farming</button>
+          <button type="button" class="filtersButton" aria-expanded="false" title="Genus, level, regions and text size">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
+            <span class="filtersLabel">Filters</span> <span class="filterCount"></span>
+          </button>
+        </div>
+        <div class="filters" hidden>
+          <div class="chips genus" role="group" aria-label="Genus"></div>
+          <div class="chips levels" role="group" aria-label="Level"></div>
+          <div class="chips regions" role="group" aria-label="Regions" title="Regions: the pets whose souls drop in the ones turned on, and their spawns there. Click to turn one off or on"></div>
+          <div class="optionRow">
+            <label class="option"><input type="checkbox" class="hideMax" checked /> Hide pets at level 3</label>
+            <label class="option" title="Pets no monster drops: their souls come only from pet chests"><input type="checkbox" class="chestOnly" /> Show pets only from chests</label>
+            <label class="option farmOption" title="When you pick up a soul for a pet below level 3, the window shows just the pets you are farming, then hides itself. Open it from Settings for the whole list"><input type="checkbox" class="farmPopup" /> Pop up while farming</label>
+            <label class="option sizeRow farmAfter">Hide after <select class="hideAfterSelect"></select></label>
+            <label class="option sizeRow">Layout <select class="layoutSelect"></select></label>
+            <label class="option sizeRow"><span class="scaleLabel">Text size</span> <select class="scaleSelect"></select></label>
+          </div>
+        </div>
+      </div>
+      <div class="farm">
+        <div class="farmHead">
+          <span class="farmTitle">Farming</span>
+          <span class="farmLeft"></span>
+          <button type="button" class="toFull" title="The whole list">All pets</button>
+          <button type="button" class="farmHide" title="Hide until the next soul" aria-label="Hide">×</button>
+        </div>
+        <ol class="pets farmList"></ol>
+      </div>
+      <div class="head" role="row">
+        <button type="button" data-sort="left">To Lv 3</button>
+        <button type="button" data-sort="progress">Souls</button>
+        <button type="button" data-sort="level">Lv</button>
+        <button type="button" data-sort="name">Pet</button>
+        <button type="button" data-sort="near" class="sortNear" title="The pets whose souls drop closest to you on this map first (from the Map plugin's spawn points; pets with none here after)" hidden>Nearest</button>
+      </div>
+      <ol class="pets"></ol>
+      <p class="empty" hidden>No pets match.</p>
+      <p class="foot">Click a pet to see where its souls drop, and Map beside a monster for its spawn points on the Map. ☆ makes a pet a favourite: first in every tab, and on the Map with the pet you are farming; at level 3 it stops being one (made one again, it stays). Double-click a name to rename it. Souls per level are 5, 25 and 75 (the first is inferred).</p>
+    </section>
+
+    <!-- Nearby and Merchant (plugin.js). -->
+    <section id="finder" hidden>
+      <header id="status"></header>
+      <main id="view"></main>
+    </section>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="pets.js"></script>
+    <script src="sources.js"></script>
+    <script src="list.js"></script>
+    <script src="data.js"></script>
+    <script src="images.js"></script>
+    <script src="logic.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,367 @@
+From 79104462a01fe4491981aa3093d5e03aa8353b8b Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Sat, 24 Oct 2026 14:06:24 +0000
+Subject: [PATCH] Event Timers: the folded bosses now, soon and later, each
+ part on or off
+
+Folded, the bosses stood in one list (below each other) or in two columns,
+"now & soon" and later (side by side). They are now three parts, each with
+its heading: up, running or in their window (now); due within 15 minutes
+(soon); and the rest within the chosen time (later). Side by side that is
+four columns with the events. A bar at the top of the folded view has a
+button for each part (Events, Now, Soon, Later) to show or hide it, kept
+with the settings (the last one shown stays), and the layout button.
+Side by side an empty part keeps its column, marked "None right now", so
+the columns don't jump around; below each other it leaves no gap.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
+---
+ plugins/event-timers/index.html |  15 +++-
+ plugins/event-timers/plugin.js  | 124 +++++++++++++++++++++-----------
+ plugins/event-timers/style.css  |  75 ++++++++++++++++---
+ 3 files changed, 163 insertions(+), 51 deletions(-)
+
+diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
+index c5e9802..b6bb185 100644
+--- a/plugins/event-timers/index.html
++++ b/plugins/event-timers/index.html
+@@ -25,10 +25,23 @@
+       </div>
+     </div>
+     <section class="view events">
++      <div class="foldedBar">
++        <div class="foldedPicks" role="group">
++          <button type="button" class="foldedPick" data-col="events" aria-pressed="true">Events</button>
++          <button type="button" class="foldedPick" data-col="now" aria-pressed="true">Now</button>
++          <button type="button" class="foldedPick" data-col="soon" aria-pressed="true">Soon</button>
++          <button type="button" class="foldedPick" data-col="later" aria-pressed="true">Later</button>
++        </div>
++        <button type="button" class="foldedLayoutBtn" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg></button>
++      </div>
+       <div class="foldedCol foldedColEvents">
+-        <h2 class="group foldedEventsHead"><span class="foldedEventsLabel">Events</span><button type="button" class="foldedLayoutBtn" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg></button></h2>
++        <h2 class="group foldedEventsHead"><span class="foldedEventsLabel">Events</span></h2>
+         <ol class="list eventList"></ol>
+       </div>
++      <div class="foldedCol foldedColNow">
++        <h2 class="group foldedNowHead" hidden></h2>
++        <ol class="list foldedNowList"></ol>
++      </div>
+       <div class="foldedCol foldedColSoon">
+         <h2 class="group foldedBossHead" hidden></h2>
+         <ol class="list foldedBossList"></ol>
+diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
+index b8de53e..45b5a8d 100644
+--- a/plugins/event-timers/plugin.js
++++ b/plugins/event-timers/plugin.js
+@@ -39,6 +39,10 @@ const els = {
+   events: $(".eventList"),
+   foldedBossHead: $(".foldedBossHead"),
+   foldedBoss: $(".foldedBossList"),
++  foldedColNow: $(".foldedColNow"),
++  foldedNowHead: $(".foldedNowHead"),
++  foldedNow: $(".foldedNowList"),
++  foldedPicks: [...document.querySelectorAll(".foldedPick")],
+   foldedColSoon: $(".foldedColSoon"),
+   foldedColLater: $(".foldedColLater"),
+   foldedLaterHead: $(".foldedLaterHead"),
+@@ -368,17 +372,55 @@ const MORE_UI = {
+ // The words for the folded view: its bosses, and its layout (below each
+ // other, or side by side: events, bosses now and soon, later bosses).
+ const FOLDED_UI = {
+-  en: { foldedBosses: "Folded: bosses due within", layout: "Folded: layout", stacked: "Below each other", columns: "Side by side", soon: "now & soon" },
+-  ko: { foldedBosses: "접었을 때: 이 시간 안의 보스", layout: "접었을 때: 배치", stacked: "위아래로", columns: "나란히", soon: "지금 · 곧" },
+-  ja: { foldedBosses: "折りたたみ時：この時間内のボス", layout: "折りたたみ時：配置", stacked: "縦に並べる", columns: "横に並べる", soon: "出現中・まもなく" },
+-  de: { foldedBosses: "Eingeklappt: Bosse der nächsten", layout: "Eingeklappt: Anordnung", stacked: "Untereinander", columns: "Nebeneinander", soon: "jetzt & gleich" },
+-  fr: { foldedBosses: "Replié : boss dans les prochaines", layout: "Replié : disposition", stacked: "Les uns sous les autres", columns: "Côte à côte", soon: "maintenant et bientôt" },
+-  es: { foldedBosses: "Plegado: jefes en las próximas", layout: "Plegado: disposición", stacked: "Uno debajo de otro", columns: "Uno al lado de otro", soon: "ahora y pronto" },
+-  pt: { foldedBosses: "Recolhido: chefes nas próximas", layout: "Recolhido: disposição", stacked: "Um abaixo do outro", columns: "Lado a lado", soon: "agora e em breve" },
+-  ru: { foldedBosses: "В свёрнутом виде: боссы в ближайшие", layout: "В свёрнутом виде: расположение", stacked: "Друг под другом", columns: "Рядом", soon: "сейчас и скоро" },
+-  "zh-Hant": { foldedBosses: "收合時：顯示此時間內的首領", layout: "收合時：排列", stacked: "上下排列", columns: "並排", soon: "現在與即將" },
+-  "zh-Hans": { foldedBosses: "折叠时：显示此时间内的首领", layout: "折叠时：排列", stacked: "上下排列", columns: "并排", soon: "现在与即将" },
++  en: { foldedBosses: "Folded: bosses due within", layout: "Folded: layout", stacked: "Below each other", columns: "Side by side",
++    now: "Now", soon: "Soon", later: "Later", bossesNow: "now", bossesSoon: "soon", none: "None right now", show: (x) => `Show or hide: ${x}` },
++  ko: { foldedBosses: "접었을 때: 이 시간 안의 보스", layout: "접었을 때: 배치", stacked: "위아래로", columns: "나란히",
++    now: "지금", soon: "곧", later: "이후", bossesNow: "지금", bossesSoon: "곧", none: "지금은 없음", show: (x) => `표시/숨기기: ${x}` },
++  ja: { foldedBosses: "折りたたみ時：この時間内のボス", layout: "折りたたみ時：配置", stacked: "縦に並べる", columns: "横に並べる",
++    now: "出現中", soon: "まもなく", later: "その後", bossesNow: "出現中", bossesSoon: "まもなく", none: "今はありません", show: (x) => `表示／非表示：${x}` },
++  de: { foldedBosses: "Eingeklappt: Bosse der nächsten", layout: "Eingeklappt: Anordnung", stacked: "Untereinander", columns: "Nebeneinander",
++    now: "Jetzt", soon: "Gleich", later: "Später", bossesNow: "jetzt", bossesSoon: "gleich", none: "Gerade keine", show: (x) => `Ein-/ausblenden: ${x}` },
++  fr: { foldedBosses: "Replié : boss dans les prochaines", layout: "Replié : disposition", stacked: "Les uns sous les autres", columns: "Côte à côte",
++    now: "Maintenant", soon: "Bientôt", later: "Plus tard", bossesNow: "maintenant", bossesSoon: "bientôt", none: "Aucun pour l'instant", show: (x) => `Afficher ou masquer : ${x}` },
++  es: { foldedBosses: "Plegado: jefes en las próximas", layout: "Plegado: disposición", stacked: "Uno debajo de otro", columns: "Uno al lado de otro",
++    now: "Ahora", soon: "Pronto", later: "Después", bossesNow: "ahora", bossesSoon: "pronto", none: "Ninguno ahora", show: (x) => `Mostrar u ocultar: ${x}` },
++  pt: { foldedBosses: "Recolhido: chefes nas próximas", layout: "Recolhido: disposição", stacked: "Um abaixo do outro", columns: "Lado a lado",
++    now: "Agora", soon: "Em breve", later: "Depois", bossesNow: "agora", bossesSoon: "em breve", none: "Nenhum agora", show: (x) => `Mostrar ou ocultar: ${x}` },
++  ru: { foldedBosses: "В свёрнутом виде: боссы в ближайшие", layout: "В свёрнутом виде: расположение", stacked: "Друг под другом", columns: "Рядом",
++    now: "Сейчас", soon: "Скоро", later: "Позже", bossesNow: "сейчас", bossesSoon: "скоро", none: "Сейчас нет", show: (x) => `Показать или скрыть: ${x}` },
++  "zh-Hant": { foldedBosses: "收合時：顯示此時間內的首領", layout: "收合時：排列", stacked: "上下排列", columns: "並排",
++    now: "現在", soon: "即將", later: "稍後", bossesNow: "現在", bossesSoon: "即將", none: "目前沒有", show: (x) => `顯示／隱藏：${x}` },
++  "zh-Hans": { foldedBosses: "折叠时：显示此时间内的首领", layout: "折叠时：排列", stacked: "上下排列", columns: "并排",
++    now: "现在", soon: "即将", later: "稍后", bossesNow: "现在", bossesSoon: "即将", none: "目前没有", show: (x) => `显示／隐藏：${x}` },
+ };
++// Folded: which parts show (Events, bosses now, soon, later), picked with
++// the buttons at the top; at least one stays.
++const FOLDED_PARTS = ["events", "now", "soon", "later"];
++const foldedShown = (part) => prefs.foldedShow?.[part] !== false;
++function applyFoldedPicks() {
++  const w = foldedWords();
++  const off = !foldedMinutes();
++  for (const btn of els.foldedPicks) {
++    const part = btn.dataset.col;
++    const label = part === "events" ? ui().events : w[part];
++    btn.textContent = label;
++    btn.title = w.show(label);
++    btn.setAttribute("aria-label", btn.title);
++    btn.setAttribute("aria-pressed", String(foldedShown(part)));
++    // With the folded bosses off (Settings), only Events is left to pick.
++    btn.hidden = off && part !== "events";
++  }
++  for (const part of FOLDED_PARTS) document.body.classList.toggle(`foldedHide-${part}`, !foldedShown(part));
++}
++function toggleFoldedPart(part) {
++  const usable = FOLDED_PARTS.filter((p) => p === "events" || foldedMinutes());
++  const shown = usable.filter(foldedShown);
++  if (foldedShown(part) && shown.length <= 1) return; // the last one stays
++  prefs.foldedShow = { ...(prefs.foldedShow || {}), [part]: !foldedShown(part) };
++  savePrefs();
++  applyFoldedPicks();
++  render();
++}
+ const FOLDED_LAYOUTS = ["stacked", "columns"];
+ const foldedColumns = () => prefs.foldedLayout === "columns";
+ // Side by side, the folded view is a wide bar with a column each; narrower
+@@ -479,7 +521,7 @@ let gameRunning = null;
+ // voiceRate.
+ let prefs = { region: "auto", hidden: [], alerts: {}, leads: {}, closedLeads: {}, sound: "chime", repeat: 1, volume: 100, pop: false,
+   tab: "events", display: "system", lastServer: 0, scale: 1, defaultLead: DEFAULT_LEAD, defaultClosedLead: DEFAULT_CLOSED_LEAD,
+-  alertColor: "orange", alsoAtStart: false, folded: {}, speak: false, voiceName: "", voiceType: "any", voiceRate: 1, foldedBossMinutes: DEFAULT_FOLDED_BOSS_MINUTES, foldedLayout: "stacked" };
++  alertColor: "orange", alsoAtStart: false, folded: {}, speak: false, voiceName: "", voiceType: "any", voiceRate: 1, foldedBossMinutes: DEFAULT_FOLDED_BOSS_MINUTES, foldedLayout: "stacked", foldedShow: {} };
+ // The world boss timers: { server, bosses, at, error }, from the feed and the
+ // player's own map, the newest report of each boss kept.
+ let feed = null;
+@@ -727,6 +769,7 @@ function renderStatic() {
+   els.foldedLayoutSelect.replaceChildren(...FOLDED_LAYOUTS.map((x) => option(x, foldedWords()[x])));
+   els.foldedEventsLabel.textContent = ui().events;
+   applyFoldedLayout();
++  applyFoldedPicks();
+   els.soundLabel.textContent = a.sound;
+   els.testAlert.textContent = words.testAlert;
+   els.alertOptionsBtn.textContent = words.alertOptions;
+@@ -1124,12 +1167,12 @@ function renderField(now) {
+ function renderFoldedBosses(now) {
+   const minutes = foldedMinutes();
+   if (!document.body.classList.contains("compact") || !minutes) {
+-    els.foldedBoss.replaceChildren();
+-    els.foldedBossHead.hidden = true;
+-    els.foldedLater.replaceChildren();
+-    els.foldedLaterHead.hidden = true;
+-    els.foldedColSoon.hidden = false;
+-    els.foldedColLater.hidden = true;
++    for (const [list, head, col] of [[els.foldedNow, els.foldedNowHead, els.foldedColNow],
++      [els.foldedBoss, els.foldedBossHead, els.foldedColSoon], [els.foldedLater, els.foldedLaterHead, els.foldedColLater]]) {
++      list.replaceChildren();
++      head.hidden = true;
++      col.hidden = true;
++    }
+     return;
+   }
+   const limit = minutes * 60_000;
+@@ -1143,7 +1186,7 @@ function renderFoldedBosses(now) {
+     if (!next || next.start - now > limit) continue;
+     const running = next.start <= now;
+     items.push({
+-      first: running, at: next.start, now: running || next.start - now <= SOON_MS,
++      first: running, at: next.start, part: running ? "now" : next.start - now <= SOON_MS ? "soon" : "later",
+       li: row({
+         id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
+         soon: next.start - now <= SOON_MS,
+@@ -1173,32 +1216,29 @@ function renderFoldedBosses(now) {
+     const li = row({ id: `field:${b.id}`, name, where: text(b.where), countdown, at, up, soon: inWindow || next - now <= SOON_MS });
+     if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
+     li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
+-    items.push({ first: up || inWindow, at: up ? 0 : next, now: up || inWindow || next - now <= SOON_MS, li });
++    items.push({ first: up || inWindow, at: up ? 0 : next, part: up || inWindow ? "now" : next - now <= SOON_MS ? "soon" : "later", li });
+   }
+   items.sort((x, y) => Number(y.first) - Number(x.first) || x.at - y.at);
+-  const within = `${words.bosses} · ≤ ${minutesText(minutes)}`;
+-  if (foldedColumns()) {
+-    // Side by side: the bosses up, in their window or due within 15 minutes
+-    // in one column, the later ones in the next.
+-    const soon = items.filter((x) => x.now);
+-    const later = items.filter((x) => !x.now);
+-    els.foldedBoss.replaceChildren(...soon.map((x) => x.li));
+-    els.foldedBossHead.textContent = `${words.bosses} · ${foldedWords().soon}`;
+-    els.foldedBossHead.hidden = !soon.length;
+-    els.foldedColSoon.hidden = !soon.length;
+-    els.foldedLater.replaceChildren(...later.map((x) => x.li));
+-    els.foldedLaterHead.textContent = within;
+-    els.foldedLaterHead.hidden = !later.length;
+-    els.foldedColLater.hidden = !later.length;
+-    return;
++  // Three parts: up, running or in their window (now); due within 15
++  // minutes (soon); the rest within the chosen time (later), each with its
++  // heading, picked with the buttons at the top. Below each other an empty
++  // part leaves no gap; side by side its column stays, marked empty, so the
++  // columns don't jump around.
++  const fw = foldedWords();
++  const columns = foldedColumns();
++  const parts = [
++    ["now", els.foldedNow, els.foldedNowHead, els.foldedColNow, `${words.bosses} · ${fw.bossesNow}`],
++    ["soon", els.foldedBoss, els.foldedBossHead, els.foldedColSoon, `${words.bosses} · ${fw.bossesSoon}`],
++    ["later", els.foldedLater, els.foldedLaterHead, els.foldedColLater, `${words.bosses} · ≤ ${minutesText(minutes)}`],
++  ];
++  for (const [part, list, head, col, title] of parts) {
++    const mine = items.filter((x) => x.part === part);
++    const empty = Object.assign(document.createElement("li"), { className: "foldedEmpty", textContent: fw.none });
++    list.replaceChildren(...(mine.length ? mine.map((x) => x.li) : columns ? [empty] : []));
++    head.textContent = title;
++    head.hidden = !mine.length && !columns;
++    col.hidden = !foldedShown(part) || (!mine.length && !columns);
+   }
+-  els.foldedBoss.replaceChildren(...items.map((x) => x.li));
+-  els.foldedBossHead.textContent = within;
+-  els.foldedBossHead.hidden = !items.length;
+-  els.foldedColSoon.hidden = false;
+-  els.foldedLater.replaceChildren();
+-  els.foldedLaterHead.hidden = true;
+-  els.foldedColLater.hidden = true;
+ }
+ 
+ function render() {
+@@ -2101,6 +2141,7 @@ els.scaleSelect.addEventListener("change", () => {
+ els.foldedBossSelect.addEventListener("change", () => {
+   prefs.foldedBossMinutes = Number(els.foldedBossSelect.value);
+   savePrefs();
++  applyFoldedPicks();
+   render();
+ });
+ const setFoldedLayout = (layout) => {
+@@ -2111,6 +2152,7 @@ const setFoldedLayout = (layout) => {
+ };
+ els.foldedLayoutSelect.addEventListener("change", () => setFoldedLayout(els.foldedLayoutSelect.value));
+ els.foldedLayoutBtn.addEventListener("click", () => setFoldedLayout(foldedColumns() ? "stacked" : "columns"));
++for (const btn of els.foldedPicks) btn.addEventListener("click", () => toggleFoldedPart(btn.dataset.col));
+ els.regionSelect.addEventListener("change", () => {
+   prefs.region = els.regionSelect.value;
+   savePrefs();
+diff --git a/plugins/event-timers/style.css b/plugins/event-timers/style.css
+index fb4233f..c5f555e 100644
+--- a/plugins/event-timers/style.css
++++ b/plugins/event-timers/style.css
+@@ -28,14 +28,19 @@ body.compact .view.events {
+ /* Folded, under the next events: the bosses up now or due soon (Settings:
+    "Folded: bosses due within"). Only there. */
+ .foldedBossHead,
+-.foldedBossList {
++.foldedBossList,
++.foldedNowHead,
++.foldedNowList {
+   display: none;
+ }
+ body.compact .foldedBossHead:not([hidden]),
+-body.compact .foldedBossList {
++body.compact .foldedBossList,
++body.compact .foldedNowHead:not([hidden]),
++body.compact .foldedNowList {
+   display: block;
+ }
+-body.compact .foldedBossHead {
++body.compact .foldedBossHead,
++body.compact .foldedNowHead {
+   margin-top: 8px;
+ }
+ /* Folded, the next Artifact Siege shows too, past the next three events. */
+@@ -43,8 +48,55 @@ body.compact .eventList li.keepFolded {
+   display: grid;
+ }
+ 
+-/* Folded: a heading over the events with the layout button, and (side by
+-   side) the later bosses in a column of their own. */
++/* Folded: a bar at the top with a button for each part (Events, bosses
++   now, soon, later) and the layout button; a heading over the events. */
++.foldedBar {
++  display: none;
++}
++body.compact .foldedBar {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 8px;
++  margin-bottom: 6px;
++}
++.foldedPicks {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 4px;
++}
++.foldedPick {
++  padding: 1px 9px;
++  border: 1px solid rgba(255, 255, 255, 0.12);
++  border-radius: 999px;
++  background: transparent;
++  color: rgba(255, 255, 255, 0.45);
++  font: inherit;
++  font-size: 11px;
++  cursor: pointer;
++}
++.foldedPick:hover,
++.foldedPick:focus-visible {
++  color: rgba(255, 255, 255, 0.9);
++  border-color: rgba(255, 255, 255, 0.3);
++}
++.foldedPick[aria-pressed="true"] {
++  color: rgba(255, 255, 255, 0.9);
++  border-color: rgba(255, 255, 255, 0.35);
++  background: rgba(255, 255, 255, 0.08);
++}
++.foldedPick[hidden] {
++  display: none;
++}
++body.compact.foldedHide-events .foldedColEvents {
++  display: none;
++}
++.foldedEmpty {
++  list-style: none;
++  padding: 6px 0;
++  color: rgba(255, 255, 255, 0.35);
++  font-size: 12px;
++}
+ .foldedEventsHead,
+ .foldedLaterHead,
+ .foldedLaterList {
+@@ -83,21 +135,26 @@ body.compact .foldedLaterList {
+   color: rgba(255, 255, 255, 0.9);
+   border-color: rgba(255, 255, 255, 0.35);
+ }
+-/* Side by side: a wide bar, a column each (events, bosses now and soon,
+-   later bosses). Too narrow for that, they wrap under each other. */
++/* Side by side: a wide bar, a column each (events, bosses now, soon and
++   later). Too narrow for that, they wrap under each other. */
+ body.compact.foldedColumns .view.events {
+   display: grid;
+-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
++  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+   gap: 10px 20px;
+   align-items: start;
+ }
+-body.compact.foldedColumns .view.events > .siege {
++body.compact.foldedColumns .view.events > .siege,
++body.compact.foldedColumns .view.events > .foldedBar {
+   grid-column: 1 / -1;
+ }
++body.compact.foldedColumns .view.events > .foldedBar {
++  margin-bottom: 0;
++}
+ body.compact.foldedColumns .foldedCol[hidden] {
+   display: none;
+ }
+ body.compact.foldedColumns .foldedBossHead,
++body.compact.foldedColumns .foldedNowHead,
+ body.compact.foldedColumns .foldedLaterHead {
+   margin-top: 0;
+ }
+-- 
+2.43.0
+

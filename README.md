@@ -1,0 +1,80 @@
+# A2Tools Clicktrough · Plugins
+
+The plugins of the **Clicktrough** build of the
+[A2Tools DPS Meter](https://github.com/taengu/A2Tools-DPS-Meter) (AION 2):
+this repo's own plugins, and the changes to the original's plugins
+([taengu/A2Tools-Plugins](https://github.com/taengu/A2Tools-Plugins)) the
+build ships. The meter itself, its changes and its releases are in
+[A2Tools-DPS-Meter_Clicktrough](https://github.com/Xzero3007/A2Tools-DPS-Meter_Clicktrough).
+
+> [!NOTE]
+> A personal project, shared in public because it builds on public, GPL-3.0
+> work. Not affiliated with A2 Tools or NCSOFT; no support is promised.
+
+Nothing here is installed on its own: every release of the Clicktrough build
+puts these plugins into its package (`build/assemble.sh`), and the meter's
+green button brings them. A change here makes a new release at the next
+scheduled build (in practice within a few hours), or at once when the
+release is started by hand.
+
+## Own plugins (`plugins/<id>`)
+
+| Plugin | What it does |
+|---|---|
+| Map | The map you are on (Verteron, Altgard, the Abyss, Poeta, Ishalgen, whole as the game draws its world map; 25 instances) with **your position** (steadied: the meter hears your own place only now and then, so between the fixes the mark moves smoothly and a ring shows how far off it may be), the pets Pet Finder follows (red; favourites ★ with a gold ring, the one being farmed with a white one; Pet Soul Tracker's only without Pet Finder), the pet monsters around you, **Monsters** around you, **Gathering** spots by kind and **Kibelisk** camps, each layer on or off (the gathering kinds by kind: Herbs, Ore, Wood, Fibers, Cooking, Gemstones, Odyle, Empyrean Traces); the next pet to go for, which way and how far (pinned pets first, then farmed, then the ones still needed; or pinned and farmed only, or off). **Hidden Cubes** (the known spots, and one in range), **Monoliths**, **Places** (sealed dungeons, battlefields, outposts, villages, region names); the region you are in. **Field bosses** (in Places), marks 100–175 % (125 % at first), and the gathering spots, Hidden Cubes and pet monsters your meter sees added where the map had none and kept (the data knows few: Asvata 3 in Altgard; 0.6.0 fixed that they were never kept, and learns also where the map is only guessed). **Pets: favourites / not at level 3 / all** (pets not at level 3 in their genus colour, as the Pet Soul Tracker 0.5.0's map shows them), and under the map the **nearest monsters with souls you still need** (up to four: level, how many, which way and how far, the pet and its souls left). **Search** for a field boss, a gathering spot (Orichalcum, Aria ...), a pet, a monster, a Kibelisk camp, Hidden Cube (known spots or every place one can appear), Monolith, a place or a region: all its places with a gold ring and the way there: walking, or a teleport to the Kibelisk nearest the place and a line from it, whichever is shorter; Next says which ("teleport to <Kibelisk>, then 186 m"). Map buttons in Event Timers (world bosses) and the Market (gathered materials) do the same, until its × stops it (in the Map window or at the bottom of the overlay). Without the zone (the meter started after you logged in) the map goes by what is around you, else the map you were on last. **Overlay** opens a small map that follows you over the game: sizes S, M, L, XL or any size from its corners (patch 0013), its own opacity, the wheel zooms, lockable so clicks go to the game. The world maps are the game's own pictures as the [AION2 Interactive Map](https://github.com/aion2-interactive-map/aion2-interactive-map) publishes them, calibrated by the game's map bounds (2 % larger than before, up to 90 m better at Altgard's edges; the Kibelisks agree within 6–8 m); data from SkeeveAN's [Aion-DPS-Meter](https://github.com/SkeeveAN/Aion-DPS-Meter) (MIT) and the AION2 Interactive Map (CC BY-NC 4.0, non-commercial). Which monster gives which pet's souls comes from the game's drop tables, as in Pet Finder (0.8.1): before, a second Contaminated Swarm in Altgard showed as a Drana Swarm, whose souls drop only in Verteron. The map you are on follows **what is around you** when the zone the meter heard is clearly out of date (3 or more monsters or spots of another map, more than of the zone's): going over to the Elyos side, the map and the overlay stayed on Altgard (0.8.2). |
+| Market | Your server's market prices ([aion2.exchange](https://aion2.exchange)'s, first from the fork's hourly copy of them on GitHub (branch `market-data`, workflow `market-prices.yml`: aion2.exchange is slow and often briefly down), else from its public API; through patch 0016) of the **gathered materials**: Odyle, ore, gemstones, logs, herbs, cooking ingredients, lowest listing, listings, sold in 28 days and average, change. **Odyle morph**: Substance Morph turns 1 Odyle into 1 gathered material of the same grade; each material's market price against its Odyle and what morphing saves (morphed materials are bound: for crafting only), and what Odyle Energy costs through morph. **Recipes** of your faction by profession: what the product sells for (less the market's fee, 10 % unless changed), the materials bought on the market or with Odyle morphed where cheaper, the profit; a click shows each material with count, price and total, and the combo. **Materials**: every material with its price and the recipes that need it, how many and what that costs. Every list in one column layout, its header kept at the top while scrolling; **Asmodian / Elyos** beside Update (remembered): only that side's materials and recipes; a **star** makes an item a favourite in every tab and **Favorites** lists them first; a click on a gathered material or an Odyle morph row lists the recipes that need it; a **map button** beside a gathered material shows where it is gathered on the Map plugin. Recipes and names from the game client via SkeeveAN's [Aion-DPS-Meter](https://github.com/SkeeveAN/Aion-DPS-Meter) (MIT); NPC prices as MetaBot.GG lists them, changeable. The credit to aion2.exchange is text, not a link (0.3.1). |
+| Pet Finder | **One pet list**: the **Pets** tab is the Pet Soul Tracker's list, whole (A2 Tools, GPL-3.0: levels, souls to level 3, where souls drop, Farming, filters, renaming, pop up while farming), with **favourites (☆/★)** that are first in every tab and go to the Map with the pet you are farming; Pet Soul Tracker's pins are taken over once. **Nearby**: pet mobs near you **with how far and which way** and a map button each; **Merchant**: a shopping list for the Black Cloud Merchant. Nearby and Merchant data and packet layouts from [PetTracker](https://github.com/0Fox2Give/PetTracker) (GPLv3). A monster's map link shows its spawn points on the Map instead of a website. **Nearest** sorts the Pets tab by the closest spawn on your map (from the Map). The button right of the tabs puts the **Merchant** tab's three lists side by side as columns, a wide bar; too narrow for that, they wrap under each other. English only, in the meter's neutral colours. Each place a soul drops has a **Map** button that shows the monster's spawn points in the Map plugin; nothing links to a website (0.4.2). Each pet in the Pets tab has **its portrait** beside its name, as in Nearby and Merchant (0.4.3). |
+
+They come with every package, with no install and no developer mode. What
+lies in a plugin's `dev/` (data generators, tests) stays out of the package;
+`dev/ci.sh` checks the plugin on every build. If you loaded such a plugin
+earlier through "Load plugin folder": a developer folder wins over the
+bundled copy, so remove it there. Settings and saved data stay; they belong
+to the id.
+
+## The original's plugins (`original/`)
+
+The build takes the original's plugins frozen at one commit
+(`original/PIN`); single plugins can be taken at another
+(`original/pins.txt`), for a new plugin or a new version once we decided to
+take it. New plugins and new versions of the original are only reported (an
+issue in the app repo, label `plugin-watch`), never taken in by themselves.
+Each runs from the package only where it is installed (Settings → Plugins →
+Available), unless changed here without an `installed-only` file.
+
+| Plugin | What's different |
+|---|---|
+| Daily Checklist | **Side by side**: the button next to "Edit" puts Daily, Weekly and One-time side by side as columns, a wide bar. Too narrow for that, they wrap under each other. |
+| Pet Soul Tracker | **Not shipped and doesn't run** (patch 0026): its list is **Pet Finder's Pets tab**, with the changes for the Map. |
+| Roster / Content Overview | **Values dated as the game said them** (with patch 0028): a count the game reports again unchanged is no longer shown as reset (≈0). A shop or craft row not seen yet says to **open the shop or the crafting window** on that character (the game sends them only then), not to log in. Runs where installed, as before. |
+| Enhanced Boss Telegraph | **No link** to the original's issue tracker on GitHub. |
+| Event Timers | **Folded**, with the controls off, it shows the **bosses** below the next events too: scheduled bosses running or starting soon, and world bosses that are up, in their window or back soon, in three parts: **now** (up, running), **soon** (in their spawn window, or within 15 min) and **later** (within Settings → "Folded: bosses due within": off, 30 min, 1 h, 2 h, 3 h; 1 h at first). The next **Artifact Siege** always stays visible folded, however far off. The bar at the top of the folded view has a button for each part (**Events, Now, Soon, Later**) to show or hide it, and the layout button (or Settings → "Folded: layout") puts the parts **side by side** as columns, a wide bar; too narrow for that, they wrap under each other. Side by side an empty part keeps its column. A **map button** beside each world boss (on the Bosses tab, and folded after its map's name) shows it on the Map plugin, with the Kibelisk to teleport to and the way there. The credit to Aion 2 Timers under the world bosses is text, not a link. |
+
+The changes are patches, `original/<id>/*.patch`, applied to the plugin at
+its pinned commit. In Settings such a plugin is tagged "Clicktrough"; Remove
+takes it away until it is installed again under Available.
+
+`original/left-out.txt`: the original's plugins never shipped or run (the
+meter's patch 0026), with why.
+
+## Licences and sources
+
+- Each own plugin has its licence in its folder. Pet Finder and Map are
+  GPL-3.0-or-later; Pet Finder holds the Pet Soul Tracker's list (A2 Tools,
+  GPL-3.0, `NOTICE-PetSoulTracker.txt`) and so is GPL-3.0 as a whole, and
+  takes its Nearby and Merchant data and packet layouts from
+  [PetTracker](https://github.com/0Fox2Give/PetTracker) by 0Fox2Give
+  (GPL-3.0). Map's maps, map data and frame layouts come from SkeeveAN's
+  [Aion-DPS-Meter](https://github.com/SkeeveAN/Aion-DPS-Meter) (MIT,
+  `plugins/map/NOTICE-SkeeveAN.txt`); its Hidden Cube spots, Monolith
+  pieces, places, regions and calibration from the
+  [AION2 Interactive Map](https://github.com/aion2-interactive-map/aion2-interactive-map)
+  by Yihao Liu (tc-imba), CC BY-NC 4.0: non-commercial use only
+  (`plugins/map/NOTICE-AION2-Interactive-Map.txt`). Market's recipes and
+  names come from the game client via SkeeveAN's Aion-DPS-Meter (MIT), its
+  prices from aion2.exchange.
+- The patches to the original's plugins are under those plugins' licence
+  (GPL-3.0, taengu/A2Tools-Plugins).
+- Everything else here: GPL-3.0 (`LICENSE`).
+- AION 2 names, maps, images and game data belong to their rights holders
+  (NCSOFT).

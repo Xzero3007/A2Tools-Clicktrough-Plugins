@@ -1,0 +1,106 @@
+From 1d7a5d5ee075e09328484715cfc1374b66afb032 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Sat, 24 Oct 2026 12:35:54 +0000
+Subject: [PATCH] Daily Checklist: the lists side by side
+
+Daily, Weekly and One-time stood under each other, so a wide, low window
+showed only the first. A button at the top (next to Edit) puts them side
+by side, a column each, as a wide bar; too narrow for that, they wrap
+under each other. Kept with the other settings.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
+---
+ plugins/checklist/index.html |  1 +
+ plugins/checklist/plugin.js  | 19 ++++++++++++++++++-
+ plugins/checklist/style.css  | 18 ++++++++++++++++++
+ 3 files changed, 37 insertions(+), 1 deletion(-)
+
+diff --git a/plugins/checklist/index.html b/plugins/checklist/index.html
+index 314f76f..d2156bb 100644
+--- a/plugins/checklist/index.html
++++ b/plugins/checklist/index.html
+@@ -13,6 +13,7 @@
+     <div class="head">
+       <span class="who"></span>
+       <span class="resets"></span>
++      <button type="button" class="layoutBtn" aria-pressed="false" title="Side by side" aria-label="Side by side"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg></button>
+       <button type="button" class="edit" title="Edit the lists and settings">Edit</button>
+     </div>
+     <div class="lists">
+diff --git a/plugins/checklist/plugin.js b/plugins/checklist/plugin.js
+index 0d86dbf..4f02039 100644
+--- a/plugins/checklist/plugin.js
++++ b/plugins/checklist/plugin.js
+@@ -39,7 +39,7 @@ const state = {
+   main: null, // your main character's key
+   progress: {},
+   reminded: {},
+-  prefs: { minutes: 420, weekday: 3, remindDaily: 2, remindWeekly: 24, sound: "chime", volume: 100 },
++  prefs: { minutes: 420, weekday: 3, remindDaily: 2, remindWeekly: 24, sound: "chime", volume: 100, columns: false },
+   last: null,
+ };
+ const KEYS = Object.keys(state);
+@@ -379,6 +379,22 @@ $(".volume").addEventListener("change", () => playSound(state.prefs.sound));
+ $(".testAlert").addEventListener("click", () => checkReminders(true));
+ 
+ a2.on("compact", (on) => document.body.classList.toggle("compact", !!on));
++
++// Clicktrough: Daily, Weekly and One-time side by side, a column each, as a
++// wide bar (too narrow for that, they wrap under each other).
++function applyColumns() {
++  const on = !!state.prefs.columns;
++  document.body.classList.toggle("columns", on);
++  const btn = $(".layoutBtn");
++  btn.setAttribute("aria-pressed", String(on));
++  btn.title = on ? "Below each other" : "Side by side";
++  btn.setAttribute("aria-label", btn.title);
++}
++$(".layoutBtn").addEventListener("click", () => {
++  state.prefs.columns = !state.prefs.columns;
++  save("prefs");
++  applyColumns();
++});
+ a2.on("character", setCharacter);
+ 
+ // ── Start ──────────────────────────────────────────────────────────────────
+@@ -394,6 +410,7 @@ a2.on("character", setCharacter);
+   }
+   for (const k of KINDS) state.items[k] ||= [];
+   showPrefs();
++  applyColumns();
+   render();
+   a2.ready();
+   setInterval(() => {
+diff --git a/plugins/checklist/style.css b/plugins/checklist/style.css
+index 86635aa..7ef0a14 100644
+--- a/plugins/checklist/style.css
++++ b/plugins/checklist/style.css
+@@ -94,6 +94,24 @@ body.editing .items li { cursor: default; }
+ .bannerText small { display: block; font-weight: 400; color: rgba(255, 255, 255, 0.8); }
+ .bannerClose { position: absolute; top: 3px; right: 3px; border: 0; background: none; font-size: 14px; padding: 0 4px; }
+ 
++/* Clicktrough: the layout button, and the lists side by side. */
++.head .layoutBtn {
++  display: inline-flex; align-items: center; justify-content: center;
++  width: 22px; height: 20px; padding: 0; margin-left: auto;
++  color: rgba(255, 255, 255, 0.55); background: transparent; border-color: rgba(255, 255, 255, 0.12);
++}
++.head .layoutBtn:hover { color: rgba(255, 255, 255, 0.9); border-color: rgba(255, 255, 255, 0.3); }
++.head .layoutBtn[aria-pressed="true"] { color: rgba(255, 255, 255, 0.9); border-color: rgba(255, 255, 255, 0.35); }
++body.columns .lists {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
++  gap: 6px 20px;
++  align-content: start;
++}
++body.columns .lists > section h2 { margin-top: 2px; }
++body.columns .lists > .others,
++body.columns .lists > .settings { grid-column: 1 / -1; }
++
+ /* The fold button: only what is left to do. */
+ body.compact .resets, body.compact .others, body.compact .items li.done, body.compact .edit { display: none; }
+ 
+-- 
+2.43.0
+

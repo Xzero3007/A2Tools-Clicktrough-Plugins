@@ -1,0 +1,4 @@
+# The original's plugins taken at another commit than PIN, a line each:
+#   <plugin id> <commit of taengu/A2Tools-Plugins>
+# For taking one plugin's new version (or a new plugin) without moving PIN,
+# which would take every plugin's. build/assemble.sh applies these first.

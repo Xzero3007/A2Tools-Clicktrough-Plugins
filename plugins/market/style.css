@@ -1,0 +1,104 @@
+/* The host window paints the panel; the page stays transparent. Neutral
+   colours as the meter's; gains green, losses red. */
+[hidden] { display: none !important; }
+html, body { margin: 0; background: transparent; color: rgba(255,255,255,.9);
+  font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+body { padding: 8px 10px 12px; box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+button { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
+  border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.16); }
+select, input[type=number] { background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 3px 6px; }
+select option, select optgroup { background: #1c1f24; color: #fff; }
+input[type=number] { width: 52px; }
+input[type=search] { background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18);
+  border-radius: 5px; padding: 5px 8px; box-sizing: border-box; }
+input[type=search]:focus, select:focus, input[type=number]:focus { outline: none; border-color: rgba(255,255,255,.45); }
+input[type=checkbox] { accent-color: #c8ccd2; margin: 0; }
+a { color: rgba(255,255,255,.8); }
+.muted { color: rgba(255,255,255,.55); font-size: 12px; }
+.note { color: rgba(255,255,255,.6); font-size: 12px; margin: 4px 0 8px; }
+
+.bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.bar .server { max-width: 260px; }
+.bar .status { flex: 1; min-width: 120px; }
+.status.error { color: #ff8a7a; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.tab { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 5px 2px; color: rgba(255,255,255,.55); }
+.tab[aria-selected="true"] { color: #fff; border-bottom-color: rgba(255,255,255,.85); }
+.tab:hover { background: none; color: #fff; }
+
+.controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.controls .search { flex: 1; min-width: 160px; }
+.pane > .search { width: 100%; margin-bottom: 6px; }
+.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { border-radius: 999px; padding: 1px 10px; font-size: 12px; }
+.chip[aria-pressed="true"] { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.45); color: #fff; }
+.empty { color: rgba(255,255,255,.55); font-size: 12px; margin: 10px 2px; }
+.more { display: block; margin: 8px auto 0; }
+
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: rgba(255,255,255,.55); margin: 12px 0 4px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: right; font-weight: 500; font-size: 11px; color: rgba(255,255,255,.5); padding: 3px 6px; border-bottom: 1px solid rgba(255,255,255,.12); white-space: nowrap; }
+/* A list's columns the same for all its groups, its header kept at the top
+   as the page scrolls (on the panel's colour, so rows pass under it). */
+table.list { table-layout: fixed; }
+table.list > thead th { position: sticky; top: 0; z-index: 3; background: var(--a2-panel, #0e1420);
+  border-bottom: 0; box-shadow: inset 0 -1px 0 rgba(255,255,255,.14); padding-top: 6px; overflow: hidden; text-overflow: ellipsis; }
+table.list > tbody > tr > td { overflow: hidden; text-overflow: ellipsis; }
+tr.group th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: rgba(255,255,255,.55);
+  font-weight: 600; padding: 14px 6px 4px; border-bottom: 1px solid rgba(255,255,255,.12); }
+tbody > tr.group:first-child th { padding-top: 6px; }
+table.inner { table-layout: auto; }
+th:first-child, td:first-child { text-align: left; }
+td { text-align: right; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.06); white-space: nowrap; }
+td:first-child { white-space: normal; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: rgba(255,255,255,.04); }
+tr.open td { background: rgba(255,255,255,.05); }
+tr.detail > td { padding: 0 0 8px 14px; background: rgba(255,255,255,.03); }
+tr.detail table td, tr.detail table th { font-size: 12px; }
+.sub { color: rgba(255,255,255,.45); font-size: 11px; }
+.gain { color: #7fdc9a; }
+.loss { color: #ff8a7a; }
+.none { color: rgba(255,255,255,.35); }
+.tag { display: inline-block; font-size: 10px; padding: 0 5px; border-radius: 3px; margin-left: 4px; vertical-align: 1px;
+  border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.65); }
+.tag.morph { border-color: rgba(127,220,154,.5); color: #a9ebbd; }
+.tag.npc { border-color: rgba(255,214,102,.45); color: #ffe199; }
+.buyCol, .bestCol { font-weight: 600; color: rgba(255,255,255,.75); }
+
+/* The name cell: star, name, its tags, map link. */
+td.name { white-space: nowrap; }
+td.name .label { vertical-align: middle; }
+.star, .mapBtn { background: none; border: 0; padding: 0 3px; margin: 0; cursor: pointer; vertical-align: middle; line-height: 0; }
+.star svg, .mapBtn svg { width: 13px; height: 13px; fill: none; stroke: rgba(255,255,255,.35); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.star { margin-left: -3px; margin-right: 2px; }
+.star:hover svg, .mapBtn:hover svg { stroke: #fff; }
+.star.on svg { fill: #ffd666; stroke: #ffd666; }
+.mapBtn { margin-left: 4px; opacity: .7; }
+tr:hover .mapBtn, .mapBtn:focus-visible { opacity: 1; }
+.mapBtn svg { stroke: rgba(255,255,255,.5); }
+.star:hover, .mapBtn:hover { background: none; }
+
+/* The bar: faction and favourites. */
+.seg { display: inline-flex; border: 1px solid rgba(255,255,255,.18); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: none; padding: 2px 9px; color: rgba(255,255,255,.6); }
+.seg button + button { border-left: 1px solid rgba(255,255,255,.14); }
+.seg button[aria-pressed="true"] { background: rgba(255,255,255,.16); color: #fff; }
+.favFirst { display: inline-flex; align-items: center; gap: 5px; color: rgba(255,255,255,.65); }
+.favFirst svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.favFirst[aria-pressed="true"] { background: rgba(255,214,102,.14); border-color: rgba(255,214,102,.55); color: #ffe199; }
+.favFirst[aria-pressed="true"] svg { fill: #ffd666; stroke: #ffd666; }
+
+.energy { border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 12px; }
+.energy strong { color: #fff; }
+
+.npcBox { margin-top: 12px; }
+.npcBox summary { cursor: pointer; color: rgba(255,255,255,.7); }
+.npcList { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; font-size: 12px; }
+.npcList input { width: 80px; text-align: right; }
+.credit { margin-top: 14px; }

@@ -1,0 +1,258 @@
+From 051084dc1c69a9edcbd2fa43ffa7910610f4212f Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Fri, 23 Oct 2026 13:03:59 +0000
+Subject: [PATCH] Event Timers: the bosses due soon and the Artifact Siege in
+ the folded view
+
+Folded, the window showed the next three events only, and no boss. Under
+them it now lists the scheduled bosses on now or starting within a time
+picked in Settings ("Folded: bosses due within": off, 30 min, 1 h, 2 h,
+3 h; 1 h at first), and the world bosses up, in their window or back
+within it, the ones up first. The next Artifact Siege stays in the
+folded view too, however far off.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01TUNxq4V2zBL7bJg3yPJ3oC
+---
+ plugins/event-timers/index.html |   3 +
+ plugins/event-timers/plugin.js  | 109 +++++++++++++++++++++++++++++++-
+ plugins/event-timers/style.css  |  17 +++++
+ 3 files changed, 126 insertions(+), 3 deletions(-)
+
+diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
+index 99e2639..0dde6ba 100644
+--- a/plugins/event-timers/index.html
++++ b/plugins/event-timers/index.html
+@@ -26,6 +26,8 @@
+     </div>
+     <section class="view events">
+       <ol class="list eventList"></ol>
++      <h2 class="group foldedBossHead" hidden></h2>
++      <ol class="list foldedBossList"></ol>
+       <div class="hidden"></div>
+     </section>
+     <section class="view bosses" hidden>
+@@ -68,6 +70,7 @@
+       <label class="setting"><span class="regionLabel">Region</span> <select class="regionSelect"></select></label>
+       <label class="setting"><span class="zoneLabel">Show times in</span> <select class="zoneSelect"></select></label>
+       <label class="setting"><span class="scaleLabel">Text size</span> <select class="scaleSelect"></select></label>
++      <label class="setting"><span class="foldedBossLabel">Folded: bosses due within</span> <select class="foldedBossSelect"></select></label>
+     </section>
+     <div class="modal" role="dialog" aria-modal="true" hidden>
+       <div class="modalBox">
+diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
+index f64af56..bdda828 100644
+--- a/plugins/event-timers/plugin.js
++++ b/plugins/event-timers/plugin.js
+@@ -37,6 +37,10 @@ const els = {
+     settings: $(".view.settings"),
+   },
+   events: $(".eventList"),
++  foldedBossHead: $(".foldedBossHead"),
++  foldedBoss: $(".foldedBossList"),
++  foldedBossLabel: $(".foldedBossLabel"),
++  foldedBossSelect: $(".foldedBossSelect"),
+   hidden: $(".hidden"),
+   scheduledHead: $(".scheduledHead"),
+   scheduled: $(".scheduledList"),
+@@ -118,6 +122,13 @@ const ALERT_COLORS = {
+ // Text size: the whole page scaled, spacing and controls with the text.
+ // 100% is BASE_ZOOM, a little larger than the stylesheet's own sizes.
+ const SCALES = [0.9, 1, 1.1, 1.25, 1.5];
++// Folded, the bosses up now or due within this many minutes show under the
++// next events; 0 shows none.
++const FOLDED_BOSS_MINUTES = [0, 30, 60, 120, 180];
++const DEFAULT_FOLDED_BOSS_MINUTES = 60;
++// Events the folded view keeps however far off they are: the next Artifact
++// Siege, three times a week, is past the next three events most of the time.
++const FOLDED_ALWAYS = new Set(["artifact"]);
+ const BASE_ZOOM = 1.2;
+ // The feed of world boss timers: read this often, or every FEED_BUSY_MS
+ // while a world boss on the server is up, due within 15 minutes or overdue,
+@@ -346,6 +357,24 @@ const MORE_UI = {
+         bossSoon: (name, n) => `${name} ${n} 分钟后出现`, bossNow: (name) => `${name} 已出现` },
+ };
+ 
++// The words for the folded view's bosses.
++const FOLDED_UI = {
++  en: { foldedBosses: "Folded: bosses due within" },
++  ko: { foldedBosses: "접었을 때: 이 시간 안의 보스" },
++  ja: { foldedBosses: "折りたたみ時：この時間内のボス" },
++  de: { foldedBosses: "Eingeklappt: Bosse der nächsten" },
++  fr: { foldedBosses: "Replié : boss dans les prochaines" },
++  es: { foldedBosses: "Plegado: jefes en las próximas" },
++  pt: { foldedBosses: "Recolhido: chefes nas próximas" },
++  ru: { foldedBosses: "В свёрнутом виде: боссы в ближайшие" },
++  "zh-Hant": { foldedBosses: "收合時：顯示此時間內的首領" },
++  "zh-Hans": { foldedBosses: "折叠时：显示此时间内的首领" },
++};
++const foldedWords = () => FOLDED_UI[language] || FOLDED_UI.en;
++const foldedMinutes = () =>
++  FOLDED_BOSS_MINUTES.includes(prefs.foldedBossMinutes) ? prefs.foldedBossMinutes : DEFAULT_FOLDED_BOSS_MINUTES;
++const minutesText = (m) => (m < 60 ? `${m} min` : `${m / 60} h`);
++
+ // The Bosses tab's row buttons: each boss's alert on or off, and the way to
+ // its settings in Alerts.
+ const ROW_UI = {
+@@ -428,7 +457,7 @@ let gameRunning = null;
+ // voiceRate.
+ let prefs = { region: "auto", hidden: [], alerts: {}, leads: {}, closedLeads: {}, sound: "chime", repeat: 1, volume: 100, pop: false,
+   tab: "events", display: "system", lastServer: 0, scale: 1, defaultLead: DEFAULT_LEAD, defaultClosedLead: DEFAULT_CLOSED_LEAD,
+-  alertColor: "orange", alsoAtStart: false, folded: {}, speak: false, voiceName: "", voiceType: "any", voiceRate: 1 };
++  alertColor: "orange", alsoAtStart: false, folded: {}, speak: false, voiceName: "", voiceType: "any", voiceRate: 1, foldedBossMinutes: DEFAULT_FOLDED_BOSS_MINUTES };
+ // The world boss timers: { server, bosses, at, error }, from the feed and the
+ // player's own map, the newest report of each boss kept.
+ let feed = null;
+@@ -669,6 +698,9 @@ function renderStatic() {
+   els.defaultClosed.value = String(defaultClosed());
+   els.scaleSelect.replaceChildren(...SCALES.map((x) => option(x, `${Math.round(x * 100)}%`)));
+   els.scaleSelect.value = String(prefs.scale);
++  els.foldedBossLabel.textContent = foldedWords().foldedBosses;
++  els.foldedBossSelect.replaceChildren(...FOLDED_BOSS_MINUTES.map((m) => option(m, m ? minutesText(m) : a.off)));
++  els.foldedBossSelect.value = String(foldedMinutes());
+   els.soundLabel.textContent = a.sound;
+   els.testAlert.textContent = words.testAlert;
+   els.alertOptionsBtn.textContent = words.alertOptions;
+@@ -967,12 +999,14 @@ function renderSchedule(list, events, now, { hideable, actions = false }) {
+         render();
+       });
+     }
+-    return row({
++    const li = row({
+       id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running, hide, actions,
+       soon: next.start - now <= SOON_MS,
+       countdown: running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
+       at: fmt.format(new Date(next.start)),
+     });
++    li.classList.toggle("keepFolded", FOLDED_ALWAYS.has(ev.id));
++    return li;
+   }));
+   return shown;
+ }
+@@ -1057,10 +1091,71 @@ function renderField(now) {
+   els.field.replaceChildren(...items);
+ }
+ 
++// Folded: under the next events, the scheduled bosses on now or starting
++// within the chosen time, and the world bosses up, in their window or back
++// within it; the ones up first, then by time. Rows as on the Bosses tab, a
++// bell where an alert is on, without its buttons.
++function renderFoldedBosses(now) {
++  const minutes = foldedMinutes();
++  if (!document.body.classList.contains("compact") || !minutes) {
++    els.foldedBoss.replaceChildren();
++    els.foldedBossHead.hidden = true;
++    return;
++  }
++  const limit = minutes * 60_000;
++  const words = ui();
++  const fmt = clock();
++  const tz = timeZone();
++  const items = [];
++  for (const ev of scheduled("boss")) {
++    if (!tz && !ev.utc) continue;
++    const next = nextOf(ev, tz || "UTC", now);
++    if (!next || next.start - now > limit) continue;
++    const running = next.start <= now;
++    items.push({
++      first: running, at: next.start,
++      li: row({
++        id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
++        soon: next.start - now <= SOON_MS,
++        countdown: running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
++        at: fmt.format(new Date(next.start)),
++      }),
++    });
++  }
++  for (const b of fieldBosses()) {
++    const t = fieldTimer(b.id);
++    const next = t?.state === "dead" && t.nextSpawn ? t.nextSpawn * 1000 : null;
++    const up = t?.state === "up";
++    const inWindow = !up && !!next && next <= now && now - next <= WINDOW_MS;
++    if (!up && !inWindow && !(next && next > now && next - now <= limit)) continue;
++    let countdown;
++    let at;
++    if (up) {
++      countdown = t.upSince ? words.upFor(span(now - t.upSince * 1000)) : words.up;
++      at = t.hp != null && t.hpAt
++        ? `${words.hpLeft(t.hp)} · ${words.ago(age(now - t.hpAt * 1000))}`
++        : words.seen(age(now - (t.reportedAt || 0) * 1000));
++    } else {
++      countdown = inWindow ? words.ago(age(now - next)) : words.in(span(next - now));
++      at = fmt.format(new Date(next));
++    }
++    const name = text(b.name) + (b.level ? ` · Lv ${b.level}` : "");
++    const li = row({ id: `field:${b.id}`, name, where: text(b.where), countdown, at, up, soon: inWindow || next - now <= SOON_MS });
++    if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
++    li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
++    items.push({ first: up || inWindow, at: up ? 0 : next, li });
++  }
++  items.sort((x, y) => Number(y.first) - Number(x.first) || x.at - y.at);
++  els.foldedBoss.replaceChildren(...items.map((x) => x.li));
++  els.foldedBossHead.textContent = `${words.bosses} · ≤ ${minutesText(minutes)}`;
++  els.foldedBossHead.hidden = !items.length;
++}
++
+ function render() {
+   const now = Date.now();
+   renderHeader(now);
+   renderHidden(renderSchedule(els.events, scheduled("event"), now, { hideable: true }));
++  renderFoldedBosses(now);
+   // Not while a row's button is pressed; a focused one keeps its focus.
+   if (rowPress) return;
+   const focused = document.activeElement?.closest?.(".rowBtn");
+@@ -1953,6 +2048,11 @@ els.scaleSelect.addEventListener("change", () => {
+   savePrefs();
+   applyScale();
+ });
++els.foldedBossSelect.addEventListener("change", () => {
++  prefs.foldedBossMinutes = Number(els.foldedBossSelect.value);
++  savePrefs();
++  render();
++});
+ els.regionSelect.addEventListener("change", () => {
+   prefs.region = els.regionSelect.value;
+   savePrefs();
+@@ -1991,7 +2091,10 @@ a2.on("bossMap", (m) => {
+ a2.on("game", (g) => {
+   gameRunning = typeof g?.running === "boolean" ? g.running : null;
+ });
+-a2.on("compact", (on) => document.body.classList.toggle("compact", !!on));
++a2.on("compact", (on) => {
++  document.body.classList.toggle("compact", !!on);
++  render();
++});
+ 
+ (async () => {
+   prefs = { ...prefs, ...((await a2.storage.get("prefs").catch(() => null)) || {}) };
+diff --git a/plugins/event-timers/style.css b/plugins/event-timers/style.css
+index ad221aa..fdfbf65 100644
+--- a/plugins/event-timers/style.css
++++ b/plugins/event-timers/style.css
+@@ -25,6 +25,23 @@ body.compact .eventList li:nth-child(n + 4) {
+ body.compact .view.events {
+   display: block;
+ }
++/* Folded, under the next events: the bosses up now or due soon (Settings:
++   "Folded: bosses due within"). Only there. */
++.foldedBossHead,
++.foldedBossList {
++  display: none;
++}
++body.compact .foldedBossHead:not([hidden]),
++body.compact .foldedBossList {
++  display: block;
++}
++body.compact .foldedBossHead {
++  margin-top: 8px;
++}
++/* Folded, the next Artifact Siege shows too, past the next three events. */
++body.compact .eventList li.keepFolded {
++  display: grid;
++}
+ 
+ .status {
+   color: rgba(255, 255, 255, 0.55);
+-- 
+2.43.0
+
