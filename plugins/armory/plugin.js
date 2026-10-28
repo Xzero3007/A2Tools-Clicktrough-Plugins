@@ -1,9 +1,12 @@
 // Armory: your character as NC's AION 2 character pages show it (gear,
 // stats, skills, Daevanion, titles), read through the meter (a2.web.get,
-// a2.web.image), every value on the page without hovering; where each
-// skill's level comes from and what is left to 20; a reference build to
-// compare with; the cheapest enhancing to a target gear score with its cost
-// in Kinah and materials; and the character's history.
+// a2.web.image), every value on the page without hovering; the soul
+// bindings you want on each piece and the chance of a new binding giving
+// them; target levels for the skills you raise and the way there; the
+// offensive Daevanion nodes still closed and the cheapest way to them;
+// reference builds to compare with; the cheapest enhancing to a target gear
+// score with its cost in Kinah and materials; and the character's history.
+// Suggestions come from what the strongest players of the class keep.
 (() => {
   const C = globalThis.ArmoryCalc;
   const NC = globalThis.ArmoryNC;
@@ -43,11 +46,17 @@
   const plusMinus = (v) => (v > 0 ? `+${fmt(v)}` : v < 0 ? `−${fmt(-v)}` : "±0");
 
   // ---- state ------------------------------------------------------------
-  let settings = { tab: "overview", current: null, chars: {}, goalGs: null, region: null };
+  let settings = { tab: "overview", current: null, chars: {}, goalGs: null, region: null, daevSide: "pve" };
   let playing = null; // { name, serverId, cp, gs } from the meter
   let snap = null; // the character shown
   let history = [];
+  /** The references: { active, list }; `reference` is the active one. */
+  let refs = { active: 0, list: [] };
   let reference = null;
+  /** What you aim at, per character: { soul: { slot: [property names] },
+   *  skills: { skill name: level } }. Kept apart from the references, so
+   *  another reference leaves them as they are. */
+  let targets = { soul: {}, skills: {} };
   let prices = null; // Map item id -> lowest market price
   let pricesServer = null;
   let loading = false;
@@ -59,6 +68,40 @@
     saveTimer = setTimeout(() => a2.storage.set("settings", settings).catch(() => {}), 300);
   };
   const histKey = (key) => `h${key}`;
+  const targetKey = (key) => `t${key}`;
+
+  async function loadTargets(key) {
+    const t = key ? await a2.storage.get(targetKey(key)).catch(() => null) : null;
+    targets = { soul: t?.soul || {}, skills: t?.skills || {} };
+  }
+  const targetTimers = {};
+  function saveTargets() {
+    const key = settings.current;
+    if (!key) return;
+    const value = targets;
+    clearTimeout(targetTimers[key]);
+    targetTimers[key] = setTimeout(() => a2.storage.set(targetKey(key), value).catch(() => {}), 300);
+  }
+
+  function setActiveReference() {
+    refs.active = Math.max(0, Math.min(refs.active || 0, refs.list.length - 1));
+    reference = refs.list[refs.active] || null;
+  }
+  async function saveReferences() {
+    setActiveReference();
+    await a2.storage.set("references", refs).catch(() => {});
+  }
+
+  /** A second press of the same button within 3 s does it (a sandboxed page
+   *  has no confirm()). */
+  function confirmTwice(what, text) {
+    const now = Date.now();
+    if (confirmTwice.what === what && now - confirmTwice.at < 3000) { confirmTwice.what = null; return true; }
+    confirmTwice.what = what;
+    confirmTwice.at = now;
+    setStatus(text);
+    return false;
+  }
 
   function setStatus(text, error = false) {
     const s = $(".status");
@@ -121,6 +164,7 @@
       }
       const s = NC.snapshotOf({ info, equipment, items, boards, at: Date.now() });
       const key = NC.keyOf(s.profile.serverId, s.profile.name);
+      if (settings.current !== key) await loadTargets(key);
       settings.chars[key] = { name: s.profile.name, serverId: s.profile.serverId, characterId: ref.characterId,
         className: s.profile.className, level: s.profile.level, serverName: s.profile.serverName };
       settings.current = key;
@@ -144,6 +188,7 @@
   async function openCharacter(key) {
     settings.current = key;
     saveSettings();
+    await loadTargets(key);
     snap = await a2.storage.get(key).catch(() => null);
     history = (await a2.storage.get(histKey(key)).catch(() => null)) || [];
     render();
@@ -398,71 +443,430 @@
     pane.append(el("p", { class: "note" }, "Green after a stat: what its enhance level adds. Chances and costs are the game's enhance tables; a failure raises the next try's chance where the game does."));
   }
 
+  // ---- soul binding -------------------------------------------------------
+  const chances = new Map();
+  function chanceOf(pool, id, wanted) {
+    if (!pool || !wanted?.length) return null;
+    const key = `${id}|${pool.count}|${wanted.join("|")}`;
+    if (!chances.has(key)) chances.set(key, C.soulChance(pool, wanted));
+    return chances.get(key);
+  }
+  const chanceText = (p) => (p == null ? "" : p <= 0 ? "never (more than the piece takes, or one it can't get)"
+    : p >= 0.995 ? "certain" : p >= 0.1 ? `${fmt(p * 100, 0)} %` : p >= 0.01 ? `${fmt(p * 100, 1)} %, about 1 in ${fmt(Math.round(1 / p))}`
+      : `about 1 in ${fmt(Math.round(1 / p))}`);
+  const rangeText = (o) => (o.kind === "skill" ? (o.top > 1 ? `+1 to +${o.top}` : "+1")
+    : `${fmt(o.min, 2)}–${fmt(o.max, 2)}${o.pct ? " %" : ""}`);
+
+  function qualityBar(q) {
+    if (q == null) return el("span", { class: "q none" });
+    return el("span", { class: `q${q >= 0.9 ? " hi" : ""}`, title: `${Math.round(q * 100)} % of the way from the lowest to the highest roll` },
+      el("i", { style: { width: `${Math.max(4, Math.round(q * 100))}%` } }));
+  }
+
+  let soulOpen = null; // the slot whose list of properties is open
+  function setWanted(slot, list) {
+    if (list?.length) targets.soul[slot] = list;
+    else delete targets.soul[slot];
+    saveTargets();
+    renderSoul();
+  }
+
+  /** The pieces with a soul binding: the worn one's (or, where the game data
+   *  lacks it, the reference's piece in that slot). */
+  function soulPieces() {
+    const cls = snap.profile?.className || "";
+    const refBySlot = new Map((reference?.gear || []).map((g) => [g.slot, g]));
+    const out = [], none = [];
+    for (const slot of C.SLOT_ORDER) {
+      const it = (snap.items || []).find((x) => x.slot === slot);
+      if (!it) continue;
+      const ref = refBySlot.get(slot);
+      const other = ref?.id && ref.id !== it.id ? ref : null;
+      const own = C.soulPool(it.id, cls);
+      const refPool = other ? C.soulPool(other.id, cls) : null;
+      if (own || refPool) out.push({ it, slot, pool: own || refPool, own: !!own, ref: other, refPool });
+      else none.push(it);
+    }
+    return { cls, out, none };
+  }
+
+  function renderSoul() {
+    const pane = $('[data-pane="soul"]');
+    pane.textContent = "";
+    if (!snap) { pane.append(el("p", { class: "empty" }, "Nothing read yet.")); return; }
+    const { cls, out, none } = soulPieces();
+    const top = C.topOf(cls);
+    let wantedN = 0, hits = 0;
+    for (const x of out) {
+      const w = C.soulCompare(x.it, targets.soul[x.slot], x.pool).wanted;
+      wantedN += w.length;
+      hits += w.filter((y) => y.have).length;
+    }
+    pane.append(el("p", { class: "note" },
+      "What each piece's soul binding has, and the properties you want on it: pick them from what the piece can get (Pick …). They stay when you change the reference. A new binding picks its properties one after another, never one twice: the stats share 80 % of each pick by their weights, your class's skill effects 20 %. ",
+      top ? `“Top”: how many of the ${top.n} strongest ${cls}s (Shugo.GG's leaderboard of Global, ${short(top.cp[0])} to ${short(top.cp[2])} combat power) have it on that piece.` : "No strongest players counted for this class yet."));
+    pane.append(el("div", { class: "refhead" },
+      el("span", {}, wantedN ? el("b", {}, `${hits} of ${wantedN} wanted properties are on your pieces`) : "No properties picked yet."),
+      el("span", { class: "grow" }),
+      top ? el("button", { type: "button", class: "gold", title: "On every piece without picks: what the strongest players have on it most", onclick: () => {
+        for (const x of out) {
+          if (targets.soul[x.slot]?.length) continue;
+          const p = C.topPicks(cls, x.slot, x.pool, x.it.arcana ? x.it.category : null);
+          if (p.length) targets.soul[x.slot] = p;
+        }
+        saveTargets(); renderSoul();
+      } }, "Top players' picks where none are picked") : null,
+      wantedN ? el("button", { type: "button", onclick: () => { if (confirmTwice("soul", "Press Clear again to clear every piece's picks")) { targets.soul = {}; saveTargets(); renderSoul(); } } }, "Clear all") : null));
+    for (const [name, slots] of GROUPS) {
+      const list = out.filter((x) => slots.includes(x.slot));
+      if (list.length) pane.append(el("h3", {}, name), el("div", { class: "cards soul" }, list.map((x) => soulCard(x, cls))));
+    }
+    if (none.length) pane.append(el("p", { class: "note" }, `No soul binding in the game's item data: ${none.map((it) => it.name).join(", ")}.`));
+  }
+
+  function soulCard(x, cls) {
+    const { it, slot, pool } = x;
+    const wanted = targets.soul[slot] || [];
+    const cmp = C.soulCompare(it, wanted, pool);
+    const t = C.topSlot(cls, slot, it.arcana ? it.category : null);
+    const share = new Map([...(t?.stats || []), ...(t?.skills || [])].map(([n, sh]) => [n.toLowerCase(), sh]));
+    const topText = (name) => {
+      const sh = share.get(name.toLowerCase());
+      return sh ? el("span", { class: "tp" }, `top ${Math.round(sh * 100)} %`) : el("span", { class: "tp" });
+    };
+    const rows = [];
+    for (const w of cmp.wanted) {
+      rows.push(el("div", { class: `prow ${w.have ? "ok" : "miss"}` },
+        el("span", { class: "mk" }, w.have ? "✓" : w.prop ? "✗" : "!"),
+        el("span", { class: "pn" }, w.name),
+        el("span", { class: "pv" }, w.have ? w.value : w.prop ? rangeText(w.prop) : "not on this piece"),
+        w.have ? qualityBar(w.quality) : el("span", { class: "q none" }),
+        topText(w.name)));
+    }
+    for (const h of cmp.extra) {
+      rows.push(el("div", { class: `prow ${wanted.length ? "extra" : "has"}` },
+        el("span", { class: "mk" }, "·"),
+        el("span", { class: "pn" }, h.name),
+        el("span", { class: "pv" }, h.value),
+        qualityBar(h.quality),
+        topText(h.name)));
+    }
+    const p = wanted.length && cmp.wanted.some((w) => !w.have) ? chanceOf(pool, x.own ? it.id : x.ref.id, wanted) : null;
+    const pRef = p != null && x.own && x.refPool && x.refPool.count !== pool.count ? chanceOf(x.refPool, x.ref.id, wanted) : null;
+    const open = soulOpen === slot;
+    const card = el("div", { class: `card soulcard g-${it.grade}${open ? " open" : ""}` },
+      el("div", { class: "head" }, picture(it.icon, "ico s", it.grade),
+        el("div", { class: "t" },
+          el("div", { class: "nm gname", title: it.name }, it.name),
+          el("div", { class: "lv" }, `${C.SLOT_LABEL[slot] || slot} · ${pool.count} properties`,
+            x.own ? "" : ` on the reference's ${x.ref.name}`,
+            x.own && x.ref && x.refPool && (x.ref.name !== it.name || x.refPool.count !== pool.count) ? ` · reference: ${x.ref.name} (${x.refPool.count})` : "")),
+        el("div", { class: "btns" },
+          el("button", { type: "button", class: open ? "on" : "", onclick: () => { soulOpen = open ? null : slot; renderSoul(); } }, open ? "Done" : "Pick …"))),
+      rows.length ? el("div", { class: "props" }, rows) : el("div", { class: "sub" }, "Nothing on it yet."),
+      wanted.length ? el("div", { class: "chance" },
+        cmp.wanted.every((w) => w.have) ? el("span", { class: "good" }, "✓ Every wanted property is on it.")
+          : [`A new binding gives all ${wanted.length} wanted: `, el("b", {}, chanceText(p)),
+            pRef != null ? el("span", { class: "sub" }, ` · on the reference's piece (${x.refPool.count} properties): ${chanceText(pRef)}`) : null]) : null,
+      open ? soulPicker(x, cls, wanted, share) : null);
+    return card;
+  }
+
+  function soulPicker(x, cls, wanted, share) {
+    const { it, slot, pool } = x;
+    const isOn = (name) => wanted.some((w) => w.toLowerCase() === name.toLowerCase());
+    const full = wanted.length >= pool.count;
+    const option = (o) => {
+      const on = isOn(o.name);
+      const sh = share.get(o.name.toLowerCase());
+      return el("label", { class: `opt${on ? " on" : ""}${!on && full ? " off" : ""}` },
+        el("input", { type: "checkbox", checked: on, disabled: !on && full, onchange: (e) => {
+          setWanted(slot, e.target.checked ? [...wanted, o.name] : wanted.filter((w) => w.toLowerCase() !== o.name.toLowerCase()));
+        } }),
+        el("span", { class: "pn" }, o.name),
+        el("span", { class: "sub" }, rangeText(o)),
+        el("span", { class: "sub", title: "The chance to be a binding's first pick" }, `${fmt(o.first * 100, o.first < 0.01 ? 2 : 1)} %`),
+        el("span", { class: sh ? "tp" : "tp none" }, sh ? `top ${Math.round(sh * 100)} %` : ""));
+    };
+    const order = (list) => list.slice().sort((a, b) => (share.get(b.name.toLowerCase()) || 0) - (share.get(a.name.toLowerCase()) || 0) || b.first - a.first);
+    const picks = C.topPicks(cls, slot, pool, it.arcana ? it.category : null);
+    return el("div", { class: "picker" },
+      el("div", { class: "phead" }, el("span", {}, `Up to ${pool.count}: ${wanted.length} picked`),
+        el("span", { class: "grow" }),
+        picks.length ? el("button", { type: "button", class: "gold", onclick: () => setWanted(slot, picks) }, "Top players' picks") : null,
+        wanted.length ? el("button", { type: "button", onclick: () => setWanted(slot, []) }, "None") : null),
+      el("div", { class: "olist" },
+        pool.stats.length ? [el("div", { class: "og" }, "Stats", el("span", { class: "sub" }, " · range · first pick · top")), order(pool.stats).map(option)] : null,
+        pool.skills.length ? [el("div", { class: "og" }, `${cls} skill effects`, el("span", { class: "sub" }, " · level · first pick · top")), order(pool.skills).map(option)] : null));
+  }
+
   // ---- skills -----------------------------------------------------------
-  function skillBar(s) {
-    const pc = (v) => `${(100 * v) / 20}%`;
-    const base = Math.min(20, s.base), daev = Math.min(20 - base, s.fromDaev), gear = Math.min(20 - base - daev, s.fromGear);
-    return el("span", { class: "skbar" },
-      el("span", { class: "base", style: { left: 0, width: pc(base) } }),
-      el("span", { class: "daev", style: { left: pc(base), width: pc(daev) } }),
-      el("span", { class: "gear", style: { left: pc(base + daev), width: pc(gear) } }),
-      [10, 14, 16].map((m) => el("span", { class: "mark", style: { left: pc(m) } })),
-      s.refLevel != null ? el("span", { class: "ref", style: { left: pc(Math.min(20, s.refLevel)) }, title: `Reference: ${s.refLevel}` }) : null);
+  /** Where a level comes from, on a scale of 0 to `scale`: skill points,
+   *  Daevanion, gear and Arcana; a gold mark at the target, a white one at
+   *  the reference's level. */
+  function skillBar(s, scale, target) {
+    const w = (v) => (100 * Math.max(0, Math.min(v, scale))) / scale;
+    const a = s.base, b = a + s.fromDaev, c = b + s.fromGear;
+    return el("span", { class: "skbar", title: `${s.base} skill points · ${s.fromDaev} Daevanion · ${s.fromGear} gear and Arcana` },
+      el("span", { class: "base", style: { left: 0, width: `${w(a)}%` } }),
+      el("span", { class: "daev", style: { left: `${w(a)}%`, width: `${w(b) - w(a)}%` } }),
+      el("span", { class: "gear", style: { left: `${w(b)}%`, width: `${w(c) - w(b)}%` } }),
+      [10, 14, 20].filter((m) => m < scale).map((m) => el("span", { class: "mark", style: { left: `${w(m)}%` } })),
+      s.refLevel != null ? el("span", { class: "ref", style: { left: `${w(s.refLevel)}%` } }) : null,
+      target != null ? el("span", { class: "tgt", style: { left: `${w(target)}%` } }) : null);
   }
 
-  function skillHint(s) {
-    if (s.category === "Dp") {
-      if (s.level >= 20) return "At 20.";
-      return s.level > 0 ? `${20 - s.level} to 20: Stigma levels come from Stigma Shards.` : "Not raised yet: Stigma levels come from Stigma Shards.";
-    }
-    if (s.level >= 20) return "At 20.";
+  /** "Arcana: Parchment" → "Parchment", "Rings" stays, "MainHand" → "Weapon". */
+  const sourceName = (w) => (w.startsWith("Arcana: ") ? `${w.slice(8)} (Arcana)` : C.SLOT_LABEL[w] || w);
+
+  function skillHint(s, target, top) {
+    if (target == null) return "";
+    if (s.level >= target) return el("span", { class: "good" }, "✓ At the target.");
+    if (s.category === "Dp") return `${target - s.level} to go: Stigma levels come from Stigma Shards.`;
+    const way = C.skillWay(s, target);
     const parts = [];
-    if (s.baseRoom > 0) parts.push(`${s.baseRoom} from skill points (to 10)`);
-    if (s.closedNodes.length) {
-      const pts = s.closedNodes.reduce((a, n) => a + n.points, 0);
-      parts.push(`${s.closedNodes.reduce((a, n) => a + n.gives, 0)} from Daevanion: ${s.closedNodes.map((n) => `${n.board} (${n.grade}, ${n.points} pt)`).join(", ")} · ${pts} points`);
+    if (way.points) parts.push(`${way.points} from skill points (to 10)`);
+    if (way.daevanion.length) {
+      parts.push(`${way.daevanion.reduce((a, n) => a + n.gives, 0)} from Daevanion: ${way.daevanion.map((n) => `${n.board} (${n.grade}, ${n.points} pt)`).join(", ")}`);
     }
-    if (s.gearFor20 > 0) parts.push(`${s.gearFor20} more from gear and Arcana (extra skill levels)`);
-    return parts.length ? `To 20: ${parts.join("; ")}.` : "";
+    if (way.gear) {
+      const from = (top?.sources || []).slice(0, 3).map(([w]) => sourceName(w));
+      parts.push(`${way.gear} from extra skill levels on gear and Arcana${from.length ? ` (the top players have theirs from ${from.join(", ")})` : ""}`);
+    }
+    return `To ${target}: ${parts.join("; ")}.`;
   }
 
+  function setSkillTarget(name, level) {
+    if (level > 0) targets.skills[name] = level;
+    else delete targets.skills[name];
+    saveTargets();
+    renderSkills();
+  }
+
+  function targetSelect(s) {
+    const cur = targets.skills[s.name] ?? null;
+    const levels = s.category === "Dp" ? Array.from({ length: 20 }, (_, i) => i + 1) : Array.from({ length: 21 }, (_, i) => i + 10);
+    if (cur != null && !levels.includes(cur)) levels.push(cur);
+    return el("select", { class: "tsel", title: "The level you aim at", onchange: (e) => setSkillTarget(s.name, Number(e.target.value)) },
+      el("option", { value: "" }, "—"),
+      levels.sort((a, b) => a - b).map((v) => el("option", { value: v, selected: v === cur }, v)));
+  }
+
+  function skillRow(s, cat, scale, topLevels) {
+    const target = targets.skills[s.name] ?? null;
+    const top = topLevels[s.name];
+    return el("tr", { class: target != null && s.level >= target ? "reached" : "" },
+      el("td", {}, el("div", { class: "cell" }, picture(s.icon, "ico s"), el("span", { class: "txt" }, s.name, s.equipped && cat !== "Passive" ? el("span", { class: "sub" }, " · in use") : null))),
+      el("td", {}, el("span", { class: `lvl${target != null && s.level >= target ? " max" : ""}` }, s.level),
+        s.refLevel != null ? el("div", { class: s.refLevel > s.level ? "sub gold-t" : "sub" }, `ref ${s.refLevel}`) : null),
+      el("td", {}, targetSelect(s), top?.median > 0 ? el("div", { class: "sub", title: `${Math.round(top.at20 * 100)} % of them at 20 or more, ${Math.round(top.at16 * 100)} % at 16 or more` }, `top ${fmt(top.median, 1)}`) : null),
+      el("td", { class: "l" }, cat === "Dp" ? null : [skillBar(s, scale, target), el("div", { class: "sub" }, `${s.base} + ${s.fromDaev} + ${s.fromGear}`)]),
+      el("td", { class: "l wrap sub" }, skillHint(s, target, top),
+        s.gear.length ? el("div", {}, `Now from: ${s.gear.map((g) => `${g.item} +${g.level}`).join(", ")}`) : null));
+  }
+
+  function skillTable(rows) {
+    return el("table", { class: "fixed skills" },
+      el("colgroup", {}, el("col", { style: { width: "190px" } }), el("col", { style: { width: "52px" } }), el("col", { style: { width: "66px" } }),
+        el("col", { style: { width: "150px" } }), el("col", {})),
+      el("thead", {}, el("tr", {}, el("th", {}, "Skill"), el("th", {}, "Level"), el("th", {}, "Target"), el("th", { class: "l" }, "Points + Daev. + gear"), el("th", { class: "l" }, "The way to the target"))),
+      el("tbody", {}, rows));
+  }
+
+  let showUntracked = null; // { category: true } folded open by hand
   function renderSkills() {
     const pane = $('[data-pane="skills"]');
     pane.textContent = "";
     if (!snap) { pane.append(el("p", { class: "empty" }, "Nothing read yet.")); return; }
+    const cls = snap.profile?.className || "";
+    const top = C.topOf(cls);
+    const topLevels = C.topSkillLevels(cls);
     const all = C.compareSkills(C.skillSources(snap), reference);
     const learnt = all.filter((s) => s.acquired || s.level > 0);
-    const at20 = learnt.filter((s) => s.category !== "Dp" && s.level >= 20).length;
-    const at16 = learnt.filter((s) => s.category !== "Dp" && s.level >= 16).length;
+    const tracked = learnt.filter((s) => targets.skills[s.name] != null);
+    const reached = tracked.filter((s) => s.level >= targets.skills[s.name]).length;
     pane.append(el("p", { class: "note" },
-      `${at16} skills at 16 or more, ${at20} at 20. A skill reaches 10 with skill points, 14 with the Daevanion boards (one node on each of the first four), and 20 with extra skill levels on gear and Arcana.`));
+      tracked.length ? `${reached} of ${tracked.length} skills at their target. ` : "Pick a target level for the skills you raise (the list in each row): the others fold away. ",
+      "A skill reaches 10 with skill points, up to 14 with the Daevanion boards (one node on each of the first four), and more with extra skill levels on gear and Arcana."));
+    const fromRef = (reference?.skills || []).length;
+    pane.append(el("div", { class: "refhead" },
+      el("span", { class: "muted" }, "Targets:"),
+      fromRef ? el("button", { type: "button", onclick: () => {
+        for (const s of learnt) if (s.refLevel != null && s.category !== "Dp") targets.skills[s.name] = s.refLevel;
+        saveTargets(); renderSkills();
+      } }, `The reference's levels`) : null,
+      top ? el("button", { type: "button", class: "gold", title: `The median level of the ${top.n} strongest ${cls}s, for the skills most of them raise to 10 or more`, onclick: () => {
+        for (const s of learnt) {
+          const t = topLevels[s.name];
+          if (t && t.median >= 10) targets.skills[s.name] = Math.round(t.median);
+        }
+        saveTargets(); renderSkills();
+      } }, `The top ${cls}s' levels`) : null,
+      tracked.length ? el("button", { type: "button", onclick: () => { if (confirmTwice("skills", "Press Clear again to clear every skill target")) { targets.skills = {}; saveTargets(); renderSkills(); } } }, "Clear") : null));
     pane.append(el("div", { class: "sklegend" },
       el("span", {}, el("i", { style: { background: "rgba(255,255,255,.5)" } }), "skill points"),
       el("span", {}, el("i", { style: { background: "#c39bff" } }), "Daevanion"),
       el("span", {}, el("i", { style: { background: "#f2c46b" } }), "gear and Arcana"),
-      reference ? el("span", {}, el("i", { style: { background: "#fff", width: "3px" } }), "the reference's level") : null,
-      el("span", {}, "marks at 10, 14, 16")));
+      el("span", {}, el("i", { style: { background: "#f2c46b", width: "3px", height: "12px" } }), "your target"),
+      reference ? el("span", {}, el("i", { style: { background: "#fff", width: "3px", height: "12px" } }), "the reference's level") : null,
+      el("span", {}, "marks at 10, 14, 20"),
+      top ? el("span", {}, `“top”: the median of the ${top.n} strongest ${cls}s`) : null));
+    const scale = Math.max(20, ...learnt.map((s) => s.level), ...Object.values(targets.skills));
     const groups = [["Active", "Active skills"], ["Passive", "Passive skills"], ["Dp", "Stigmas"]];
     for (const [cat, title] of groups) {
       const list = learnt.filter((s) => s.category === cat).sort((a, b) => (b.equipped - a.equipped) || (b.level - a.level));
       if (!list.length) continue;
-      const tbody = el("tbody");
-      for (const s of list) {
-        tbody.append(el("tr", {},
-          el("td", {}, el("div", { class: "cell" }, picture(s.icon, "ico s"), el("span", { class: "txt" }, s.name, s.equipped && cat !== "Passive" ? el("span", { class: "sub" }, " · in use") : null))),
-          el("td", {}, el("span", { class: `lvl${s.level >= 20 ? " max" : ""}` }, s.level), s.refLevel != null ? el("span", { class: s.refLevel > s.level ? "sub gold-t" : "sub" }, ` / ${s.refLevel}`) : null),
-          el("td", { class: "l" }, cat === "Dp" ? null : skillBar(s)),
-          el("td", { class: "l sub", title: cat === "Dp" ? "" : `${s.base} skill points · ${s.fromDaev} Daevanion · ${s.fromGear} gear` },
-            cat === "Dp" ? "" : `${s.base} + ${s.fromDaev} + ${s.fromGear}`),
-          el("td", { class: "l wrap sub" }, skillHint(s),
-            s.gear.length ? el("div", {}, `Now from: ${s.gear.map((g) => `${g.item} +${g.level}`).join(", ")}`) : null)));
+      const on = list.filter((s) => targets.skills[s.name] != null);
+      const off = list.filter((s) => targets.skills[s.name] == null);
+      pane.append(el("h3", {}, title));
+      if (on.length) pane.append(skillTable(on.map((s) => skillRow(s, cat, scale, topLevels))));
+      if (off.length) {
+        const open = showUntracked?.[cat] ?? !on.length;
+        const d = el("details", { class: "untracked", open },
+          el("summary", {}, on.length ? `${off.length} more without a target` : `${off.length} skills without a target`),
+          skillTable(off.map((s) => skillRow(s, cat, scale, topLevels))));
+        d.addEventListener("toggle", () => { showUntracked = { ...(showUntracked || {}), [cat]: d.open }; });
+        pane.append(d);
       }
-      pane.append(el("h3", {}, title), el("table", {},
-        el("thead", {}, el("tr", {}, el("th", {}, "Skill"), el("th", {}, reference ? "Level / ref" : "Level"), el("th", { class: "l" }, "0 – 20"), el("th", { class: "l" }, "points + Daev. + gear"), el("th", { class: "l" }, "The way to 20"))),
-        tbody));
     }
-    pane.append(el("p", { class: "note" }, "Arcana's extra skill levels are random rolls on each card: its own planner comes later."));
+    pane.append(el("p", { class: "note" }, "Extra skill levels on gear and Arcana are rolls of the soul binding: its tab shows the chance of a new binding giving the ones you want."));
   }
+
+  // ---- Daevanion: the offensive nodes still closed ------------------------
+  let daevBoard = null; // the board shown
+  let daevPick = null; // the node picked on it
+  let daevAll = false; // every closed offensive node listed, not the nearest only
+  const SIDES = [["pve", "PvE and bosses"], ["pvp", "PvP"], ["all", "Both"]];
+  const val = (v, pct) => `+${fmt(v, 2)}${pct ? " %" : ""}`;
+
+  function renderDaevanion() {
+    const pane = $('[data-pane="daevanion"]');
+    pane.textContent = "";
+    if (!snap) { pane.append(el("p", { class: "empty" }, "Nothing read yet.")); return; }
+    const boards = (snap.boards || []).filter((b) => b.nodes?.length);
+    if (!boards.length) { pane.append(el("p", { class: "empty" }, "No Daevanion board read: Update reads them again.")); return; }
+    const side = SIDES.some(([k]) => k === settings.daevSide) ? settings.daevSide : "pve";
+    const rows = C.boardOffense(boards, side);
+    const closed = rows.filter((r) => r.nodes);
+    const offOf = (b) => C.boardWays(b).filter((n) => !n.open && C.nodeOffense(n, side).length);
+    const allOff = boards.flatMap(offOf);
+    const nodes = allOff.length, points = allOff.reduce((a, n) => a + n.points, 0);
+
+    pane.append(el("div", { class: "refhead" },
+      el("span", {}, closed.length ? el("b", {}, `${closed.length} offensive stats still have closed nodes: ${nodes} nodes, ${points} points`) : el("b", { class: "good" }, "✓ Every offensive node is open.")),
+      el("span", { class: "grow" }),
+      el("span", { class: "seg" }, SIDES.map(([k, label]) => el("button", { type: "button", class: k === side ? "on" : "",
+        onclick: () => { settings.daevSide = k; saveSettings(); renderDaevanion(); } }, label)))));
+    pane.append(el("p", { class: "note" }, "Offensive: what makes your hits land, hit harder or come faster (Attack, Accuracy, Critical Hit, Combat Speed, Cooldown, Penetration, Boosts, Multi-hit, Perfect and Double). “PvE and bosses” leaves out what counts against characters only."));
+
+    // Every offensive stat: open, still closed, and on which board.
+    const withClosed = boards.filter((b) => closed.some((r) => r.boards[b.name]));
+    const tbody = el("tbody");
+    for (const r of rows) {
+      tbody.append(el("tr", { class: r.nodes ? "" : "done" },
+        el("td", {}, r.name),
+        el("td", {}, r.have ? val(r.have, r.pct) : el("span", { class: "faint" }, "—")),
+        el("td", { class: r.nodes ? "gold-t" : "" }, r.nodes ? val(r.closed, r.pct) : el("span", { class: "good" }, "✓ all open")),
+        el("td", {}, r.nodes || ""),
+        el("td", {}, r.points || ""),
+        el("td", {}, r.cheapest != null ? `${r.cheapest} pt` : ""),
+        withClosed.map((b) => el("td", { class: "sub" }, r.boards[b.name] ? val(r.boards[b.name], r.pct) : ""))));
+    }
+    pane.append(el("table", { class: "dsum" },
+      el("thead", {}, el("tr", {}, el("th", {}, "Stat"), el("th", {}, "Open"), el("th", {}, "Still closed"), el("th", {}, "Nodes"), el("th", {}, "Points"),
+        el("th", { title: "The points to the nearest one: every closed node on the way, that one included" }, "Nearest"),
+        withClosed.map((b) => el("th", {}, b.name)))),
+      tbody));
+
+    // One board: its map and its closed offensive nodes, nearest first.
+    if (!boards.some((b) => b.name === daevBoard)) {
+      daevBoard = [...boards].sort((a, b) => offOf(b).reduce((s, n) => s + n.points, 0) - offOf(a).reduce((s, n) => s + n.points, 0))[0].name;
+      daevPick = null;
+    }
+    pane.append(el("div", { class: "chips boardchips" }, boards.map((b) => {
+      const n = offOf(b).length;
+      return el("button", { type: "button", class: `chip${b.name === daevBoard ? " on" : ""}`, onclick: () => { daevBoard = b.name; daevPick = null; renderDaevanion(); } },
+        `${b.name} ${b.points}/${b.maxPoints}`, n ? el("span", { class: "gold-t" }, ` · ${n} offensive`) : null);
+    })));
+    const board = boards.find((b) => b.name === daevBoard);
+    const ways = C.boardWays(board);
+    const off = offOf(board).sort((a, b) => a.cost - b.cost || b.points - a.points);
+    const picked = ways.find((n) => n.id === daevPick) || null;
+    const byId = new Map(ways.map((n) => [n.id, n]));
+
+    const side_ = el("div", { class: "dside" });
+    if (picked) {
+      const path = picked.path.map((id) => byId.get(id)).reverse();
+      side_.append(el("div", { class: "box dpick" },
+        el("div", {}, el("b", {}, nodeText(picked, side)), el("span", { class: "sub" }, ` · ${picked.grade} node, ${picked.points} pt`)),
+        picked.open ? el("div", { class: "good" }, "✓ Open.")
+          : el("div", {}, path.length === 1 ? "Next to an open one." : `The way from what is open: ${path.length} nodes, ${picked.cost} points.`),
+        !picked.open && path.length > 1 ? el("ul", { class: "short" }, path.map((n) => el("li", { class: n.offensive ? "gold-t" : n.skill ? "purple-t" : "" }, `${nodeText(n)} (${n.points} pt)`))) : null));
+    }
+    side_.append(el("h3", {}, off.length ? `${board.name}: offensive nodes still closed` : `${board.name}: every offensive node open`));
+    const list = el("div", { class: "dlist" });
+    const shown = daevAll ? off : off.slice(0, 14);
+    for (const n of shown) {
+      list.append(el("button", { type: "button", class: `drow${n.id === daevPick ? " on" : ""}`, onclick: () => { daevPick = n.id; renderDaevanion(); } },
+        el("span", {}, nodeText(n, side)),
+        el("span", { class: "sub" }, `${n.grade} · ${n.points} pt`),
+        el("span", { class: "sub" }, n.path.length > 1 ? `way ${n.cost} pt, ${n.path.length} nodes` : "next to an open one")));
+    }
+    side_.append(list);
+    if (off.length > shown.length || daevAll) {
+      side_.append(el("button", { type: "button", class: "more", onclick: () => { daevAll = !daevAll; renderDaevanion(); } },
+        daevAll ? "Show the nearest only" : `Show all ${off.length}`));
+    }
+    const skills = ways.filter((n) => n.skill && !n.open);
+    if (skills.length) {
+      side_.append(el("h3", {}, "Skill levels still closed"), el("div", { class: "dlist" }, skills.sort((a, b) => a.cost - b.cost).map((n) => {
+        const t = targets.skills[n.skill.name];
+        return el("button", { type: "button", class: `drow${n.id === daevPick ? " on" : ""}`, onclick: () => { daevPick = n.id; renderDaevanion(); } },
+          el("span", { class: "purple-t" }, nodeText(n)),
+          el("span", { class: "sub" }, `${n.grade} · ${n.points} pt`),
+          el("span", { class: t ? "sub gold-t" : "sub" }, t ? `your target ${t}` : n.path.length > 1 ? `way ${n.cost} pt` : "next to an open one"));
+      })));
+    }
+    const map = boardMap(ways, side, picked);
+    pane.append(el("div", { class: "dwrap" }, el("div", { style: { width: `${map.getAttribute("width")}px` } }, map, mapLegend()), side_));
+    pane.append(el("p", { class: "note" }, "A node opens next to an open one, side by side. The way's points are every closed node on the cheapest way from what is open, the node itself included; the nodes on the way give their stats too."));
+  }
+
+  /** A node's effects in words; with `side`, its offensive ones in gold. */
+  function nodeText(n, side) {
+    if (n.type === "Start") return "Start";
+    if (n.skill) return `${n.skill.name} +${n.skill.gives}`;
+    if (!side || !n.stats?.length) return (n.effects || []).join(", ") || n.name || "?";
+    const off = new Set(C.nodeOffense(n, side));
+    return el("span", {}, n.stats.map((e, i) => [i ? ", " : "", el("span", { class: off.has(e) ? "gold-t" : "muted" }, (n.effects || [])[i])]));
+  }
+
+  function boardMap(ways, side, picked) {
+    const cell = 24, pad = 2;
+    const rows = ways.map((n) => n.row), cols = ways.map((n) => n.col);
+    const r0 = Math.min(...rows), c0 = Math.min(...cols);
+    const W = (Math.max(...cols) - c0 + 1) * cell + 2 * pad, H = (Math.max(...rows) - r0 + 1) * cell + 2 * pad;
+    const s = svg("svg", { class: "dmap", viewBox: `0 0 ${W} ${H}`, width: W, height: H });
+    const onWay = new Set(picked && !picked.open ? picked.path : []);
+    for (const n of ways) {
+      const kind = n.type === "Start" ? "start" : n.skill ? "skill" : C.nodeOffense(n, side).length ? "off" : "other";
+      const g = svg("g", { class: `nd ${kind}${n.open ? " open" : ""}${onWay.has(n.id) ? " way" : ""}${picked?.id === n.id ? " pick" : ""}`,
+        transform: `translate(${pad + (n.col - c0) * cell},${pad + (n.row - r0) * cell})` });
+      g.append(svg("rect", { x: 2, y: 2, width: cell - 4, height: cell - 4, rx: n.type === "Start" ? 10 : 3 }));
+      if (!n.open) g.append(svg("text", { x: cell / 2, y: cell / 2 + 3.5, "text-anchor": "middle" }, n.points));
+      g.append(svg("title", {}, `${nodeText(n)} · ${n.grade} · ${n.open ? "open" : `closed, way ${n.cost} pt`}`));
+      g.addEventListener("click", () => { daevPick = n.id; renderDaevanion(); });
+      s.append(g);
+    }
+    return s;
+  }
+
+  const mapLegend = () => el("div", { class: "sklegend" },
+    el("span", {}, el("i", { class: "lg off" }), "offensive"),
+    el("span", {}, el("i", { class: "lg skill" }), "skill level"),
+    el("span", {}, el("i", { class: "lg other" }), "other"),
+    el("span", {}, "filled: open · a number: closed, its points"),
+    el("span", {}, el("i", { class: "lg way" }), "the way to the node picked"));
 
   // ---- reference --------------------------------------------------------
   const CATS_OF_SLOT = {
@@ -472,9 +876,25 @@
     Bracelet1: ["Bracelet"], Bracelet2: ["Bracelet"], Amulet: ["Amulet"], Rune1: ["Rune"], Rune2: ["Rune"],
   };
 
-  async function saveReference(ref) {
-    reference = ref;
-    await a2.storage.set("reference", ref).catch(() => {});
+  /** A build read: added to the one of the same name (its other tabs saved
+   *  apart add up), or kept as a new reference; it becomes the active one. */
+  async function addReference(ref) {
+    const at = refs.list.findIndex((r) => r.name && r.name === ref.name);
+    if (at >= 0) {
+      refs.list[at] = { ...C.mergeReference(ref, refs.list[at]), id: refs.list[at].id };
+      refs.active = at;
+    } else {
+      refs.list.push({ ...ref, id: Date.now() });
+      refs.active = refs.list.length - 1;
+    }
+    await saveReferences();
+    render();
+    return refs.list[refs.active];
+  }
+  async function removeReference() {
+    refs.list.splice(refs.active, 1);
+    refs.active = Math.max(0, refs.active - 1);
+    await saveReferences();
     render();
   }
 
@@ -499,11 +919,8 @@
       setStatus("No build found in that: save a questlog.gg character build page (Equipment, Skills or Daevanion tab) from the browser", true);
       return;
     }
-    // Several tabs saved one after the other add up.
-    const merged = reference && reference.name === ref.name ? C.mergeReference(ref, reference) : ref;
-    setStatus(`Reference: ${merged.name || "build"} (${merged.gear.length} pieces, ${merged.skills.length} skills, ${merged.boards.length} boards)`);
     editRef = false;
-    saveReference(merged);
+    addReference(ref).then((r) => setStatus(`Reference: ${r.name || "build"} (${r.gear.length} pieces, ${r.skills.length} skills, ${r.boards.length} boards)`));
   }
 
   function importBox() {
@@ -511,7 +928,7 @@
       onchange: (e) => { if (e.target.files?.length) importFiles([...e.target.files]); } });
     const area = el("textarea", { placeholder: "… or paste a saved page's HTML, or a reference code, here" });
     return el("div", { class: "import" },
-      el("p", { class: "note" }, "A build to compare with and aim at: open a character build on questlog.gg in your browser, save the page (Ctrl+S, “Web page, complete” or “HTML only”), once on its Equipment tab and, for skills and Daevanion, once on those tabs, then pick the saved files here. Nothing is sent anywhere: the files are read here."),
+      el("p", { class: "note" }, "A build to compare with and aim at: open a character build on questlog.gg in your browser, save the page (Ctrl+S, “Web page, complete” or “HTML only”), once on its Equipment tab and, for skills and Daevanion, once on those tabs, then pick the saved files here. A page of a build already here adds to it; another build becomes a new reference. Nothing is sent anywhere: the files are read here."),
       el("div", {}, el("span", { class: "filebtn" }, el("button", { type: "button", class: "gold" }, "Pick saved pages …"), file)),
       area,
       el("div", {}, el("button", { type: "button", onclick: () => importText(area.value) }, "Read what is pasted")));
@@ -525,14 +942,17 @@
       return;
     }
     const mineGs = snap ? (snap.profile?.gs ?? C.gearScore(snap).total) : null;
+    const which = el("select", { class: "refpick", title: "The reference the other tabs compare with", onchange: (e) => {
+      refs.active = Number(e.target.value); editRef = false; saveReferences().then(render);
+    } }, refs.list.map((r, i) => el("option", { value: i, selected: i === refs.active }, r.name || `Reference ${i + 1}`)));
     pane.append(el("div", { class: "refhead" },
-      el("span", { class: "nm" }, reference.name || "Reference"),
+      refs.list.length > 1 ? which : el("span", { class: "nm" }, reference.name || "Reference"),
       el("span", { class: "muted" }, reference.source ? `from ${reference.source}` : ""),
       el("span", { class: "grow" }),
       reference.gearScore ? el("span", {}, "Gear score ", el("b", { class: "gold-t" }, fmt(reference.gearScore)), mineGs ? el("span", { class: "muted" }, ` · yours ${fmt(mineGs)} (${plusMinus(mineGs - reference.gearScore)})`) : null) : null,
       el("button", { type: "button", onclick: () => { editRef = !editRef; renderReference(); } }, editRef ? "Done" : "Edit"),
       el("button", { type: "button", onclick: () => { const box = $(".refcode"); box.hidden = !box.hidden; } }, "Code"),
-      el("button", { type: "button", onclick: () => { if (confirmRemove()) saveReference(null); } }, "Remove")));
+      el("button", { type: "button", onclick: () => { if (confirmTwice("ref", "Press Remove again to remove this reference")) removeReference(); } }, "Remove")));
     pane.append(el("textarea", { class: "refcode", hidden: true, readonly: true, style: { width: "100%", minHeight: "60px", fontSize: "11px" } }, JSON.stringify(reference)));
 
     // Gear, slot by slot.
@@ -595,17 +1015,8 @@
       }
       pane.append(el("h3", {}, "Deity stats · yours / reference"), kv);
     }
-    pane.append(el("h3", {}, "Replace the reference"), importBox());
+    pane.append(el("h3", {}, "Add a reference, or a tab of this one"), importBox());
   }
-
-  const confirmRemove = () => {
-    // A sandboxed page has no confirm(): a second press within 3 s removes.
-    const now = Date.now();
-    if (confirmRemove.at && now - confirmRemove.at < 3000) { confirmRemove.at = 0; return true; }
-    confirmRemove.at = now;
-    setStatus("Press Remove again to remove the reference");
-    return false;
-  };
 
   /** One reference slot, to change: the item (searched by name), its
    *  enhance and Amplify levels. */
@@ -624,7 +1035,8 @@
           enchant: Number(ench.value) || 0, amplify: Number(amp.value) || 0, shown: (Number(ench.value) || 0) + (Number(amp.value) || 0), guessed: false });
       }
       reference = { ...reference, gear };
-      a2.storage.set("reference", reference).catch(() => {});
+      refs.list[refs.active] = reference;
+      a2.storage.set("references", refs).catch(() => {});
     };
     name.addEventListener("input", () => {
       list.textContent = "";
@@ -783,7 +1195,8 @@
   }
 
   // ---- tabs and rendering -------------------------------------------------
-  const RENDER = { overview: renderOverview, stats: renderStats, gear: renderGear, skills: renderSkills, reference: renderReference, goals: renderGoals, history: renderHistory };
+  const RENDER = { overview: renderOverview, stats: renderStats, gear: renderGear, soul: renderSoul, skills: renderSkills, daevanion: renderDaevanion,
+    reference: renderReference, goals: renderGoals, history: renderHistory };
   function showTab(tab) {
     if (!RENDER[tab]) tab = "overview";
     settings.tab = tab;
@@ -870,7 +1283,17 @@
       const s = await a2.storage.get("settings");
       if (s && typeof s === "object") settings = { ...settings, ...s, chars: s.chars || {} };
     } catch { /* defaults */ }
-    reference = await a2.storage.get("reference").catch(() => null);
+    const saved = await a2.storage.get("references").catch(() => null);
+    if (saved && Array.isArray(saved.list)) refs = { active: saved.active || 0, list: saved.list };
+    else {
+      // Before there were several: the one reference.
+      const one = await a2.storage.get("reference").catch(() => null);
+      if (one && typeof one === "object") {
+        refs = { active: 0, list: [{ ...one, id: Date.now() }] };
+        await a2.storage.set("references", refs).catch(() => {});
+      }
+    }
+    setActiveReference();
     if (settings.current) await openCharacter(settings.current);
     else render();
   })();

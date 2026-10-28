@@ -252,3 +252,93 @@ test("what the stats do: the game's own descriptions", () => {
   assert.equal(of("Evasion"), undefined);
   assert.ok(list.every((x) => x.entry));
 });
+
+test("soul binding: what a piece can get, from the game's item data", () => {
+  const pool = C.soulPool(idOf("Enraged Kromede Longbow", 86), "Ranger");
+  assert.equal(pool.count, 3);
+  const cs = pool.stats.find((p) => p.name === "Combat Speed");
+  assert.deepEqual([cs.min, cs.max, cs.pct], [10.63, 12.29, true]);
+  assert.ok(pool.skills.some((p) => p.name === "Deadshot"));
+  // The stats share 80 % of a pick, the class's skill effects 20 %.
+  near(pool.stats.reduce((a, p) => a + p.first, 0), 0.8, 1e-9, "stats");
+  near(pool.skills.reduce((a, p) => a + p.first, 0), 0.2, 1e-9, "skills");
+  assert.equal(C.soulPool(idOf("Enraged Kromede Longbow", 86), "Gladiator").skills.some((p) => p.name === "Deadshot"), false);
+});
+
+test("soul binding: the chance a new binding gives the wanted properties", () => {
+  const pool = { count: 2, stats: [{ kind: "stat", name: "A", first: 0.25 }, { kind: "stat", name: "B", first: 0.25 }, { kind: "stat", name: "C", first: 0.5 }], skills: [] };
+  // A first (1/4), or B then A (1/4 · 1/3), or C then A (1/2 · 1/2).
+  near(C.soulChance(pool, ["A"]), 0.25 + 0.25 / 3 + 0.25, 1e-12, "A");
+  // A then B or B then A: 2 · 1/4 · 1/3.
+  near(C.soulChance(pool, ["A", "B"]), 1 / 6, 1e-12, "A and B");
+  assert.equal(C.soulChance(pool, ["A", "B", "C"]), 0, "more than the piece takes");
+  assert.equal(C.soulChance(pool, ["D"]), 0, "one it can't get");
+  assert.equal(C.soulChance(pool, []), null);
+  // A real piece, every property wanted that it takes: small but not nothing.
+  const bow = C.soulPool(idOf("Enraged Kromede Longbow", 86), "Ranger");
+  const p = C.soulChance(bow, ["Combat Speed", "Weapon Damage Boost", "Might"]);
+  assert.ok(p > 1e-4 && p < 1e-3, String(p));
+});
+
+test("soul binding: what a piece has against what is wanted", () => {
+  const pool = C.soulPool(idOf("Enraged Kromede Longbow", 86), "Ranger");
+  const item = { sub: [{ name: "Combat Speed", value: "11.46%" }, { name: "Attack", value: "40" }], subSkills: [{ name: "Deadshot", level: 1 }] };
+  const c = C.soulCompare(item, ["Combat Speed", "Might"], pool);
+  assert.deepEqual(c.wanted.map((w) => [w.name, w.have]), [["Combat Speed", true], ["Might", false]]);
+  near(c.wanted[0].quality, 0.5, 0.01, "half way up its range");
+  assert.deepEqual(c.extra.map((h) => h.name), ["Attack", "Deadshot"]);
+});
+
+test("skill targets: skill points first, then the cheapest Daevanion nodes, then gear", () => {
+  const s = { level: 12, baseRoom: 1, closedNodes: [{ board: "Zikel", points: 3, gives: 1 }, { board: "Nezekan", points: 2, gives: 1 }] };
+  const w = C.skillWay(s, 16);
+  assert.equal(w.left, 4);
+  assert.equal(w.points, 1);
+  assert.deepEqual(w.daevanion.map((n) => n.board), ["Nezekan", "Zikel"]);
+  assert.equal(w.gear, 1);
+  assert.equal(C.skillWay({ level: 18 }, 16).left, 0);
+});
+
+test("Daevanion: the offensive nodes still closed and the cheapest way to them", () => {
+  // A row from the start: open, then closed Common (1), Rare (2), Legend (3);
+  // a closed Unique (4) beside the start; one corner to corner only.
+  const node = (id, row, col, grade, open, effects, type = "Stat") => ({ id, row, col, grade, open, effects, type });
+  const board = { name: "Test", nodes: [
+    node(1, 8, 8, "None", true, [], "Start"),
+    node(2, 8, 9, "Common", true, ["Attack Bonus +3"]),
+    node(3, 8, 10, "Common", false, ["Defense Bonus +30"]),
+    node(4, 8, 11, "Rare", false, ["PvE Accuracy +5", "PvE Evasion +5"]),
+    node(5, 8, 12, "Legend", false, ["Critical Hit +10"]),
+    node(6, 9, 8, "Unique", false, ["PvP Attack +5"]),
+    node(7, 9, 9, "Common", false, ["Skill +1"], "SkillLevel"),
+    node(8, 10, 10, "Common", false, ["Combat Speed +1%"]),
+  ] };
+  const ways = new Map(C.boardWays(board).map((n) => [n.id, n]));
+  assert.equal(ways.get(3).cost, 1);
+  assert.equal(ways.get(4).cost, 3);
+  assert.equal(ways.get(5).cost, 6);
+  assert.deepEqual(ways.get(5).path, [5, 4, 3]);
+  assert.equal(ways.get(8).cost, null, "corner to corner is no way");
+  assert.equal(ways.get(3).offensive, false);
+  assert.equal(ways.get(4).offensive, true);
+  const pve = C.boardOffense([board], "pve");
+  assert.deepEqual(pve.filter((r) => r.nodes).map((r) => [r.name, r.closed, r.points]), [["Critical Hit", 10, 3], ["PvE Accuracy", 5, 2], ["Combat Speed", 1, 1]]);
+  assert.equal(pve.find((r) => r.name === "Attack Bonus").have, 3);
+  assert.ok(!pve.some((r) => r.name === "PvP Attack"));
+  assert.ok(C.boardOffense([board], "pvp").some((r) => r.name === "PvP Attack"));
+  assert.ok(!C.boardOffense([board], "pvp").some((r) => r.name === "PvE Accuracy"));
+  for (const [name, off] of [["Multi-hit Chance", true], ["Multi-hit Resist", false], ["Boss Damage Boost", true], ["PvE Damage Tolerance", false], ["MP", false], ["Cooldown Reduction", true], ["Status Effect Chance", false]]) {
+    assert.equal(C.isOffensive(name), off, name);
+  }
+});
+
+test("the strongest players: counted without names", () => {
+  const top = C.topOf("Ranger");
+  assert.ok(top.n >= 20);
+  const json = JSON.stringify(D.top);
+  for (const key of ["name\":", "characterId", "serverId"]) assert.ok(!json.includes(key), key);
+  const pool = C.soulPool(idOf("Enraged Kromede Longbow", 86), "Ranger");
+  const picks = C.topPicks("Ranger", "MainHand", pool);
+  assert.equal(picks.length, 3);
+  assert.ok(picks.includes("Combat Speed"));
+});

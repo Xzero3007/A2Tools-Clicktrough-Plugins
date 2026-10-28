@@ -9,7 +9,15 @@ calculator. Also what each stat does, in the game's own words (its stat
 descriptions, as Aion2Data's stats page lists them). Game data and art
 belong to NCSOFT.
 
-  python3 -I dev/make_data.py <cache folder> [--fetch]
+  python3 -I dev/make_data.py <cache folder> [--fetch] [--questlog <file>]
+
+Also the soul binding lists (which stats, in which range and by which
+weight, and which skill effects each item's soul binding can give), from the
+game's item data as questlog.gg's item database holds it: --questlog takes
+a file the "Armory probe" bookmark saved on a questlog.gg build page (its
+item database rides along) and keeps what is needed in the cache folder
+(questlog-soul.json). And what the strongest players of a class keep on
+each piece, from dev/top_players.py (<cache>/top/top.json), counted.
 
 --fetch downloads https://aion2data.com/tools/enchant/data.json and
 https://aion2data.com/stats into the cache folder first (and the game version
@@ -69,6 +77,56 @@ def glossary(page):
     return out
 
 
+def soul_from_questlog(path):
+    """The soul binding lists from a probe file's questlog.gg item database:
+    { stats: [name, ...], pools: [[[stat index, min, max, weight], ...]],
+      pct: [stat index, ...] (values in hundredths of a percent),
+      items: { id: [pool index or -1, properties, skill group] },
+      skills: { group: { class: [[skill name, weight, top level], ...] } } }"""
+    d = json.load(open(path, encoding="utf-8"))
+    p = d.get("payload") or {}
+    pick = lambda prefix: next((v for k, v in p.items() if k.startswith(prefix)), None)
+    items = pick("characterBuilder.getEquipmentItems")
+    subskills = pick("characterBuilder.getItemSubStatSkills")
+    skills = pick("skillBuilder.getSkills")
+    fmt = p.get("statFormat-en") or {}
+    if not items or not subskills or not skills or not fmt:
+        raise SystemExit(f"{path}: not a probe file with questlog.gg's item database")
+    names = {s["id"]: s["name"] for s in skills}
+    stat_index, stat_names, pct = {}, [], set()
+    def stat(sid):
+        if sid not in stat_index:
+            f = fmt.get(sid) or {}
+            stat_index[sid] = len(stat_names)
+            stat_names.append(f.get("name") or sid)
+            if "percent" in (f.get("indicator") or ""):
+                pct.add(stat_index[sid])
+        return stat_index[sid]
+    pools, pool_index, out_items = [], {}, {}
+    for it in items:
+        info = it.get("equipmentInfo") or {}
+        st = it.get("itemStats") or {}
+        stats = st.get("subStats") or []
+        count = info.get("soulbindRandomStatCount") or 0
+        skills_count = info.get("soulbindRandomSkillCount") or 0
+        group = st.get("subSkillGroup") or ""
+        if not (stats and count) and not (group and skills_count):
+            continue
+        pool = tuple(sorted((stat(x["id"]), x["minValue"], x["maxValue"], x["randomWeight"]) for x in stats if x.get("type") == "stat"))
+        if pool and pool not in pool_index:
+            pool_index[pool] = len(pools)
+            pools.append([list(x) for x in pool])
+        out_items[it["id"]] = [pool_index[pool] if pool else -1, max(count, skills_count), group]
+    groups = {}
+    for x in subskills:
+        name = names.get(x["id"])
+        if name:
+            groups.setdefault(x["group"], {}).setdefault(x["class"], []).append([name, x["randomProb"], x.get("levelMaxValue") or 1])
+    used = {v[2] for v in out_items.values()}
+    return {"stats": stat_names, "pct": sorted(pct), "pools": pools, "items": out_items,
+            "skills": {g: v for g, v in groups.items() if g in used}}
+
+
 def steps(rows, with_stats=False):
     """A table's steps as [chance /10000, + chance per failure, levels lost on
     failure, Kinah, [[material, count], ...]] (and the stats it gives)."""
@@ -94,6 +152,13 @@ def main():
         fetch(VERSION, version_path)
     if "--fetch" in sys.argv or not os.path.exists(stats_path):
         fetch(STATS, stats_path)
+    soul_path = os.path.join(cache, "questlog-soul.json")
+    if "--questlog" in sys.argv:
+        soul = soul_from_questlog(sys.argv[sys.argv.index("--questlog") + 1])
+        json.dump(soul, open(soul_path, "w", encoding="utf-8"), ensure_ascii=False)
+    soul = json.load(open(soul_path, encoding="utf-8")) if os.path.exists(soul_path) else None
+    top_path = os.path.join(cache, "top", "top.json")
+    top = json.load(open(top_path, encoding="utf-8")) if os.path.exists(top_path) else None
     d = json.load(open(data_path, encoding="utf-8"))
     version = ""
     if os.path.exists(version_path):
@@ -124,14 +189,19 @@ def main():
         "effects": effects,
         "items": items,
         "glossary": glossary(open(stats_path, encoding="utf-8").read()),
+        "soul": soul,
+        "top": top,
     }
     text = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
     with open(os.path.join(PLUGIN, "data.js"), "w", encoding="utf-8") as f:
         f.write("// Built by dev/make_data.py: the game's enhance tables and enhanceable items,\n")
         f.write("// read from AION 2's files by Aion2Data (aion2data.com). Game data: NCSOFT.\n")
         f.write("globalThis.ARMORY_DATA = " + text + ";\n")
+    top_note = ", ".join(f"{k} {v['n']}" for k, v in (top or {}).get("classes", {}).items()) or "none"
     print(f"data.js: {len(items)} items, {len(out['enchant'])} enhance tables, "
           f"{len(out['amplify'])} amplify tables, {len(out['glossary'])} stats explained, "
+          f"{len(soul['items']) if soul else 0} soul binding lists ({len(soul['pools']) if soul else 0} kinds), "
+          f"top players: {top_note}, "
           f"game version {version or '?'}, {len(text) // 1024} KB")
 
 

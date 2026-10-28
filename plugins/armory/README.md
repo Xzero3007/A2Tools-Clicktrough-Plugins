@@ -17,14 +17,35 @@ value written out (no hovering), and what to do next.
   stats and what the enhance level adds, sub stats, Manastones (and empty
   slots), Theostones, the extra skill levels it gives, and its next step:
   chance, the chance a failure adds, Kinah and materials a try.
-- **Skills**: each skill's level split into skill points (to 10), Daevanion
-  (to 14: one node on each of the first four boards) and gear and Arcana (the
-  rest), with what is left to 20: the Daevanion nodes still closed (board,
-  grade, points) and the levels gear and Arcana must give. Stigmas apart.
-- **Reference**: a build to compare with and aim at, read from a questlog.gg
+- **Soul binding**: each piece's soul binding, what it has (every value and
+  where it lies in its range) and the properties you want on it, picked from
+  a list of what that piece can get (the stats with their ranges, your
+  class's skill effects, each one's chance to be the first pick). For the
+  wanted ones: ✓ or ✗, and the chance a new binding gives them all (counted
+  exactly from the game's weights), also on the reference's piece when it
+  takes more. **Top players' picks** fills a piece with what the strongest
+  players of your class have on it most. The picks are kept per character,
+  apart from the references.
+- **Skills**: a target level for each skill you raise, picked from a list
+  (or the reference's levels, or the median of the strongest players of your
+  class); the others fold away. Each level split into skill points (to 10),
+  Daevanion (to 14: one node on each of the first four boards) and gear and
+  Arcana (the rest), and the way to the target: skill points, the cheapest
+  Daevanion nodes still closed (board, grade, points), the levels gear and
+  Arcana must give and where the strongest players have theirs from.
+- **Daevanion**: every offensive stat of the boards (Attack, Accuracy,
+  Critical Hit, Combat Speed, Cooldown, Penetration, the Boosts, Multi-hit,
+  Perfect and Double), what is open and what is still closed, on which board;
+  PvE and bosses, PvP or both. A board's map (offensive nodes gold, skill
+  levels purple, open filled, closed with their points), its closed offensive
+  nodes nearest first, and the cheapest way to any node (a node opens next to
+  an open one, side by side), with what the nodes on the way give. Its
+  closed skill level nodes, with your targets.
+- **Reference**: builds to compare with and aim at, read from a questlog.gg
   character build page saved in the browser (its Equipment, Skills and
   Daevanion tabs; nothing is fetched from questlog.gg, the files are read in
-  the plugin). Slot by slot yours against it, skills, stigmas, Daevanion
+  the plugin). Several can be kept; the one picked is compared with
+  everywhere. Slot by slot yours against it, skills, stigmas, Daevanion
   points, deity stats. **Edit** changes a slot (any item by name, its levels);
   **Code** shows the reference as text, to keep or move.
 - **Goals**: a target gear score (or combat power, by an estimate), and the
@@ -64,6 +85,18 @@ a shard.
   not counted.
 - **What the stats do**: the game's own stat descriptions, from its files as
   Aion2Data's stats page lists them (`dev/make_data.py` reads them too).
+- **Soul binding**: what each item's soul binding can give (its stats with
+  ranges and weights, the skill effects by class, how many) is the game's item
+  data, taken from questlog.gg's item database (`dev/make_data.py
+  --questlog`). A binding picks one property after another, never one twice;
+  the stats share 80 % of a pick and the skill effects 20 %, as Aion2Data
+  reads NCSOFT's probability notice.
+- **The strongest players**: the characters of a class on Shugo.GG's combat
+  power leaderboard of Global (its top 100), read from NC's character pages
+  by `dev/top_players.py` and counted: per piece the soul binding properties
+  and items they have, per skill its median level and where the extra levels
+  come from. Only the counts go into `data.js`, no names. Read for Rangers on
+  2026-10-28 (36 characters); other classes: run it with their names.
 - **Prices**: aion2.exchange's market prices of your server, from the fork's
   hourly copy (the Market's).
 - **Combat power**: NC doesn't publish its formula. The goal's combat power
@@ -73,6 +106,10 @@ a shard.
 ## Data
 
 ```bash
-python3 -I dev/make_data.py <cache folder> --fetch   # downloads Aion2Data's file, writes data.js
-bash dev/ci.sh ../ct-src                             # the tests
+python3 -I dev/top_players.py <cache folder>/top ranger [--fetch]   # the strongest players, counted
+python3 -I dev/make_data.py <cache folder> --fetch [--questlog <probe file>]   # writes data.js
+bash dev/ci.sh ../ct-src                                             # the tests
 ```
+
+The cache folder holds NC's pages of the characters read: keep it out of
+the repo.

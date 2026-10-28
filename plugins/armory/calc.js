@@ -671,6 +671,266 @@
       .sort((a, b) => order(a.entry?.group) - order(b.entry?.group) || a.name.localeCompare(b.name));
   }
 
+  // ---- soul binding -------------------------------------------------------
+  // What a piece's soul binding can give (data.js "soul": the game's item data
+  // as questlog.gg's item database holds it): how many properties, which
+  // stats in which range and by which weight, which skill effects of each
+  // class. NC's pages show what a worn piece has (its sub stats and extra
+  // skill levels).
+  const SOUL = D.soul || null;
+  const classKey = (className) => String(className || "").toLowerCase();
+
+  /** { count, stats: [{ kind, name, min, max, pct, weight, first }], skills:
+   *  [{ kind, name, weight, top, first }] } of an item for a class, or null.
+   *  first: the chance to be a binding's first pick. A binding picks its
+   *  properties one after another, never one twice: the stats share 80 % of
+   *  a pick by their weights and the class's skill effects 20 % (when the
+   *  piece can have both), as Aion2Data reads NCSOFT's probability notice. */
+  function soulPool(itemId, className) {
+    const it = SOUL?.items?.[String(itemId)];
+    if (!it) return null;
+    const [poolIndex, count, group] = it;
+    const stats = poolIndex >= 0 ? SOUL.pools[poolIndex].map(([i, min, max, weight]) => {
+      const pct = SOUL.pct.includes(i);
+      return { kind: "stat", name: SOUL.stats[i], min: pct ? min / 100 : min, max: pct ? max / 100 : max, pct, weight };
+    }) : [];
+    const skills = ((SOUL.skills[group] || {})[classKey(className)] || []).map(([name, weight, top]) => ({ kind: "skill", name, weight, top }));
+    if (!stats.length && !skills.length) return null;
+    const statSum = stats.reduce((a, p) => a + p.weight, 0);
+    const skillSum = skills.reduce((a, p) => a + p.weight, 0);
+    const statShare = statSum && skillSum ? 0.8 : statSum ? 1 : 0;
+    for (const p of stats) p.first = statSum ? (statShare * p.weight) / statSum : 0;
+    for (const p of skills) p.first = skillSum ? ((1 - statShare) * p.weight) / skillSum : 0;
+    return { count, group, stats, skills };
+  }
+
+  /** "12.3%" → 12.3, "+75" → 75. */
+  const valueOf = (v) => {
+    const n = Number(String(v ?? "").replace(/[^\d.\-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  /** A worn piece's soul binding as NC's page shows it. */
+  function soulOf(item) {
+    return [
+      ...(item?.sub || []).map((m) => ({ kind: "stat", name: m.name, value: m.value })),
+      ...(item?.subSkills || []).map((k) => ({ kind: "skill", name: k.name, value: `+${k.level}`, level: k.level })),
+    ];
+  }
+
+  /** How good a rolled value is within its range: 0 the lowest, 1 the top. */
+  function rollQuality(value, prop) {
+    const v = valueOf(value);
+    if (v == null || !prop) return null;
+    if (prop.kind === "skill") return prop.top > 1 ? Math.max(0, Math.min(1, (v - 1) / (prop.top - 1))) : null;
+    if (!(prop.max > prop.min)) return null;
+    return Math.max(0, Math.min(1, (v - prop.min) / (prop.max - prop.min)));
+  }
+
+  /** The wanted properties against what the piece has: { wanted: [{ name,
+   *  kind, have, value, quality, prop }], extra: [what it has, not wanted] }. */
+  function soulCompare(item, wanted, pool) {
+    const has = soulOf(item);
+    const byName = new Map(has.map((h) => [h.name.toLowerCase(), h]));
+    const props = new Map([...(pool?.stats || []), ...(pool?.skills || [])].map((p) => [p.name.toLowerCase(), p]));
+    const want = (wanted || []).map((name) => {
+      const h = byName.get(name.toLowerCase());
+      const prop = props.get(name.toLowerCase()) || null;
+      return { name, kind: prop?.kind || h?.kind || "stat", have: !!h, value: h?.value ?? null, quality: h ? rollQuality(h.value, prop) : null, prop };
+    });
+    const wantSet = new Set((wanted || []).map((n) => n.toLowerCase()));
+    const extra = has.filter((h) => !wantSet.has(h.name.toLowerCase()))
+      .map((h) => ({ ...h, quality: rollQuality(h.value, props.get(h.name.toLowerCase())), prop: props.get(h.name.toLowerCase()) || null }));
+    return { wanted: want, extra };
+  }
+
+  /** The chance a new soul binding gives every wanted property (whatever
+   *  else it gives besides), counted exactly over the order of the picks.
+   *  The properties not wanted count by their weight only: those of one
+   *  weight are alike. */
+  function soulChance(pool, wanted) {
+    if (!pool || !wanted?.length) return null;
+    const props = [...pool.stats, ...pool.skills];
+    const want = [...new Set(wanted.map((n) => props.findIndex((p) => p.name.toLowerCase() === String(n).toLowerCase())))];
+    if (want.some((i) => i < 0) || want.length > pool.count) return 0;
+    const ww = want.map((i) => props[i].first);
+    const classes = new Map();
+    props.forEach((p, i) => {
+      if (want.includes(i) || !p.first) return;
+      const k = p.first.toPrecision(12);
+      classes.set(k, { w: p.first, n: (classes.get(k)?.n || 0) + 1 });
+    });
+    const cw = [...classes.values()].map((c) => c.w);
+    const memo = new Map();
+    const go = (pick, mask, counts, total) => {
+      if (!mask) return 1;
+      let left = 0;
+      for (let m = mask; m; m &= m - 1) left++;
+      if (pool.count - pick < left || total <= 1e-15) return 0;
+      const key = `${pick}|${mask}|${counts.join(",")}`;
+      if (memo.has(key)) return memo.get(key);
+      let sum = 0;
+      for (let i = 0; i < ww.length; i++) {
+        if (mask & (1 << i)) sum += (ww[i] / total) * go(pick + 1, mask & ~(1 << i), counts, total - ww[i]);
+      }
+      // With as many picks left as wanted ones, only a wanted one helps.
+      if (pool.count - pick > left) {
+        for (let c = 0; c < counts.length; c++) {
+          if (!counts[c]) continue;
+          const next = counts.slice();
+          next[c]--;
+          sum += ((counts[c] * cw[c]) / total) * go(pick + 1, mask, next, total - cw[c]);
+        }
+      }
+      memo.set(key, sum);
+      return sum;
+    };
+    const total = props.reduce((a, p) => a + (p.first || 0), 0);
+    return go(0, (1 << want.length) - 1, [...classes.values()].map((c) => c.n), total);
+  }
+
+  // ---- what the strongest players keep -----------------------------------
+  // data.js "top": counted from the strongest players of a class (Shugo.GG's
+  // combat power leaderboard, their pages on NC's site), no names.
+  const TOP = D.top || null;
+  const SLOT_GROUP = { Earring1: "Earrings", Earring2: "Earrings", Ring1: "Rings", Ring2: "Rings",
+    Bracelet1: "Bracelets", Bracelet2: "Bracelets", Rune1: "Runes", Rune2: "Runes" };
+  const topOf = (className) => TOP?.classes?.[classKey(className)] || null;
+
+  /** What the top players keep on a slot (or an Arcana card): { items, stats,
+   *  skills } with each one's share, or null. */
+  function topSlot(className, slot, card) {
+    const t = topOf(className);
+    if (!t) return null;
+    if (card) return t.arcana?.[card] || null;
+    return t.slots?.[SLOT_GROUP[slot] || slot] || null;
+  }
+
+  /** The properties the top players keep most on a slot, as many as the
+   *  piece takes and only ones its soul binding can give. */
+  function topPicks(className, slot, pool, card) {
+    const t = topSlot(className, slot, card);
+    if (!t || !pool) return [];
+    const can = new Set([...pool.stats, ...pool.skills].map((p) => p.name.toLowerCase()));
+    return [...(t.stats || []).map(([name, share]) => ({ name, share })), ...(t.skills || []).map(([name, share]) => ({ name, share }))]
+      .filter((x) => can.has(x.name.toLowerCase()) && x.share >= 0.2)
+      .sort((a, b) => b.share - a.share)
+      .slice(0, pool.count)
+      .map((x) => x.name);
+  }
+
+  // ---- skill targets -------------------------------------------------------
+  const TARGET_LEVELS = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30];
+  /** A level as a target: the even level at or below it, from 10 on. */
+  const asTarget = (v) => (v >= 10 ? Math.min(30, Math.floor(v / 2) * 2) : null);
+
+  /** What the top players reach: { name: { median, at20, at16, sources } }. */
+  function topSkillLevels(className) {
+    const t = topOf(className);
+    const out = {};
+    for (const [name, [category, median, at20, at16, sources]] of Object.entries(t?.skills || {})) {
+      out[name] = { category, median, at20, at16, sources };
+    }
+    return out;
+  }
+
+  /** The way from a skill's level to a target: { left, points, daevanion:
+   *  [closed nodes], gear } (gear: levels gear and Arcana must still give). */
+  function skillWay(s, target) {
+    const left = Math.max(0, (target || 0) - (s.level || 0));
+    if (!left) return { left: 0, points: 0, daevanion: [], gear: 0 };
+    const points = Math.min(left, s.baseRoom || 0);
+    let rest = left - points;
+    const nodes = [];
+    for (const n of [...(s.closedNodes || [])].sort((a, b) => a.points - b.points)) {
+      if (rest <= 0) break;
+      nodes.push(n);
+      rest -= n.gives;
+    }
+    return { left, points, daevanion: nodes, gear: Math.max(0, rest) };
+  }
+
+  // ---- the Daevanion boards ----------------------------------------------
+  /** "Critical Hit +5" → { name, value, pct }. */
+  function effectParts(text) {
+    const m = /^(.*?)\s*([+\-−])\s*([\d.,]+)\s*(%?)\s*$/.exec(String(text || ""));
+    if (!m) return { name: String(text || ""), value: null, pct: false };
+    return { name: m[1].trim(), value: (m[2] === "+" ? 1 : -1) * Number(m[3].replace(",", ".")), pct: m[4] === "%" };
+  }
+  /** Whether a stat makes your hits land, hit harder or come faster. */
+  function isOffensive(name) {
+    const n = String(name || "").toLowerCase();
+    if (/resist|tolerance|defen[cs]e|evasion|block|endurance|regen|incoming|\bhp\b|\bmp\b|stamina|flight|move speed|status effect/.test(n)) return false;
+    return /attack|accuracy|critical|combat speed|cooldown|penetration|boost|multi-hit|perfect|double|might|precision/.test(n);
+  }
+  /** "pvp" for a stat that counts against characters only, "pve" against
+   *  monsters or bosses only, "all" for both. */
+  const statSide = (name) => (/^pvp\b/i.test(name) ? "pvp" : /^(pve|boss)\b/i.test(name) ? "pve" : "all");
+
+  /** One board's nodes with what it takes to open each: the points of every
+   *  closed node on the cheapest way there from the open ones (a node opens
+   *  next to an open one, side by side, not corner to corner). */
+  function boardWays(board) {
+    const nodes = (board?.nodes || []).filter((n) => n.type && n.type !== "None");
+    const at = new Map(nodes.map((n) => [`${n.row},${n.col}`, n]));
+    const isOpen = (n) => n.open || n.type === "Start";
+    const cost = new Map(), prev = new Map();
+    const queue = [];
+    for (const n of nodes) if (isOpen(n)) { cost.set(n, 0); queue.push(n); }
+    while (queue.length) {
+      queue.sort((a, b) => cost.get(a) - cost.get(b));
+      const n = queue.shift();
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const m = at.get(`${n.row + dr},${n.col + dc}`);
+        if (!m) continue;
+        const c = cost.get(n) + (isOpen(m) ? 0 : nodePoints(m.grade));
+        if (!cost.has(m) || c < cost.get(m)) { cost.set(m, c); prev.set(m, n); queue.push(m); }
+      }
+    }
+    return nodes.map((n) => {
+      // A node gives one stat or two (a Rare one on the later boards).
+      const stats = n.type === "Stat" ? (n.effects || []).map(effectParts).filter((e) => e.name) : [];
+      const path = [];
+      for (let p = n; p && !isOpen(p); p = prev.get(p)) path.push(p.id);
+      const skill = n.type === "SkillLevel" ? /^(.*)\s\+(\d+)$/.exec(n.effects?.[0] || "") : null;
+      return { ...n, open: isOpen(n), points: nodePoints(n.grade), cost: cost.get(n) ?? null, path, stats,
+        skill: skill ? { name: skill[1], gives: Number(skill[2]) } : null,
+        offensive: stats.some((e) => isOffensive(e.name)) };
+    });
+  }
+
+  /** A node's offensive stats; side "pve" leaves out what counts against
+   *  characters only, "pvp" what counts against monsters or bosses only. */
+  const nodeOffense = (n, side) => (n.stats || []).filter((e) => isOffensive(e.name)
+    && !(side === "pve" && statSide(e.name) === "pvp") && !(side === "pvp" && statSide(e.name) === "pve"));
+
+  /** Every offensive stat of the boards, summed: what is open and what is
+   *  still closed, by board. side: "pve" leaves PvP-only stats out, "pvp"
+   *  PvE- and boss-only ones, anything else keeps all.
+   *  [{ name, pct, have, closed, nodes, points, cheapest, boards: { name:
+   *  closed value } }], the most still closed first. */
+  function boardOffense(boards, side) {
+    const by = new Map();
+    for (const b of boards || []) {
+      for (const n of boardWays(b)) {
+        for (const e of nodeOffense(n, side)) {
+          const k = e.name;
+          if (!by.has(k)) by.set(k, { name: k, pct: e.pct, side: statSide(k), have: 0, closed: 0, nodes: 0, points: 0, cheapest: null, boards: {} });
+          const x = by.get(k);
+          if (n.open) { x.have += e.value || 0; continue; }
+          x.closed += e.value || 0;
+          x.nodes++;
+          x.points += n.points;
+          x.boards[b.name] = (x.boards[b.name] || 0) + (e.value || 0);
+          if (n.cost != null && (x.cheapest == null || n.cost < x.cheapest)) x.cheapest = n.cost;
+        }
+      }
+    }
+    const round = (v) => Math.round(v * 100) / 100;
+    return [...by.values()].map((x) => ({ ...x, have: round(x.have), closed: round(x.closed) }))
+      .sort((a, b) => (b.nodes > 0) - (a.nodes > 0) || b.points - a.points || a.name.localeCompare(b.name));
+  }
+
   // ---- numbers ------------------------------------------------------------
   const fmt = (v, digits = 0) => (v == null || !Number.isFinite(v) ? "—"
     : Number(v).toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: 0 }));
@@ -691,5 +951,7 @@
     skillSources, slotsFor, splitLevel, pickByIcon, tokens, readQuestlogPage, mergeReference, referenceGearScore,
     compareGear, compareSkills, historyEntry, addHistory, historyChanges, fmt, short,
     STAT_GROUPS, statName, explainStat, characterStats,
+    soulPool, soulOf, rollQuality, soulCompare, soulChance, topOf, topSlot, topPicks, SLOT_GROUP,
+    TARGET_LEVELS, asTarget, topSkillLevels, skillWay, effectParts, isOffensive, statSide, boardWays, nodeOffense, boardOffense,
   });
 })();
