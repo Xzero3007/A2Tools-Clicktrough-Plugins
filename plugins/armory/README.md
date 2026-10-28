@@ -41,13 +41,26 @@ value written out (no hovering), and what to do next.
   nodes nearest first, and the cheapest way to any node (a node opens next to
   an open one, side by side), with what the nodes on the way give. Its
   closed skill level nodes, with your targets.
-- **Reference**: builds to compare with and aim at, read from a questlog.gg
-  character build page saved in the browser (its Equipment, Skills and
-  Daevanion tabs; nothing is fetched from questlog.gg, the files are read in
-  the plugin). Several can be kept; the one picked is compared with
-  everywhere. Slot by slot yours against it, skills, stigmas, Daevanion
-  points, deity stats. **Edit** changes a slot (any item by name, its levels);
-  **Code** shows the reference as text, to keep or move.
+- **Reference**: builds to compare with and aim at, from questlog.gg. The
+  **Armory bookmark** (its code is in the Reference tab: a bookmark you make
+  once in your browser) saves the builds of the questlog.gg character build
+  page open as a file, from the page's own state: every build of that
+  character with its gear and levels, soul bindings, Manastones, Theostones,
+  Arcana and their skills, the Daevanion build's nodes on every board and the
+  skill build's levels and specializations. Pick the file in the Armory and
+  choose the builds to keep (nothing is fetched from questlog.gg; the
+  bookmark reads the page in your browser and sends nothing). A build page
+  saved from the browser (Ctrl+S) is still read too (items, levels, points).
+  Several references can be kept; the one picked is compared with
+  everywhere: slot by slot yours against it (with its soul bindings), skills
+  with its specializations, Daevanion points, deity stats; its gear score
+  from items, levels, stones, Arcana and Daevanion points. In **Soul
+  binding** its properties per piece (**Take**, or for every piece without
+  picks), in **Skills** its levels as targets, in **Daevanion** its total per
+  offensive stat, its nodes on the map, and per board what it takes that you
+  haven't and what you took that it leaves. **Edit** changes a slot (any item
+  by name, its levels); **Code** shows the reference as text, to keep or
+  move.
 - **Goals**: a target gear score (or combat power, by an estimate), and the
   cheapest enhance and Amplify steps on the gear you wear to get there, each
   with its Kinah on average and 9 times in 10, and the materials: Enhance
@@ -88,7 +101,8 @@ a shard.
 - **Soul binding**: what each item's soul binding can give (its stats with
   ranges and weights, the skill effects by class, how many) is the game's item
   data, taken from questlog.gg's item database (`dev/make_data.py
-  --questlog`). A binding picks one property after another, never one twice;
+  --questlog`), with the names of its stat and skill ids, the Arcana cards,
+  and a Manastone's and Theostone's grade (to read a build's). A binding picks one property after another, never one twice;
   the stats share 80 % of a pick and the skill effects 20 %, as Aion2Data
   reads NCSOFT's probability notice.
 - **The strongest players**: the characters of a class on Shugo.GG's combat

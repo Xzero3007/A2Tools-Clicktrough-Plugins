@@ -42,7 +42,15 @@
   // ---- items and their tables ------------------------------------------
   const ITEMS = D.items;
   /** [name, grade, category, item level, icon, enchant table, effect table, amplify table] */
-  const itemRow = (id) => ITEMS[String(id)] || null;
+  /** [name, grade, category, item level, icon, enhance table, effects,
+   *  Amplify table] of an item; Arcana (not in Aion2Data's list) from the
+   *  soul binding data, without tables. */
+  const itemRow = (id) => {
+    const row = ITEMS[String(id)];
+    if (row) return row;
+    const a = D.soul?.arcana?.[String(id)];
+    return a ? [a[0], a[1], "Arcana", a[2], a[3], null, null, null] : null;
+  };
   const itemName = (id) => itemRow(id)?.[0] || `Item ${id}`;
 
   /** An icon's file name as both sites spell it, for matching:
@@ -547,7 +555,11 @@
    *  items and levels; Manastones, Theostones and Arcana it may not say). */
   function referenceGearScore(ref) {
     let points = 0;
-    for (const g of ref?.gear || []) points += (g.il || 0) + (g.enchant || 0) + AMPLIFY_POINTS * (g.amplify || 0);
+    for (const g of ref?.gear || []) {
+      points += (g.il || 0) + (g.enchant || 0) + AMPLIFY_POINTS * (g.amplify || 0);
+      for (const s of g.stones || []) points += GRADE_POINTS[s.grade] || 0;
+      for (const t of g.theostones || []) points += THEOSTONE_POINTS[t.grade] || 0;
+    }
     for (const b of ref?.boards || []) points += b.points || 0;
     return points;
   }
@@ -568,10 +580,117 @@
     });
   }
 
-  /** Skills against the reference's levels, matched by icon. */
+  /** Skills against the reference's levels, matched by the skill's id (a
+   *  build read from questlog.gg's page state) or its icon (a saved page). */
   function compareSkills(skills, ref) {
-    const want = new Map((ref?.skills || []).map((s) => [iconKey(s.icon), s.level]));
-    return skills.map((s) => ({ ...s, refLevel: want.get(iconKey(s.icon)) ?? null }));
+    const byId = new Map((ref?.skills || []).filter((s) => s.id).map((s) => [String(s.id), s]));
+    const byIcon = new Map((ref?.skills || []).filter((s) => s.icon).map((s) => [iconKey(s.icon), s]));
+    return skills.map((s) => {
+      const r = byId.get(String(s.id)) || (s.icon ? byIcon.get(iconKey(s.icon)) : null);
+      return { ...s, refLevel: r?.level ?? null, refSpec: r?.spec || null };
+    });
+  }
+
+  // ---- builds read from questlog.gg's page --------------------------------
+  // The Armory bookmark saves the character builder's state of a questlog.gg
+  // build page (its builds: gear with soul bindings, Arcana, the Daevanion
+  // build's nodes, the skill build's levels). Read here, nothing is fetched.
+  const QL_SLOT = { weapon: "MainHand", guarder: "SubHand", helmet: "Helmet", shoulder: "Shoulder", torso: "Torso", pants: "Pants",
+    gloves: "Gloves", boots: "Boots", cape: "Cape", belt: "Belt", necklace: "Necklace", leftEarring: "Earring1", rightEarring: "Earring2",
+    leftRing: "Ring1", rightRing: "Ring2", leftBracelet: "Bracelet1", rightBracelet: "Bracelet2", amulet: "Amulet", leftRune: "Rune1", rightRune: "Rune2" };
+  const QL_ARCANA = { grail: "Arcana1", parchment: "Arcana2", compass: "Arcana3", bell: "Arcana4", mirror: "Arcana5" };
+
+  /** A soul binding property of a build: a stat (questlog's stat id, the
+   *  value in hundredths where it is a percentage) or a skill effect. */
+  function questlogProperty(id, value) {
+    const st = D.soul?.statIds?.[id];
+    if (st) {
+      const v = Number(value);
+      return { kind: "stat", name: st[0], value: value == null ? null : st[1] ? `${Math.round(v) / 100}%` : String(v) };
+    }
+    const sk = D.soul?.skillIds?.[String(id)];
+    return sk ? { kind: "skill", name: sk, value: null } : null;
+  }
+
+  /** Every build of a saved questlog.gg page state:
+   *  [{ qid, name, author, classId, gear, soul, skills, daev, ... }]. */
+  function readQuestlogBuilds(doc) {
+    if (!doc || typeof doc !== "object") return [];
+    const cb = doc.pinia?.A2CharacterBuilder || doc.characterBuilder;
+    if (!cb) return [];
+    const dp = doc.pinia?.A2DaevanionPlanner || doc.daevanionPlanner || {};
+    const sb = doc.pinia?.A2SkillBuilder || doc.skillBuilder || {};
+    const list = (x) => [...(Array.isArray(x?.builds) ? x.builds : []), ...(Array.isArray(x?.externalBuilds) ? x.externalBuilds : [])];
+    const daev = new Map(list(dp).map((b) => [b.id, b]));
+    const skillBuilds = new Map(list(sb).map((b) => [b.id, b]));
+    const out = [];
+    const sets = [[cb.character, cb.builds], [cb.externalCharacter, cb.externalBuilds]];
+    for (const [char, builds] of sets) {
+      for (const b of Array.isArray(builds) ? builds : []) {
+        const gear = [], soul = {};
+        for (const [key, e] of Object.entries(b.equipment || {})) {
+          const slot = QL_SLOT[key];
+          const id = Number(e?.id);
+          if (!slot || !id) continue;
+          const row = itemRow(id);
+          const lv = splitLevel(id, Number(e.lvl) || 0);
+          // Manastones by what each gives (their grade), Theostones by id.
+          const stones = Object.values(e.magicstone?.substats || {}).filter((x) => x && x.statId)
+            .map((x) => ({ name: D.soul?.statIds?.[x.statId]?.[0] || x.statId, value: x.value, grade: D.soul?.manastones?.[`${x.statId}:${x.value}`] || null }));
+          const theostones = Object.values(e.godstone || {}).filter((x) => x && x.id)
+            .map((x) => ({ id: Number(x.id), grade: D.soul?.theostones?.[String(x.id)] || null }));
+          gear.push({ slot, id, name: row ? row[0] : "", grade: row ? row[1] : null, il: row ? row[3] : null, icon: row ? row[4] : null,
+            shown: Number(e.lvl) || 0, enchant: lv.enchant, amplify: lv.amplify, guessed: false, stones, theostones });
+          const props = Object.values(e.substats || {}).filter((x) => x && x.id).map((x) => questlogProperty(x.id, x.value)).filter(Boolean);
+          if (props.length) soul[slot] = props;
+        }
+        for (const [key, e] of Object.entries(b.arcana || {})) {
+          const slot = QL_ARCANA[key];
+          const id = Number(e?.id);
+          if (!slot || !id) continue;
+          const row = itemRow(id);
+          gear.push({ slot, id, name: row ? row[0] : "", grade: row ? row[1] : null, il: row ? row[3] : null, icon: row ? row[4] : null,
+            shown: Number(e.lvl) || 0, enchant: Number(e.lvl) || 0, amplify: 0, guessed: false });
+          const props = Object.values(e.subSkills || {}).filter((x) => x && x.id)
+            .map((x) => ({ kind: "skill", name: D.soul?.skillIds?.[String(x.id)] || String(x.id), value: x.lvl ? `+${x.lvl}` : null }));
+          if (props.length) soul[slot] = props;
+        }
+        const sk = skillBuilds.get(b.skillBuildId);
+        const skills = Object.values(sk?.skills || {}).map((x) => ({
+          id: Number(x.id), name: D.soul?.skillIds?.[String(x.id)] || "", level: Number(x.lvl) || 0,
+          // Specializations as the game numbers them: 14010030 is the third.
+          spec: (x.specializations || []).map((v) => Math.round((Number(v) % 100) / 10)).filter((v) => v > 0).sort((p, q) => p - q),
+        }));
+        const db = daev.get(b.daevanionBuildId);
+        const nodes = {};
+        for (const [board, ids] of Object.entries(db?.selectedNodes || {})) nodes[board] = (ids || []).map(Number).filter(Boolean);
+        out.push({ qid: b.id, name: b.name || "", author: char?.name || "", classId: char?.classId || "", url: doc.url || "",
+          gear, soul, skills, skillName: sk?.name || "", daev: nodes, daevName: db?.name || "" });
+      }
+    }
+    return out;
+  }
+
+  /** A build read from questlog.gg as a reference; its Daevanion points per
+   *  board counted on the character's boards (the nodes' grades). */
+  function questlogReference(build, snap) {
+    const ref = { name: build.name, source: "questlog.gg", author: build.author, qid: build.qid, gearScore: null,
+      gear: build.gear, skills: build.skills, stigmas: [], boards: [], deity: {}, soul: build.soul, daev: build.daev,
+      skillName: build.skillName, daevName: build.daevName };
+    ref.boards = referenceBoards(ref, snap);
+    ref.gearScore = referenceGearScore(ref) || null;
+    return ref;
+  }
+
+  /** The reference's Daevanion points per board, from its nodes (where it
+   *  names them) on the character's boards. */
+  function referenceBoards(ref, snap) {
+    if (!ref?.daev || !Object.keys(ref.daev).length || !snap?.boards?.length) return ref?.boards || [];
+    return snap.boards.filter((b) => b.nodes?.length).map((b) => {
+      const sel = new Set(ref.daev[b.id] || []);
+      const points = b.nodes.reduce((a, n) => a + (sel.has(n.id) ? nodePoints(n.grade) : 0), 0);
+      return { name: b.name, points, total: b.maxPoints || 0 };
+    });
   }
 
   // ---- history ----------------------------------------------------------
@@ -909,14 +1028,15 @@
    *  PvE- and boss-only ones, anything else keeps all.
    *  [{ name, pct, have, closed, nodes, points, cheapest, boards: { name:
    *  closed value } }], the most still closed first. */
-  function boardOffense(boards, side) {
+  function boardOffense(boards, side, refIds) {
     const by = new Map();
     for (const b of boards || []) {
       for (const n of boardWays(b)) {
         for (const e of nodeOffense(n, side)) {
           const k = e.name;
-          if (!by.has(k)) by.set(k, { name: k, pct: e.pct, side: statSide(k), have: 0, closed: 0, nodes: 0, points: 0, cheapest: null, boards: {} });
+          if (!by.has(k)) by.set(k, { name: k, pct: e.pct, side: statSide(k), have: 0, closed: 0, nodes: 0, points: 0, cheapest: null, boards: {}, ref: 0 });
           const x = by.get(k);
+          if (refIds?.has(n.id)) x.ref += e.value || 0;
           if (n.open) { x.have += e.value || 0; continue; }
           x.closed += e.value || 0;
           x.nodes++;
@@ -927,7 +1047,7 @@
       }
     }
     const round = (v) => Math.round(v * 100) / 100;
-    return [...by.values()].map((x) => ({ ...x, have: round(x.have), closed: round(x.closed) }))
+    return [...by.values()].map((x) => ({ ...x, have: round(x.have), closed: round(x.closed), ref: round(x.ref) }))
       .sort((a, b) => (b.nodes > 0) - (a.nodes > 0) || b.points - a.points || a.name.localeCompare(b.name));
   }
 
@@ -951,6 +1071,7 @@
     skillSources, slotsFor, splitLevel, pickByIcon, tokens, readQuestlogPage, mergeReference, referenceGearScore,
     compareGear, compareSkills, historyEntry, addHistory, historyChanges, fmt, short,
     STAT_GROUPS, statName, explainStat, characterStats,
+    readQuestlogBuilds, questlogReference, referenceBoards, questlogProperty,
     soulPool, soulOf, rollQuality, soulCompare, soulChance, topOf, topSlot, topPicks, SLOT_GROUP,
     TARGET_LEVELS, asTarget, topSkillLevels, skillWay, effectParts, isOffensive, statSide, boardWays, nodeOffense, boardOffense,
   });

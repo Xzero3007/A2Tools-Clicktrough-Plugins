@@ -342,3 +342,60 @@ test("the strongest players: counted without names", () => {
   assert.equal(picks.length, 3);
   assert.ok(picks.includes("Combat Speed"));
 });
+
+test("questlog.gg builds: what the Armory bookmark saves, read as references", () => {
+  const bow = idOf("Enraged Kromede Longbow", 86);
+  const doc = { armory: "questlog", url: "https://questlog.gg/aion-2/en/character-builder/x",
+    characterBuilder: {
+      character: { name: "Tester", classId: "ranger", url: "x" },
+      builds: [{ id: 7, name: "Made-up build", daevanionBuildId: 70, skillBuildId: 71,
+        equipment: {
+          weapon: { id: String(bow), lvl: 17, substats: { 0: { id: "combatspeed", value: 1229 }, 1: { id: "str", value: 31 }, 2: { id: null, value: null } },
+            magicstone: { id: "1", substats: { 0: { statId: "weaponfixingdamage", value: 10 }, 1: { statId: "weaponfixingdamage", value: 3 } } },
+            godstone: { 0: { id: "513850011" } } },
+          leftRing: { id: "", lvl: 0, substats: {} },
+        },
+        arcana: { grail: { id: "810130001", lvl: 5, subSkills: { 0: { id: "14010000", lvl: 3 }, 1: { id: null, lvl: 4 } } }, libra: { id: "", lvl: 0 } } }],
+      externalBuilds: [] },
+    daevanionPlanner: { builds: [{ id: 70, name: "Boards", selectedNodes: { 31: ["310037", "310038"] } }], externalBuilds: [] },
+    skillBuilder: { builds: [{ id: 71, name: "Skills", skills: { 14010000: { id: "14010000", lvl: 20, specializations: [14010050, 14010020, 14010030] } } }], externalBuilds: [] },
+  };
+  const [b] = C.readQuestlogBuilds(doc);
+  assert.equal(b.name, "Made-up build");
+  assert.equal(b.author, "Tester");
+  const weapon = b.gear.find((g) => g.slot === "MainHand");
+  assert.deepEqual([weapon.id, weapon.enchant, weapon.amplify], [bow, 15, 2]);
+  assert.deepEqual(b.soul.MainHand, [{ kind: "stat", name: "Combat Speed", value: "12.29%" }, { kind: "stat", name: "Might", value: "31" }]);
+  assert.deepEqual(weapon.stones.map((s) => s.grade), ["Unique", "Rare"]);
+  assert.equal(weapon.theostones[0].grade, "Rare");
+  const arc = b.gear.find((g) => g.slot === "Arcana1");
+  assert.equal(arc.name, "Chalice of Vigor");
+  assert.deepEqual(b.soul.Arcana1, [{ kind: "skill", name: "Deadshot", value: "+3" }]);
+  assert.deepEqual(b.skills, [{ id: 14010000, name: "Deadshot", level: 20, spec: [2, 3, 5] }]);
+  assert.deepEqual(b.daev, { 31: [310037, 310038] });
+  // Its Daevanion points counted on the character's board; the gear score
+  // from the items, levels, stones and those points.
+  const snap = { boards: [{ id: 31, name: "Nezekan", maxPoints: 134, nodes: [
+    { id: 310037, grade: "Rare", type: "SkillLevel" }, { id: 310038, grade: "Common", type: "Stat" }, { id: 310039, grade: "Legend", type: "Stat" }] }] };
+  const ref = C.questlogReference(b, snap);
+  assert.deepEqual(ref.boards, [{ name: "Nezekan", points: 3, total: 134 }]);
+  const il = D.items[String(bow)][3];
+  assert.equal(ref.gearScore, il + 15 + 2 * 5 + 4 + 2 + 3 + (80 + 5) + 3);
+  // Skills against it by id, with its specializations.
+  const [s] = C.compareSkills([{ id: 14010000, name: "Deadshot", level: 18 }], ref);
+  assert.deepEqual([s.refLevel, s.refSpec], [20, [2, 3, 5]]);
+  // The probe's file (the page state under "pinia") reads the same.
+  const probe = { pinia: { A2CharacterBuilder: doc.characterBuilder, A2DaevanionPlanner: doc.daevanionPlanner, A2SkillBuilder: doc.skillBuilder } };
+  assert.equal(C.readQuestlogBuilds(probe).length, 1);
+  assert.deepEqual(C.readQuestlogBuilds({ something: 1 }), []);
+});
+
+test("Daevanion: what the reference takes, summed by stat", () => {
+  const board = { name: "B", nodes: [
+    { id: 1, row: 8, col: 8, grade: "None", open: true, effects: [], type: "Start" },
+    { id: 2, row: 8, col: 9, grade: "Common", open: true, effects: ["Critical Hit +5"], type: "Stat" },
+    { id: 3, row: 8, col: 10, grade: "Common", open: false, effects: ["Critical Hit +5"], type: "Stat" },
+  ] };
+  const [r] = C.boardOffense([board], "pve", new Set([3]));
+  assert.deepEqual([r.name, r.have, r.ref, r.closed], ["Critical Hit", 5, 5, 5]);
+});

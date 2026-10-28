@@ -198,6 +198,7 @@ tr.group th { text-align: left; font-size: 12px; text-transform: uppercase; lett
 /* ---- skill targets ---- */
 .skbar .tgt { width: 3px; margin-left: -1px; top: -2px; bottom: -2px; background: var(--gold); border-radius: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
 .tsel { padding: 1px 2px; width: 52px; }
+td .wrapsub { white-space: normal; }
 table.skills td { vertical-align: top; }
 table.skills td.l .skbar { margin-top: 4px; }
 tr.reached .txt { color: var(--good); }
@@ -288,6 +289,21 @@ table.dsum tr.done td:first-child { color: var(--muted); }
 .dpick { margin-bottom: 8px; font-size: 12px; }
 .dpick .short { margin-top: 4px; }
 .dside button.more { margin-top: 4px; font-size: 12px; }
+.dmap .rdot { fill: #fff; stroke: rgba(0,0,0,.6); stroke-width: .8; pointer-events: none; }
+.lg.rdot { width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+details.refdaev { margin-top: 8px; }
+details.refdaev > summary { cursor: pointer; font-size: 12px; color: rgba(255,255,255,.8); padding: 2px 0; }
+details.refdaev > summary:hover { color: #fff; }
+.refsoul { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 5px; border-top: 1px solid var(--line); padding-top: 4px; }
+.refsoul button { font-size: 11px; padding: 0 7px; flex: none; }
+.opt .rf { color: var(--gold); font-size: 11px; }
+.soulref { color: rgba(242,196,107,.8); white-space: normal; }
+.chooser { margin-bottom: 12px; }
+.chooser .brow { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 5px 0; border-top: 1px solid var(--line); }
+.chooser .bt { min-width: 0; }
+details.bookmark > summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+details.bookmark > summary:hover { color: #fff; }
+.bmcode { width: 100%; font: 11px ui-monospace, monospace; }
 
 @media (max-width: 620px) {
   .top { grid-template-columns: 48px 1fr; }

@@ -82,7 +82,13 @@ def soul_from_questlog(path):
     { stats: [name, ...], pools: [[[stat index, min, max, weight], ...]],
       pct: [stat index, ...] (values in hundredths of a percent),
       items: { id: [pool index or -1, properties, skill group] },
-      skills: { group: { class: [[skill name, weight, top level], ...] } } }"""
+      skills: { group: { class: [[skill name, weight, top level], ...] } },
+      statIds: { questlog's stat id: [name, 1 when in hundredths of a percent] },
+      skillIds: { skill id: name } (the ids read a questlog.gg build),
+      arcana: { id: [name, grade, item level, icon] } (Aion2Data's list has
+      no Arcana),
+      manastones: { "<stat id>:<value>": grade } (a Manastone's grade by what
+      it gives), theostones: { id: grade } }"""
     d = json.load(open(path, encoding="utf-8"))
     p = d.get("payload") or {}
     pick = lambda prefix: next((v for k, v in p.items() if k.startswith(prefix)), None)
@@ -123,8 +129,25 @@ def soul_from_questlog(path):
         if name:
             groups.setdefault(x["group"], {}).setdefault(x["class"], []).append([name, x["randomProb"], x.get("levelMaxValue") or 1])
     used = {v[2] for v in out_items.values()}
+    grades = {11: "Common", 21: "Rare", 31: "Legend", 41: "Unique", 51: "Epic", 71: "Special"}
+    arcana = {str(it["id"]): [it.get("name") or "", grades.get(it.get("grade"), ""), (it.get("equipmentInfo") or {}).get("itemLevel") or 0,
+                              (it.get("icon") or "").rsplit(".", 1)[-1]]
+              for it in items if it.get("mainCategory") == "arcana"}
+    manastones = {}
+    for it in items:
+        if it.get("subCategory") != "magicstone":
+            continue
+        for st in (it.get("usableInfo") or {}).get("magicStoneStats") or []:
+            for g in st.get("stats") or []:
+                key = f'{st["statId"]}:{g["value"]}'
+                manastones[key] = max(manastones.get(key, ""), grades.get(g["grade"], ""), key=lambda x: list(grades.values()).index(x) if x in grades.values() else -1)
+    theostones = {str(it["id"]): grades.get(it.get("grade"), "") for it in items if it.get("subCategory") == "getgodstone"}
+    stat_ids = {sid: [f.get("name") or sid, 1 if "percent" in (f.get("indicator") or "") else 0]
+                for sid, f in fmt.items() if isinstance(f, dict) and not f.get("isDisabled")}
     return {"stats": stat_names, "pct": sorted(pct), "pools": pools, "items": out_items,
-            "skills": {g: v for g, v in groups.items() if g in used}}
+            "skills": {g: v for g, v in groups.items() if g in used},
+            "statIds": stat_ids, "skillIds": {str(k): v for k, v in names.items()}, "arcana": arcana,
+            "manastones": manastones, "theostones": theostones}
 
 
 def steps(rows, with_stats=False):
