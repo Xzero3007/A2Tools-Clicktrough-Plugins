@@ -14,4 +14,4 @@ trap 'rm -rf "$work"' EXIT
 mkdir "$work/plugin"
 cp "$plugin"/*.js "$work/plugin/"
 cp -r "$here/tests" "$work/tests"
-PLUGIN_DIR="$work/plugin" node --test "$work"/tests/*.test.cjs
+PLUGIN_DIR="$work/plugin" SOURCES_JS="$plugin/../pet-finder/sources.js" node --test "$work"/tests/*.test.cjs

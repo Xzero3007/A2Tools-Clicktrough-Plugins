@@ -48,8 +48,11 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   `A2Tools-patch <patch@localhost>`, committer Claude (`dev/setup.sh` sets
   the committer).
 - Take data only where its licence allows it, and credit it (NOTICE files,
-  READMEs). Not allowed so far: Aion 2 Timers' spawn data and map pictures
-  (their permission is A2 Tools'), The Hidden Gaming Lair, allthings.how.
+  READMEs, as text). Game data taken from the client (spawn points, the
+  game's map pictures) is the game's, whoever extracted it: Aion 2 Timers'
+  spawn points and map pictures are used, as A2 Tools' Pet Soul Tracker has
+  them, credited (the person's decision, 2026-10-28). Not allowed so far:
+  The Hidden Gaming Lair, allthings.how (gathering spots players collected).
 - Plugin storage keys must match `[A-Za-z0-9_-]{1,64}`.
 - One project per repo: other projects of the person have their own repos and
   sessions.
@@ -115,6 +118,19 @@ reads, whether it sends anything, links out, asks to sign in; tell the person
 and wait. Taken: a line `<id> <commit>` in `original/pins.txt` (or PIN moved,
 which takes every plugin's newest), its links and anything sending removed by
 a patch, `bash build/assemble.sh ../ct-plugins /tmp/x` to see it apply.
+
+**The Map's data.** `plugins/map/dev/make_data.py` builds `data.js` and
+the tiles from SkeeveAN's Aion-DPS-Meter, the AION2 Interactive Map and A2
+Tools' Pet Soul Tracker map data (`--pet-maps`, a checkout of
+taengu/A2Tools-Plugins at `original/PIN`): the command is in the Map's
+README. Its `dev/tests/coverage.test.cjs` checks every pet monster of the
+game's tables (Pet Finder's `sources.js`) against the map: it fails when one
+has no spawn point on a map the plugin has, or lies on an open-world map
+without a picture, and lists what differs. A new area or new pets: take the
+original's newer data (PIN or pins.txt), rebuild with `--tiles <new map>`,
+and let the test say what is missing. Pet Finder's `sources.js` comes with
+the Pet Soul Tracker's list; `plugins/map/dev/make_areas.py` builds
+`areas.js` from it (the fallback for monsters the data lacks).
 
 **Looking at a page.** Without the meter:
 `node dev/harness/shot.mjs plugins/<id> out.png [events.json] [WxH]`. The

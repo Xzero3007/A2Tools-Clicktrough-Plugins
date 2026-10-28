@@ -6,7 +6,8 @@ game's own map pictures as that map publishes them (its gh-pages branch).
 
     python3 -I dev/make_data.py <Aion-DPS-Meter checkout> <plugin folder> \
         [--aim <aion2-interactive-map checkout>] \
-        [--game-maps <aion2-interactive-map gh-pages checkout>] [--no-tiles]
+        [--game-maps <aion2-interactive-map gh-pages checkout>] \
+        [--pet-maps <A2Tools-Plugins checkout>] [--no-tiles] [--tiles <map,map>]
 
 What it takes (Client/assets/aion2/ of SkeeveAN's repo), English names only:
   maps/maps.json, maps/instances.json  the maps: tiles, grid, world -> pixel
@@ -45,7 +46,18 @@ the sealed dungeons, battlefields, outposts and villages, and the regions
 pictures; turned into game coordinates with the calibration above (without
 --game-maps, one fitted to its Kibelisks and SkeeveAN's, see calibrate()).
 
---no-tiles leaves tiles/ as it is (data.js only).
+With --pet-maps, a checkout of A2 Tools' plugins (taengu/A2Tools-Plugins,
+at the commit original/PIN names): the Pet Soul Tracker's maps.js, which
+holds the spawn points of every monster that drops pet souls and the maps it
+draws on, both from Aion 2 Timers' interactive map (the game's own spawn
+data, as the client has it). Its spawn points take the place of SkeeveAN's
+for those monsters (SkeeveAN's reader of the client's map files misses whole
+spawn groups: Harsh Pino Worker none of 22, Hill Coradon 9 of 91), and its
+pictures (maps/<id>.webp, the game's world maps) give the maps no other
+source has: Eltnen, Morheim, and the Abyss's middle and upper layers.
+
+--no-tiles leaves tiles/ as it is (data.js only); --tiles <map,map> writes
+the tiles of those maps only.
 
 It writes dev/provenance.json with the revisions and a SHA-256 of every file
 it read, so a rebuild can be checked against the same sources.
@@ -61,10 +73,13 @@ import sys
 from PIL import Image
 
 args = sys.argv[1:]
-NO_TILES = "--no-tiles" in args
+NO_TILES = "--no-tiles" in args or "--tiles" in args
+TILES_FOR = set(args[args.index("--tiles") + 1].split(",")) if "--tiles" in args else set()
 AIM = args[args.index("--aim") + 1] if "--aim" in args else None
 GAME = args[args.index("--game-maps") + 1] if "--game-maps" in args else None
-SRC, OUT = [a for i, a in enumerate(args) if not a.startswith("--") and (i == 0 or args[i - 1] not in ("--aim", "--game-maps"))][:2]
+PET = args[args.index("--pet-maps") + 1] if "--pet-maps" in args else None
+SRC, OUT = [a for i, a in enumerate(args) if not a.startswith("--")
+            and (i == 0 or args[i - 1] not in ("--aim", "--game-maps", "--pet-maps", "--tiles"))][:2]
 ASSETS = os.path.join(SRC, "Client", "assets", "aion2")
 LO = 512  # px per tile of the zoomed-out copies
 QUALITY = 72  # WebP
@@ -92,6 +107,24 @@ CUBES = [*range(1200036, 1200042), 1200667, 1200707, *range(1201502, 1201506), *
 # layers, Poeta and Ishalgen from zones.json); instances bring their own.
 WORLD_ZONES = {1010: "verteron", 902: "verteron", 1110: "altgard", 901: "altgard", 20: "abyss", 22: "abyss", 23: "abyss",
                100001: "poeta", 100002: "poeta", 1100: "ishalgen", 110001: "ishalgen"}
+# With --pet-maps the Abyss's middle and upper layers have maps of their own,
+# and so have Eltnen and Morheim.
+if PET:
+    WORLD_ZONES.update({22: "abyss_middle", 23: "abyss_upper", 1011: "eltnen", 1111: "morheim"})
+
+# The maps only A2 Tools' Pet Soul Tracker pictures (--pet-maps): map -> (its
+# map id, title, the client's spawn table, the AION2 Interactive Map's map
+# whose places to take, or None). Each picture covers the world rectangle
+# PET_MAPS gives. Checked: SkeeveAN's spawn points of each table all lie on
+# land in its picture; the AION2 Interactive Map's picture of the Abyss's
+# middle layer (Abyss_Reshanta_C) is the same picture, to the pixel, so its
+# places fit; it has no picture of Eltnen or Morheim, so theirs aren't taken.
+PET_ONLY_MAPS = {
+    "eltnen": ("1011", "Eltnen", "World/World_L/World_L_B", None),
+    "morheim": ("1111", "Morheim", "World/World_D/World_D_B", None),
+    "abyss_middle": ("22", "Abyss (middle)", "Intersever/Abyss/Abyss_Reshanta_C", "Abyss_Reshanta_C"),
+    "abyss_upper": ("23", "Abyss (upper)", "Intersever/Abyss/Abyss_Reshanta_D", None),
+}
 
 # The game's own map pictures (--game-maps): map -> (picture, title, the
 # client's spawn table, the world rectangle it covers: x0, y0, x1, y1 in cm,
@@ -105,6 +138,9 @@ GAME_MAPS = {
 }
 
 GAME_KEY = {v[0]: k for k, v in GAME_MAPS.items()}  # "World_D_A" -> "altgard"
+if PET:
+    # The field bosses of Eltnen, Morheim and the Abyss's middle layer.
+    GAME_KEY.update({"World_L_B": "eltnen", "World_D_B": "morheim", "Abyss_Reshanta_C": "abyss_middle"})
 
 maps_src = {**{k: {**v, "instance": False} for k, v in load("maps/maps.json")["maps"].items()},
             **{k: {**v, "instance": True} for k, v in load("maps/instances.json")["maps"].items()}}
@@ -261,6 +297,61 @@ if GAME:
         if key not in maps:
             maps[key] = game_map(key)
             collect(key, [table, *[t for t in spawns_src if t.startswith(table + "/")]])
+
+# ---------- A2 Tools' Pet Soul Tracker map data (--pet-maps) ----------
+pet_commit = None
+pet_spawns = {}
+if PET:
+    pet_js_path = os.path.join(PET, "plugins", "pet-souls", "maps.js")
+    pet_js = open(pet_js_path, encoding="utf8").read()
+    note(pet_js_path, "A2Tools-Plugins:plugins/pet-souls/maps.js")
+
+    def pet_const(name):
+        start = pet_js.index(f"const {name} = ") + len(f"const {name} = ")
+        return json.JSONDecoder().raw_decode(pet_js[start:])[0]
+
+    PET_MAPS = pet_const("PET_MAPS")
+    pet_spawns = pet_const("PET_SPAWNS")
+    try:
+        pet_commit = subprocess.run(["git", "-C", PET, "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        pass
+
+    def pet_map(key):
+        """A map from the Pet Soul Tracker's picture (one square picture of
+        the world rectangle its bounds give), in 2 x 2 tiles."""
+        mid, title, _, _ = PET_ONLY_MAPS[key]
+        pm = PET_MAPS[mid]
+        x0, y0, x1, y1 = pm["bounds"]
+        path = os.path.join(PET, "plugins", "pet-souls", "maps", f"{mid}.webp")
+        note(path, f"A2Tools-Plugins:plugins/pet-souls/maps/{mid}.webp")
+        im = Image.open(path).convert("RGB")
+        if im.size != (pm["w"], pm["h"]) or pm["w"] != pm["h"] or abs((x1 - x0) - (y1 - y0)) > 1:
+            raise SystemExit(f"{key}: picture {im.size} or bounds {pm['bounds']} not square as expected")
+        grid = 2
+        size = pm["w"] // grid
+        names = [f"{c}_{r}" for c in range(grid) for r in range(grid)]
+        if not NO_TILES or key in TILES_FOR:
+            os.makedirs(os.path.join(tiles_out, key, "lo"), exist_ok=True)
+            # The small copies from the whole picture made small, then cut:
+            # each tile made small on its own shows its edges as lines.
+            small = im.resize((grid * LO, grid * LO), Image.LANCZOS)
+            for c in range(grid):
+                for r in range(grid):
+                    im.crop((c * size, r * size, (c + 1) * size, (r + 1) * size)).save(
+                        os.path.join(tiles_out, key, f"{c}_{r}.webp"), "WEBP", quality=QUALITY, method=6)
+                    small.crop((c * LO, r * LO, (c + 1) * LO, (r + 1) * LO)).save(
+                        os.path.join(tiles_out, key, "lo", f"{c}_{r}.webp"), "WEBP", quality=QUALITY, method=6)
+        scale = grid * size / (x1 - x0)
+        calibration[key] = {"bounds": [x0, y0, x1, y1], "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"}
+        return {"title": title, "tile": size, "grid": grid, "scale": scale, "ox": -x0 * scale, "oy": -y0 * scale,
+                "tiles": names, "lo": LO, "instance": False, "picture": "game"}
+
+    for key, (mid, _, table, _) in PET_ONLY_MAPS.items():
+        if key in maps or mid not in PET_MAPS:
+            continue
+        maps[key] = pet_map(key)
+        collect(key, [table, *[t for t in spawns_src if t.startswith(table + "/")]])
 game_commit = None
 if GAME:
     try:
@@ -271,6 +362,7 @@ if GAME:
 # ---------- the AION2 Interactive Map (--aim) ----------
 # Its map -> ours (its pictures are the game's: GAME_MAPS).
 AIM_MAPS = {key: g[0] for key, g in GAME_MAPS.items()}
+AIM_MAPS.update({key: g[3] for key, g in PET_ONLY_MAPS.items() if PET and g[3]})
 AIM_PLACES = {"seal": "Sealed dungeon", "battlefield": "Battlefield", "occupation": "Outpost", "village": "Village"}
 aim_commit = None
 cube_spots, monoliths, places, regions = {}, {}, {}, {}
@@ -363,6 +455,12 @@ if AIM:
             n = (w.get("name") if isinstance(w, dict) else None) or ""
             return n if n.isascii() else ""
 
+        # The Kibelisks of a map SkeeveAN has none for (Poeta, Ishalgen, the
+        # Abyss's middle layer): the AION2 Interactive Map's teleports.
+        if key not in kibelisks:
+            camps = [[english(mk) or "Kibelisk", *world(mk["x"], mk["y"])] for mk in markers if mk.get("subtype") == "teleport"]
+            if camps:
+                kibelisks[key] = camps
         for mk in markers:
             kind = mk.get("subtype")
             if kind == "hiddenCube":
@@ -392,6 +490,21 @@ if AIM:
 for z, key in WORLD_ZONES.items():
     if key in maps:
         zones[str(z)] = key
+
+# The Pet Soul Tracker's spawn points (Aion 2 Timers', in metres) in place of
+# SkeeveAN's for every monster it has; SkeeveAN's stay for the others.
+pet_replaced = pet_added = 0
+for mid, per in pet_spawns.items():
+    key = WORLD_ZONES.get(int(mid))
+    if key not in maps:
+        continue
+    have = spawns.setdefault(key, {})
+    for npc, pts in per.items():
+        if npc in have:
+            pet_replaced += 1
+        else:
+            pet_added += 1
+        have[npc] = [round(v * 100) for v in pts]
 
 npc_pets = {npc: pet for npc, pet in pets_src["monsters"].items()}
 spawned = {npc for per in spawns.values() for npc in per}
@@ -456,6 +569,10 @@ if GAME_SOURCES:
 if GAME:
     data["pictures"] = {"repo": "https://github.com/aion2-interactive-map/aion2-interactive-map", "branch": "gh-pages",
                         "commit": game_commit, "path": "UI/Map/WorldMap", "owner": "NCSOFT (the game's own map pictures)"}
+if PET:
+    data["petMaps"] = {"repo": "https://github.com/taengu/A2Tools-Plugins", "commit": pet_commit,
+                       "path": "plugins/pet-souls/maps.js, maps/", "from": "Aion 2 Timers' interactive map",
+                       "license": "GPL-3.0 (A2 Tools' plugins); the spawn points and maps are the game's"}
 if AIM:
     data["aim"] = {"repo": "https://github.com/aion2-interactive-map/aion2-interactive-map", "commit": aim_commit,
                    "license": "CC BY-NC 4.0", "author": "Yihao Liu (tc-imba)"}
@@ -471,6 +588,10 @@ with open(os.path.join(OUT, "data.js"), "w", encoding="utf8") as f:
     f.write("// The world map pictures (tiles/) of Verteron, Altgard, the Abyss, Poeta and Ishalgen are the\n")
     f.write("// game's own, as the AION2 Interactive Map publishes them (its gh-pages branch).\n")
     f.write("// npcLevels, npcPets: from Pet Finder's sources.js (A2 Tools' Pet Soul Tracker, GPL-3.0).\n")
+    if PET:
+        f.write("// The pet monsters' spawn points, and the maps of Eltnen, Morheim and the Abyss's middle and\n")
+        f.write("// upper layers: from A2 Tools' Pet Soul Tracker (maps.js, maps/), which has them from\n")
+        f.write("// Aion 2 Timers' interactive map (see NOTICE-Aion2Timers.txt).\n")
     f.write("// AION 2 names, maps and game data belong to their respective owners.\n")
     f.write("globalThis.MAP_DATA = ")
     json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
@@ -480,6 +601,7 @@ with open(os.path.join(OUT, "dev", "provenance.json"), "w", encoding="utf8") as 
     json.dump({"repo": data["source"]["repo"], "commit": data["source"]["commit"],
                **({"aim": {"repo": data["aim"]["repo"], "commit": aim_commit}} if AIM else {}),
                **({"pictures": data["pictures"]} if GAME else {}),
+               **({"petMaps": {"repo": data["petMaps"]["repo"], "commit": pet_commit}} if PET else {}),
                "calibration": calibration, "sha256": dict(sorted(read.items()))}, f, indent=1)
     f.write("\n")
 
@@ -490,3 +612,25 @@ if AIM:
     print(f"calibration: {calibration}")
     print(f"cube spots {sum(len(v) // 2 for v in cube_spots.values())}, monoliths {sum(len(v) // 2 for v in monoliths.values())}, "
           f"places {sum(len(v) for v in places.values())}, regions {sum(len(v) for v in regions.values())}")
+if PET:
+    print(f"Pet Soul Tracker spawn points: {pet_replaced} monsters replaced, {pet_added} added")
+if GAME_SOURCES:
+    # Every monster that drops pet souls, against the game's own count of its
+    # spawn points (sources.js): what the map has of it.
+    same, fewer, more, no_map = [], [], [], []
+    for pet, src in GAME_SOURCES.items():
+        for d in src.get("drops", []):
+            npc, game = str(d.get("npcId")), d.get("spawns") or 0
+            key = zones.get(str(d.get("mapId")))
+            if not game:
+                continue
+            if key not in maps:
+                no_map.append(f"{npc} (map {d.get('mapId')})")
+                continue
+            n = len(spawns.get(key, {}).get(npc, [])) // 2
+            (same if n == game else fewer if n < game else more).append(f"{npc} {key} {n}/{game}")
+    print(f"pet monsters: {len(same)} with all the game's spawn points, {len(fewer)} with fewer, {len(more)} with more, "
+          f"{len(no_map)} on a map the plugin has no picture of")
+    for label, rows in (("fewer", fewer), ("more", more), ("no map", no_map)):
+        if rows:
+            print(f"  {label}: {', '.join(rows)}")

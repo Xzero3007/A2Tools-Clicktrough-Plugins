@@ -1,0 +1,12 @@
+The spawn points of the pet monsters in data.js (those of Verteron, Altgard and
+the Abyss's lower layer) and the map pictures of Eltnen, Morheim and the
+Abyss's middle and upper layers (tiles/eltnen, tiles/morheim,
+tiles/abyss_middle, tiles/abyss_upper) come from Aion 2 Timers' interactive
+map (aion2timers.com), as A2 Tools' Pet Soul Tracker has them
+(plugins/pet-souls/maps.js and maps/ in https://github.com/taengu/A2Tools-Plugins,
+revision in dev/provenance.json; built there by tools/pet-maps/build.py).
+
+The spawn points are the game's own data, as the client has it; the pictures
+are the game's world maps. AION 2 names, maps and game material belong to their
+respective owners (NCSOFT / NC Corporation). Attribution is not a licence to
+that material.

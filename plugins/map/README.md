@@ -71,25 +71,30 @@ follows you over the game.
   bosses** (an orange crown).
 - **Marks 100% to 175%**: how large the marks are, on the map and the
   overlay (125% to begin with).
+- **Every pet monster's spawn points** (0.10.0): all of them, as the game
+  has them (A2 Tools' Pet Soul Tracker's map data, from Aion 2 Timers'
+  interactive map): 458 of the 465 pet monsters with exactly the number of
+  spawn points the game's own tables give (Harsh Pino Worker 22, Hill
+  Coradon 91; SkeeveAN's data, used before, had none and 9). Every build
+  checks each pet monster against the game's count and lists what differs.
 - **What your meter sees is learnt**: the data knows only the gathering
-  spots and pet spawns players' meters happened to report (Asvata: 3 in
-  Altgard). Each gathering spot, Hidden Cube and pet monster your meter sees
+  spots players' meters happened to report (Asvata: 3 in Altgard). Each
+  gathering spot, Hidden Cube and pet monster your meter sees
   where the map has none of its kind yet (8 m for a spot, 20 m for a
   monster), on the map the zone or what is around names, is added, kept
   (0.5.0 kept nothing past a restart) and shown like the others ("12 spots your meter
   saw" at the bottom); the more you play, the fuller the map.
-- **Where the game puts a monster the data lacks** (0.9.0): the game's own
-  tables (Pet Finder's copy of the Pet Soul Tracker's data) know how many
-  spawn points each pet monster has on a map, the middle one of them and the
-  subzones they lie in, but not every place. A monster the data lacks
-  (Harsh Pino Worker, Hill Ursus, Ellun River Kailin: 39 of 465) now has
-  that middle spawn point, so it shows, can be searched for and has the way
-  there. Shown from a search or a map link while the map knows fewer of its
-  spawn points than the game has (26 more, such as Hill Coradon: 9 of 91),
-  the subzones they lie in are outlined in gold where the map knows them,
-  and the bar says how many it knows: "The game has 22 spawn points here in
-  Aullaeu Village; the map knows 1 (the middle one). It adds each one your
-  meter sees."
+- **Where the game puts a monster the data lacks** (0.9.0, now a fallback
+  for monsters the data doesn't have yet, such as a new area's): the game's
+  own tables (Pet Finder's copy of the Pet Soul Tracker's data) know how
+  many spawn points each pet monster has on a map, the middle one of them
+  and the subzones they lie in. A monster the data lacks has that middle
+  spawn point, so it shows, can be searched for and has the way there.
+  Shown from a search or a map link while the map knows fewer of its spawn
+  points than the game has, the subzones they lie in are outlined in gold
+  where the map knows them, and the bar says how many it knows: "The game
+  has 22 spawn points here in Aullaeu Village; the map knows 1 (the middle
+  one). It adds each one your meter sees."
 
 **Search** (two letters or more): gathering spots by name (Orichalcum, Aria
 ...), pets, the monsters that drop them, Kibelisk camps, **Hidden Cube**
@@ -118,9 +123,12 @@ zooms it; the slider in its title (or **Opacity** here) sets how much of the
 game shows through (the marks stay solid); **Lock it** lets clicks through to
 the game.
 
-Maps: Verteron, Altgard, the Abyss, Poeta and Ishalgen, whole, as the game
-draws its world map (on its parchment, the sea painted), and 25 instances.
-Eltnen, Morheim and the Abyss's other layers have no map here yet.
+Maps: Verteron, Altgard, the Abyss (its lower, middle and upper layers),
+Eltnen, Morheim, Poeta and Ishalgen, whole, as the game draws its world map
+(on its parchment, the sea painted), and 25 instances. Eltnen, Morheim and
+the Abyss's middle and upper layers (0.10.0) have their field bosses but no
+Kibelisks, Hidden Cubes or places yet (no source has them), so the way there
+is on foot.
 
 ## How it knows
 
@@ -137,25 +145,36 @@ lets a plugin load no file of its own once its page has started. No network.
 
 `data.js` and `tiles/` are generated from SkeeveAN's
 [Aion-DPS-Meter](https://github.com/SkeeveAN/Aion-DPS-Meter) (MIT, see
-`NOTICE-SkeeveAN.txt`) and the data of the
+`NOTICE-SkeeveAN.txt`), the data of the
 [AION2 Interactive Map](https://github.com/aion2-interactive-map/aion2-interactive-map)
 by Yihao Liu (tc-imba) (CC BY-NC 4.0: non-commercial use only, see
-`NOTICE-AION2-Interactive-Map.txt`) with
-`python3 -I dev/make_data.py <Aion-DPS-Meter checkout> . --aim <aion2-interactive-map checkout> --game-maps <its gh-pages checkout>`
-(`--no-tiles` keeps `tiles/`); `dev/provenance.json` names the revisions,
-the calibration and every file read. The field bosses' places are SkeeveAN's
+`NOTICE-AION2-Interactive-Map.txt`), and A2 Tools' Pet Soul Tracker's map
+data (`plugins/pet-souls/maps.js` and `maps/` in taengu/A2Tools-Plugins, at
+the commit `original/PIN` names), which has the pet monsters' spawn points
+and the maps it draws on from Aion 2 Timers' interactive map (see
+`NOTICE-Aion2Timers.txt`), with
+`python3 -I dev/make_data.py <Aion-DPS-Meter checkout> . --aim <aion2-interactive-map checkout> --game-maps <its gh-pages checkout> --pet-maps <A2Tools-Plugins checkout>`
+(`--no-tiles` keeps `tiles/`, `--tiles <map,map>` writes only those maps'
+tiles); `dev/provenance.json` names the revisions, the calibration and
+every file read. Its spawn points take the place of SkeeveAN's for every
+monster it has: SkeeveAN's reader of the client's map files misses whole
+spawn groups. Its pictures give Eltnen, Morheim and the Abyss's middle and
+upper layers, checked against SkeeveAN's spawn points and field bosses
+(all on land) and, for the middle layer, the AION2 Interactive Map's picture
+of it (the same to the pixel). When a new area comes: take the original's
+newer map data (`original/PIN`), run the command again with `--tiles` for
+the new map, and `dev/tests/coverage.test.cjs` says which pet monsters still
+lack spawn points or a map. The field bosses' places are SkeeveAN's
 (`bosses/field_bosses.json`), their world-map ids the meter's
 (`capture/field_bosses.rs`).
 
 Fuller gathering maps exist (allthings.how and The Hidden Gaming Lair show
 158 Asvata spots in Altgard), but their data is theirs, with no licence to
-reuse it here; so the plugin learns what your own meter sees instead. So
-are complete spawn maps (Aion 2 Timers' interactive map, whose spawn points
-the original Pet Soul Tracker shows with their permission, which is A2
-Tools'): `areas.js` takes from the game's tables only what A2 Tools
-publishes under the GPL (the count, the middle spawn point and the subzones),
-generated with `python3 -I dev/make_areas.py` from Pet Finder's
-`sources.js` (the Pet Soul Tracker's, A2 Tools, GPL-3.0).
+reuse it here; so the plugin learns what your own meter sees instead.
+`areas.js` (the fallback above: the count, the middle spawn point and the
+subzones from the game's tables) is generated with
+`python3 -I dev/make_areas.py` from Pet Finder's `sources.js` (the Pet Soul
+Tracker's, A2 Tools, GPL-3.0).
 
 The world maps are the game's own map pictures as the AION2 Interactive Map
 publishes them (its `gh-pages` branch, `UI/Map/WorldMap`), the way the map

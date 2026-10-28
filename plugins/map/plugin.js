@@ -533,7 +533,10 @@
     const pick = $(".mapPick");
     if (!pick.options.length) {
       const opt = (value, text) => Object.assign(document.createElement("option"), { value, textContent: text });
-      const open = Object.entries(D.maps).filter(([, m]) => !m.instance);
+      // The Elyos side, the Asmodian side, then the Abyss's layers.
+      const ORDER = ["verteron", "eltnen", "poeta", "altgard", "morheim", "ishalgen", "abyss", "abyss_middle", "abyss_upper"];
+      const rank = (k) => (ORDER.includes(k) ? ORDER.indexOf(k) : ORDER.length);
+      const open = Object.entries(D.maps).filter(([, m]) => !m.instance).sort((a, b) => rank(a[0]) - rank(b[0]));
       const inst = Object.entries(D.maps).filter(([, m]) => m.instance).sort((a, b) => a[1].title.localeCompare(b[1].title));
       const g1 = Object.assign(document.createElement("optgroup"), { label: "World" });
       g1.append(...open.map(([k, m]) => opt(k, m.title)));

@@ -12,6 +12,10 @@
   "path": "UI/Map/WorldMap",
   "owner": "NCSOFT (the game's own map pictures)"
  },
+ "petMaps": {
+  "repo": "https://github.com/taengu/A2Tools-Plugins",
+  "commit": "ff5715ae478f759844fcfb1bc8d7607fd2e2dbf7"
+ },
  "calibration": {
   "verteron": {
    "bounds": [
@@ -67,21 +71,65 @@
     252000.21875
    ],
    "from": "the game's map bounds"
+  },
+  "eltnen": {
+   "bounds": [
+    -408000.0,
+    -408000.0,
+    408000.0,
+    408000.0
+   ],
+   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
+  },
+  "morheim": {
+   "bounds": [
+    -408000.0,
+    -408000.0,
+    408000.0,
+    408000.0
+   ],
+   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
+  },
+  "abyss_middle": {
+   "bounds": [
+    -102000.0,
+    -102000.0,
+    101999.997,
+    101999.997
+   ],
+   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
+  },
+  "abyss_upper": {
+   "bounds": [
+    -102000.0,
+    -102000.0,
+    101999.997,
+    101999.997
+   ],
+   "from": "the game's map bounds, as A2 Tools' Pet Soul Tracker has them"
   }
  },
  "sha256": {
+  "A2Tools-Plugins:plugins/pet-souls/maps.js": "92970897e2bab85977f1602275ea173430a0d484156e20677400026e6a24357f",
+  "A2Tools-Plugins:plugins/pet-souls/maps/1011.webp": "cc5b287dbe6a25fa8a8e313af89cda6e3ffef555792dbf357f16e66c12a29752",
+  "A2Tools-Plugins:plugins/pet-souls/maps/1111.webp": "9c63bf735f9e1e2fe052c3002daa4ac89dfd87112aaa7245bddbfe3b602dcc55",
+  "A2Tools-Plugins:plugins/pet-souls/maps/22.webp": "1dddbab2323fb7ff0a358e3c12f445096f05231dbda738b019323bcc321d0eb3",
+  "A2Tools-Plugins:plugins/pet-souls/maps/23.webp": "59dd4128d0578c6a6f0833b26adab40c4f89e406c67aa9c707bf39a636b74b5a",
   "aion2-interactive-map:public/data/maps.yaml": "2923c1081dcd2d8ffc4ea290e68220c686619dac78ea6bfc25a9ce1347ab005d",
   "aion2-interactive-map:public/data/markers/Abyss_Reshanta_A.yaml": "a7b9432199cf8fc4a90083d95fedb229e2b03238c4a8e2bf84b92e7a860ab899",
+  "aion2-interactive-map:public/data/markers/Abyss_Reshanta_C.yaml": "100a772b21c684a80ecdc191135a71bd906341fc4877299e197f1a2aa89a6189",
   "aion2-interactive-map:public/data/markers/World_D_A.yaml": "aa1788538e35a75bd5b63e963385eb9decb0b07fa2d6084928f27109d7faa3cb",
   "aion2-interactive-map:public/data/markers/World_D_Starter.yaml": "100a772b21c684a80ecdc191135a71bd906341fc4877299e197f1a2aa89a6189",
   "aion2-interactive-map:public/data/markers/World_L_A.yaml": "8191964834b0561d2b775d149ff0463ceee20e514159db3e4d46a7a05e39ccc9",
   "aion2-interactive-map:public/data/markers/World_L_Starter.yaml": "100a772b21c684a80ecdc191135a71bd906341fc4877299e197f1a2aa89a6189",
   "aion2-interactive-map:public/data/regions/Abyss_Reshanta_A.yaml": "8dffbf1448440807b0cc2be94402064b80d2906c44cf20263d97c37a58acec96",
+  "aion2-interactive-map:public/data/regions/Abyss_Reshanta_C.yaml": "8dffbf1448440807b0cc2be94402064b80d2906c44cf20263d97c37a58acec96",
   "aion2-interactive-map:public/data/regions/World_D_A.yaml": "2485542668eadafbafb5ced808c2dc3da9f2dc2d54b1fa2165a66daf443d6ddb",
   "aion2-interactive-map:public/data/regions/World_D_Starter.yaml": "8dffbf1448440807b0cc2be94402064b80d2906c44cf20263d97c37a58acec96",
   "aion2-interactive-map:public/data/regions/World_L_A.yaml": "9f29dd1fa955dd02de6e71d5ead99a7ddb481c87071b28abd02eb22053d4e7eb",
   "aion2-interactive-map:public/data/regions/World_L_Starter.yaml": "8dffbf1448440807b0cc2be94402064b80d2906c44cf20263d97c37a58acec96",
   "aion2-interactive-map:public/locales/en/markers/Abyss_Reshanta_A.yaml": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+  "aion2-interactive-map:public/locales/en/markers/Abyss_Reshanta_C.yaml": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
   "aion2-interactive-map:public/locales/en/markers/World_D_A.yaml": "4eb19f54de75662c51b669264be58260947edcdaacf5e29ac1286262f71ac63d",
   "aion2-interactive-map:public/locales/en/markers/World_D_Starter.yaml": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
   "aion2-interactive-map:public/locales/en/markers/World_L_A.yaml": "19de57d21bce1126ade171269b1d4c501934a2e2e7df7b3253afd2de4b8ab2d2",
