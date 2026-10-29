@@ -3,4 +3,8 @@
 # For taking one plugin's new version (or a new plugin) without moving PIN,
 # which would take every plugin's. build/assemble.sh applies these first.
 alt-roster 79d30a6454ccac6fc2f2eced5a59dbc8151d9817
-event-timers 9b993632040176ac923f17539b13ed80cca80ed2
+boss-telegraph ad825ecad7b9c88ec99b63b799b8417ccd33d538
+cooldowns ad825ecad7b9c88ec99b63b799b8417ccd33d538
+event-timers ad825ecad7b9c88ec99b63b799b8417ccd33d538
+heal-alert ad825ecad7b9c88ec99b63b799b8417ccd33d538
+mantra-watch ad825ecad7b9c88ec99b63b799b8417ccd33d538
