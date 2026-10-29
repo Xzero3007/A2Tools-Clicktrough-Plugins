@@ -1,0 +1,34 @@
+From 3ccaabb452f095faf996ca263206081bbd71a1ff Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Thu, 29 Oct 2026 14:52:15 +0000
+Subject: [PATCH] Roster: the character tag in gold, not blue
+
+---
+ plugins/alt-roster/style.css | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/alt-roster/style.css b/plugins/alt-roster/style.css
+index a1b6d66..ce9759f 100644
+--- a/plugins/alt-roster/style.css
++++ b/plugins/alt-roster/style.css
+@@ -6,7 +6,7 @@ body {
+   --dim: rgba(255, 255, 255, 0.5);
+   --line: rgba(255, 255, 255, 0.08);
+   /* The meter's Settings colours (2.0.76 on), with fallbacks. */
+-  --accent: var(--a2-accent, #5ec8f2);
++  --accent: var(--a2-accent, #e0a526);
+   --bg: var(--a2-bg, rgb(20, 24, 34));
+   --panel: var(--a2-panel, #1d2230);
+   --full: #f2b84b;
+@@ -180,7 +180,7 @@ body.tab-content .list, body.tab-content .empty, body.tab-content .foot { displa
+ .cName { font-weight: 600; white-space: nowrap; }
+ .cMeta { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 11px; color: var(--dim); white-space: nowrap; }
+ .scope { padding: 0 5px; border-radius: 3px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.04em; border: 1px solid; }
+-.scope.char { color: #8fc2ff; border-color: rgba(143, 194, 255, 0.45); }
++.scope.char { color: #f2c46b; border-color: rgba(242, 196, 107, 0.45); }
+ .scope.server { color: #b9a2ff; border-color: rgba(185, 162, 255, 0.45); }
+ .cell { min-width: 74px; }
+ .cellValue { font-variant-numeric: tabular-nums; }
+-- 
+2.43.0
+

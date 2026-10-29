@@ -1,0 +1,273 @@
+From 3c7af85d764ee611ebb1cf30f1c895f657b66d0e Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Thu, 29 Oct 2026 14:52:33 +0000
+Subject: [PATCH] Event Timers: gold, not blue, for hovers and an event's ring
+
+---
+ plugins/event-timers/style.css  | 68 ++++++++++++++++-----------------
+ plugins/event-timers/widget.css |  2 +-
+ 2 files changed, 35 insertions(+), 35 deletions(-)
+
+diff --git a/plugins/event-timers/style.css b/plugins/event-timers/style.css
+index 3860ed9..9349b38 100644
+--- a/plugins/event-timers/style.css
++++ b/plugins/event-timers/style.css
+@@ -196,8 +196,8 @@ body.compact.foldedColumns .foldedLaterHead {
+ }
+ .chips button[aria-selected="true"] {
+   color: #0a0e16;
+-  background: var(--a2-accent, #8fc2ff);
+-  border-color: var(--a2-accent, #8fc2ff);
++  background: var(--a2-accent, #e0a526);
++  border-color: var(--a2-accent, #e0a526);
+ }
+ 
+ /* Dropdowns, buttons and checkboxes, dark. color-scheme only on the controls:
+@@ -225,7 +225,7 @@ input[type="checkbox"] {
+ .banner button:focus-visible,
+ .btn:focus-visible,
+ .modal button:focus-visible {
+-  border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent);
++  border-color: color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent);
+ }
+ /* Dropdowns drawn by the page, as the meter's Settings draws them: the
+    webview's own was a grey (or, under a GTK theme, white) box. color-scheme
+@@ -247,7 +247,7 @@ select {
+   transition: border-color 120ms ease, background-color 120ms ease;
+ }
+ select:hover { border-color: rgba(255, 255, 255, 0.3); background-color: rgba(255, 255, 255, 0.09); }
+-select:focus-visible { outline: 2px solid var(--a2-accent, var(--a2-accent, #8fc2ff)); outline-offset: 1px; }
++select:focus-visible { outline: 2px solid var(--a2-accent, var(--a2-accent, #e0a526)); outline-offset: 1px; }
+ select:disabled { opacity: 0.5; cursor: default; }
+ select option, select optgroup { background: var(--a2-panel, #0e1420); color: #fff; }
+ .testSound,
+@@ -263,7 +263,7 @@ select option, select optgroup { background: var(--a2-panel, #0e1420); color: #f
+   background: rgba(255, 255, 255, 0.1);
+ }
+ input[type="checkbox"] {
+-  accent-color: var(--a2-accent, #8fc2ff);
++  accent-color: var(--a2-accent, #e0a526);
+ }
+ 
+ /* Countdown lists. */
+@@ -405,7 +405,7 @@ input[type="checkbox"] {
+ }
+ .setting input[type="range"] {
+   width: 140px;
+-  accent-color: var(--a2-accent, #8fc2ff);
++  accent-color: var(--a2-accent, #e0a526);
+ }
+ .option {
+   display: block;
+@@ -601,7 +601,7 @@ input[type="checkbox"] {
+   padding: 12px 14px;
+   border-radius: 6px;
+   background: #161b26;
+-  border: 1px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 35%, transparent);
++  border: 1px solid color-mix(in srgb, var(--a2-accent, #e0a526) 35%, transparent);
+   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+ }
+ .modalText {
+@@ -616,12 +616,12 @@ input[type="checkbox"] {
+ }
+ .modal .modalYes {
+   color: #0a0e16;
+-  background: var(--a2-accent, #8fc2ff);
+-  border-color: var(--a2-accent, #8fc2ff);
++  background: var(--a2-accent, #e0a526);
++  border-color: var(--a2-accent, #e0a526);
+   font-weight: 600;
+ }
+ .modal .modalYes:hover {
+-  background: #a9d0ff;
++  background: color-mix(in srgb, var(--a2-accent, #e0a526) 70%, #fff);
+ }
+ .settingButtons {
+   display: flex;
+@@ -669,14 +669,14 @@ input[type="checkbox"] {
+   padding: 0;
+   font: inherit;
+   font-size: 11px;
+-  color: var(--a2-accent, #8fc2ff);
++  color: var(--a2-accent, #e0a526);
+   background: none;
+   border: 0;
+   cursor: pointer;
+ }
+ .linkBtn:hover,
+ .linkBtn:focus-visible {
+-  color: #b8d8ff;
++  color: color-mix(in srgb, var(--a2-accent, #e0a526) 70%, #fff);
+   text-decoration: underline;
+ }
+ /* An on/off switch (a checkbox underneath, so keys and labels still work). */
+@@ -706,15 +706,15 @@ input.switch::before {
+   transition: transform 0.15s;
+ }
+ input.switch:checked {
+-  background: var(--a2-accent, #8fc2ff);
+-  border-color: var(--a2-accent, #8fc2ff);
++  background: var(--a2-accent, #e0a526);
++  border-color: var(--a2-accent, #e0a526);
+ }
+ input.switch:checked::before {
+   transform: translateX(13px);
+   background: #0a0e16;
+ }
+ input.switch:focus-visible {
+-  outline: 2px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent);
++  outline: 2px solid color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent);
+   outline-offset: 2px;
+ }
+ input.switch:disabled {
+@@ -767,7 +767,7 @@ body.alertOnly .openFull:hover {
+   background: #1f2633;
+ }
+ .fieldCredit a {
+-  color: var(--a2-accent, #8fc2ff);
++  color: var(--a2-accent, #e0a526);
+   text-decoration: none;
+ }
+ .fieldCredit a:hover {
+@@ -867,27 +867,27 @@ body.alertOnly .openFull:hover {
+   background: rgba(255, 255, 255, 0.07);
+ }
+ .list .rowBtn:focus-visible {
+-  outline: 2px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent);
++  outline: 2px solid color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent);
+   outline-offset: -1px;
+ }
+ .list .alertBtn.own,
+ .list .gearBtn.lit {
+-  color: var(--a2-accent, #8fc2ff);
++  color: var(--a2-accent, #e0a526);
+ }
+ .list .alertBtn.own .fillable {
+   fill: currentColor;
+ }
+ /* Covered by "All field bosses" only: half lit. */
+ .list .alertBtn.all {
+-  color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent);
++  color: color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent);
+ }
+ .list .alertBtn.all .fillable {
+-  fill: color-mix(in srgb, var(--a2-accent, #8fc2ff) 20%, transparent);
++  fill: color-mix(in srgb, var(--a2-accent, #e0a526) 20%, transparent);
+ }
+ .list .alertBtn.own:hover,
+ .list .alertBtn.all:hover,
+ .list .gearBtn.lit:hover {
+-  color: #b8d8ff;
++  color: color-mix(in srgb, var(--a2-accent, #e0a526) 70%, #fff);
+ }
+ .list .gearBtn[aria-disabled="true"] {
+   color: rgba(255, 255, 255, 0.18);
+@@ -896,7 +896,7 @@ body.alertOnly .openFull:hover {
+ }
+ /* The alert a boss's gear led to: a flash, then as it was. */
+ @keyframes alertFlash {
+-  0%, 35% { background: color-mix(in srgb, var(--a2-accent, #8fc2ff) 22%, transparent); box-shadow: inset 2px 0 var(--a2-accent, #8fc2ff); }
++  0%, 35% { background: color-mix(in srgb, var(--a2-accent, #e0a526) 22%, transparent); box-shadow: inset 2px 0 var(--a2-accent, #e0a526); }
+   100% { background: transparent; box-shadow: inset 2px 0 transparent; }
+ }
+ .alertList li.flash {
+@@ -955,10 +955,10 @@ body.alertOnly .openFull:hover {
+ .segBtn + .segBtn { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+ .segBtn[aria-checked="true"] {
+   color: #0a0e16;
+-  background: var(--a2-accent, #8fc2ff);
++  background: var(--a2-accent, #e0a526);
+   font-weight: 600;
+ }
+-.segBtn:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent); outline-offset: -2px; }
++.segBtn:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent); outline-offset: -2px; }
+ .segBtn:disabled { opacity: 0.45; cursor: default; }
+ 
+ /* The Placement card: anchor mode, the one card in Settings, in the gold of
+@@ -1073,7 +1073,7 @@ body.alertOnly .openFull:hover {
+   cursor: pointer;
+ }
+ .stepBtn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+-.stepBtn:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent); outline-offset: 1px; }
++.stepBtn:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent); outline-offset: 1px; }
+ .stepBtn:disabled { opacity: 0.35; cursor: default; }
+ .stepValue { text-align: center; font-weight: 600; color: rgba(255, 255, 255, 0.92); }
+ .cornerNote { margin: 0 0 8px; }
+@@ -1094,11 +1094,11 @@ body.alertOnly .openFull:hover {
+   border-radius: 999px;
+   cursor: pointer;
+ }
+-.pickChips .chip:hover, .pickChips .chip:focus-visible { color: #fff; border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent); outline: none; }
++.pickChips .chip:hover, .pickChips .chip:focus-visible { color: #fff; border-color: color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent); outline: none; }
+ .pickChips .chip.on {
+   color: #0a0e16;
+-  background: var(--a2-accent, #8fc2ff);
+-  border-color: var(--a2-accent, #8fc2ff);
++  background: var(--a2-accent, #e0a526);
++  border-color: var(--a2-accent, #e0a526);
+   font-weight: 600;
+ }
+ .yoursHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+@@ -1149,7 +1149,7 @@ body.alertOnly .openFull:hover {
+   cursor: pointer;
+ }
+ .mineToggle:hover .mineName, .mineToggle:focus-visible .mineName { color: #fff; }
+-.mineToggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent); outline-offset: -2px; border-radius: 4px; }
++.mineToggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent); outline-offset: -2px; border-radius: 4px; }
+ .mineText { display: grid; min-width: 0; }
+ .mineName, .mineWhen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ .mineWhen { font-size: 11px; color: rgba(255, 255, 255, 0.5); }
+@@ -1173,7 +1173,7 @@ body.alertOnly .openFull:hover {
+   outline: none;
+   color-scheme: dark;
+ }
+-.alertSearch:focus { border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent); }
++.alertSearch:focus { border-color: color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent); }
+ .addHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+ .addFold {
+   display: flex;
+@@ -1189,7 +1189,7 @@ body.alertOnly .openFull:hover {
+   text-align: left;
+   cursor: pointer;
+ }
+-.addFold:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent); outline-offset: 1px; border-radius: 3px; }
++.addFold:focus-visible { outline: 2px solid color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent); outline-offset: 1px; border-radius: 3px; }
+ .addList { list-style: none; margin: 0; padding: 0 0 4px 16px; }
+ .addRow {
+   display: grid;
+@@ -1213,8 +1213,8 @@ body.alertOnly .openFull:hover {
+   border-radius: 999px;
+   cursor: pointer;
+ }
+-.addBtn:hover, .addBtn:focus-visible { border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 60%, transparent); outline: none; }
+-.addBtn.on { color: var(--a2-accent, #8fc2ff); border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 45%, transparent); }
++.addBtn:hover, .addBtn:focus-visible { border-color: color-mix(in srgb, var(--a2-accent, #e0a526) 60%, transparent); outline: none; }
++.addBtn.on { color: var(--a2-accent, #e0a526); border-color: color-mix(in srgb, var(--a2-accent, #e0a526) 45%, transparent); }
+ @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+ .alertOptionsBtn[hidden] { display: none; }
+ 
+@@ -1227,7 +1227,7 @@ body.alertOnly .openFull:hover {
+   padding: 6px 9px;
+   border-radius: 6px;
+   background: #161b26;
+-  border: 1px solid color-mix(in srgb, var(--a2-accent, #8fc2ff) 35%, transparent);
++  border: 1px solid color-mix(in srgb, var(--a2-accent, #e0a526) 35%, transparent);
+   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+   color: rgba(255, 255, 255, 0.9);
+   font-size: 12px;
+diff --git a/plugins/event-timers/widget.css b/plugins/event-timers/widget.css
+index a1fc678..ae3a51b 100644
+--- a/plugins/event-timers/widget.css
++++ b/plugins/event-timers/widget.css
+@@ -56,7 +56,7 @@ body.locked .pin { cursor: default; }
+ .pin.more .badge { --ring: #9aa4b2; }
+ .pin.more .glyph { font-size: 16px; }
+ .badge {
+-  --ring: #5aa9ff;
++  --ring: #e0a526;
+   width: 42px;
+   height: 42px;
+   border-radius: 50%;
+-- 
+2.43.0
+

@@ -1,0 +1,120 @@
+From 1208c942a5fe66185cf6a84dc694ec5fc2302046 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Thu, 29 Oct 2026 14:52:33 +0000
+Subject: [PATCH] Enhanced Boss Telegraph: gold, not blue, before the meter's
+ colours arrive
+
+---
+ plugins/boss-telegraph/style.css | 32 ++++++++++++++++----------------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/plugins/boss-telegraph/style.css b/plugins/boss-telegraph/style.css
+index 9e8e429..241dbc8 100644
+--- a/plugins/boss-telegraph/style.css
++++ b/plugins/boss-telegraph/style.css
+@@ -38,8 +38,8 @@ body { padding: 10px 12px 14px; }
+   cursor: pointer;
+ }
+ .tab:hover { color: #fff; }
+-.tab.isActive { color: #fff; border-bottom-color: var(--a2-accent, #8fc2ff); }
+-.tab:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
++.tab.isActive { color: #fff; border-bottom-color: var(--a2-accent, #e0a526); }
++.tab:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 2px solid var(--a2-accent, #e0a526); outline-offset: 1px; }
+ .pane[hidden] { display: none; }
+ .note {
+   margin: 6px 0;
+@@ -47,7 +47,7 @@ body { padding: 10px 12px 14px; }
+   color: rgba(233, 240, 248, 0.7);
+ }
+ .note.sub { margin: -4px 0 2px; }
+-.note a { color: var(--a2-accent, #8fc2ff); }
++.note a { color: var(--a2-accent, #e0a526); }
+ .inline { display: flex; gap: 6px; align-items: center; }
+ .inline.wide .filter { flex: 1; min-width: 0; }
+ input[type="search"] {
+@@ -68,8 +68,8 @@ input[type="color"] {
+   background: none;
+   cursor: pointer;
+ }
+-input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--a2-accent, #8fc2ff); }
+-input[type="range"] { width: 150px; accent-color: var(--a2-accent, #8fc2ff); }
++input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--a2-accent, #e0a526); }
++input[type="range"] { width: 150px; accent-color: var(--a2-accent, #e0a526); }
+ /* Dropdowns drawn by the page, as the meter's Settings draws them.
+    color-scheme only here: on the whole page the frame gets an opaque backdrop. */
+ select {
+@@ -89,7 +89,7 @@ select {
+   cursor: pointer;
+ }
+ select:hover { border-color: rgba(255, 255, 255, 0.3); background-color: rgba(255, 255, 255, 0.09); }
+-select:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
++select:focus-visible { outline: 2px solid var(--a2-accent, #e0a526); outline-offset: 1px; }
+ select option { background: var(--a2-panel, #0e1420); color: #fff; }
+ .btn {
+   justify-self: start;
+@@ -125,11 +125,11 @@ select option { background: var(--a2-panel, #0e1420); color: #fff; }
+   padding: 6px 6px 6px 8px;
+ }
+ .callCard:hover { border-color: rgba(255, 255, 255, 0.14); }
+-.callCard.hasOwn { border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 45%, transparent); }
++.callCard.hasOwn { border-color: color-mix(in srgb, var(--a2-accent, #e0a526) 45%, transparent); }
+ .call { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 9px; align-items: start; cursor: pointer; }
+ .call input { margin-top: 3px; }
+ .call .what { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere; }
+-.call .act { color: var(--a2-accent, #8fc2ff); font-weight: 650; }
++.call .act { color: var(--a2-accent, #e0a526); font-weight: 650; }
+ .call .said { font-weight: 500; }
+ .call .line { font-size: 14px; font-style: italic; color: rgba(233, 240, 248, 0.72); }
+ .call .mine { font-size: 14px; font-weight: 600; color: #fff; }
+@@ -147,7 +147,7 @@ select option { background: var(--a2-panel, #0e1420); color: #fff; }
+ }
+ .tag[hidden] { display: none; }
+ .tag.isOffTag { background: rgba(255, 140, 120, 0.18); color: #ffb4a6; font-weight: 600; }
+-.tag.isCall { background: color-mix(in srgb, var(--a2-accent, #8fc2ff) 20%, transparent); color: var(--a2-accent, #8fc2ff); }
++.tag.isCall { background: color-mix(in srgb, var(--a2-accent, #e0a526) 20%, transparent); color: var(--a2-accent, #e0a526); }
+ .pen {
+   width: 34px;
+   height: 34px;
+@@ -161,10 +161,10 @@ select option { background: var(--a2-panel, #0e1420); color: #fff; }
+   cursor: pointer;
+ }
+ .call .buttons { display: flex; gap: 6px; }
+-.pen.play { color: var(--a2-accent, #8fc2ff); }
++.pen.play { color: var(--a2-accent, #e0a526); }
+ .pen:hover, .pen.isOpen { color: #fff; background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.16); }
+-.pen.isSet { color: var(--a2-accent, #8fc2ff); border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 55%, transparent); }
+-.pen:focus-visible, .ownBox .clear:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
++.pen.isSet { color: var(--a2-accent, #e0a526); border-color: color-mix(in srgb, var(--a2-accent, #e0a526) 55%, transparent); }
++.pen:focus-visible, .ownBox .clear:focus-visible { outline: 2px solid var(--a2-accent, #e0a526); outline-offset: 1px; }
+ /* The player's own words for the call: a labelled field under it. */
+ /* Label on its own line, so the field keeps the card's width at any
+    menu size. */
+@@ -189,7 +189,7 @@ select option { background: var(--a2-panel, #0e1420); color: #fff; }
+   border-radius: 6px;
+   padding: 6px 9px;
+ }
+-.ownBox input[type="text"]:focus { border-color: var(--a2-accent, #8fc2ff); }
++.ownBox input[type="text"]:focus { border-color: var(--a2-accent, #e0a526); }
+ .ownBox .clear {
+   width: 32px;
+   height: 32px;
+@@ -211,13 +211,13 @@ select option { background: var(--a2-panel, #0e1420); color: #fff; }
+ .note.info {
+   margin: 8px 0;
+   padding: 7px 10px;
+-  border-left: 3px solid var(--a2-accent, #8fc2ff);
++  border-left: 3px solid var(--a2-accent, #e0a526);
+   border-radius: 6px;
+-  background: color-mix(in srgb, var(--a2-accent, #8fc2ff) 9%, transparent);
++  background: color-mix(in srgb, var(--a2-accent, #e0a526) 9%, transparent);
+   color: rgba(233, 240, 248, 0.85);
+ }
+ /* Keyboard focus, on everything, thick enough to find at a glance. */
+-:focus-visible { outline: 3px solid var(--a2-accent, #8fc2ff); outline-offset: 2px; border-radius: 4px; }
++:focus-visible { outline: 3px solid var(--a2-accent, #e0a526); outline-offset: 2px; border-radius: 4px; }
+ input[type="checkbox"]:focus-visible { outline-offset: 3px; }
+ 
+ /* Clicktrough: what the last test did (the voice, the sound). */
+-- 
+2.43.0
+

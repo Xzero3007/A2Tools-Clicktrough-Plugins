@@ -1,0 +1,35 @@
+From 4a8275ba3b70df588d5be9ae3ad5d45720ee25fc Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Thu, 29 Oct 2026 14:52:33 +0000
+Subject: [PATCH] Daily Checklist: gold, not blue, before the meter's colours
+ arrive
+
+---
+ plugins/checklist/style.css | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/checklist/style.css b/plugins/checklist/style.css
+index 7ef0a14..de2f478 100644
+--- a/plugins/checklist/style.css
++++ b/plugins/checklist/style.css
+@@ -34,7 +34,7 @@ select {
+   transition: border-color 120ms ease, background-color 120ms ease;
+ }
+ select:hover { border-color: rgba(255, 255, 255, 0.3); background-color: rgba(255, 255, 255, 0.09); }
+-select:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
++select:focus-visible { outline: 2px solid var(--a2-accent, #e0a526); outline-offset: 1px; }
+ select:disabled { opacity: 0.5; cursor: default; }
+ select option, select optgroup { background: var(--a2-panel, #0e1420); color: #fff; }
+ input[type="text"], input[type="number"] { padding: 1px 4px; }
+@@ -81,7 +81,7 @@ body.editing .items li { cursor: default; }
+ .settings { margin-top: 8px; display: grid; gap: 4px; font-size: 12px; }
+ .settings label { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+ .settings label button { margin-left: 4px; }
+-.settings input[type="range"] { width: 110px; margin: 0; accent-color: var(--a2-accent, #8fc2ff); }
++.settings input[type="range"] { width: 110px; margin: 0; accent-color: var(--a2-accent, #e0a526); }
+ .settings .makeMain { justify-self: start; }
+ .settings .note { margin: 2px 0 0; color: rgba(255, 255, 255, 0.5); }
+ 
+-- 
+2.43.0
+

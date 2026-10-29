@@ -14,7 +14,11 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   **green button** in the meter's title. Sends screenshots from the game.
 - **No blue in any UI** (buttons, highlights, links): neutral whites and greys,
   gold, red, purple are fine. Data colours that match an existing plugin are
-  fine (Pet Finder's genus colours).
+  fine (Pet Finder's genus colours). The build's accent is gold (meter patch 0033:
+  Settings colours "Gold", the default; `--ct-accent` #e0a526 in the meter):
+  a plugin gets it as `var(--a2-accent)`, so a control's state uses that,
+  never a fixed blue. Values coloured as the game does (combat power's cyan)
+  stay.
 - Wants results and a short, plain explanation of what changed and what to do,
   not a log of the work.
 
@@ -73,7 +77,7 @@ on only when the person decides (see below).
 | `plugins/<id>/` | Own plugins: `armory`, `map`, `market`, `pet-finder`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
 | `original/PIN` | The commit of `taengu/A2Tools-Plugins` the build takes the original's plugins at. |
 | `original/pins.txt` | Single plugins at another commit (`<id> <commit>`): a new plugin, or a new version of one, without moving PIN. |
-| `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link. A file `installed-only` there: the plugin still runs only where installed. |
+| `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link and with its Test shown while AION2 is closed; gold instead of blue in all four. A file `installed-only` there: the plugin still runs only where installed. |
 | `original/left-out.txt` | The original's plugins never shipped or run (the meter's patch 0026): Pet Soul Tracker (Pet Finder replaces it). |
 | `build/assemble.sh` | Puts the package's plugin folder together (the release, the app's `setup-workspace.sh` and `a2tools-rebuild.sh` all run it). |
 | `dev/setup.sh` | The working clones (below). |

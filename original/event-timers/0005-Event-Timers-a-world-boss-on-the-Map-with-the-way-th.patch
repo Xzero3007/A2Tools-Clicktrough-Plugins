@@ -1,4 +1,4 @@
-From 36b17f14d0c68bd2d3a53150c06cf49c0976aeb3 Mon Sep 17 00:00:00 2001
+From 7e87139894f28ec043ba1287a388efa8f6ae4c3d Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Sun, 25 Oct 2026 01:56:22 +0000
 Subject: [PATCH] Event Timers: a world boss on the Map, with the way there
@@ -20,7 +20,7 @@ Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
  3 files changed, 60 insertions(+), 3 deletions(-)
 
 diff --git a/plugins/event-timers/manifest.json b/plugins/event-timers/manifest.json
-index f349b1f..a5f5c0a 100644
+index 6928a35..9d7a63d 100644
 --- a/plugins/event-timers/manifest.json
 +++ b/plugins/event-timers/manifest.json
 @@ -10,7 +10,8 @@
