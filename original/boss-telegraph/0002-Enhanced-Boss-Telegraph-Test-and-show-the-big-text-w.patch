@@ -1,0 +1,221 @@
+From 082596423d2bbe28bba5c0a0c0105d9a396dc44e Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Thu, 29 Oct 2026 14:26:12 +0000
+Subject: [PATCH] =?UTF-8?q?Enhanced=20Boss=20Telegraph:=20Test=20and=20?=
+ =?UTF-8?q?=E2=96=B6=20show=20the=20big=20text=20with=20AION2=20closed,=20?=
+ =?UTF-8?q?and=20say=20what=20the=20voice=20did?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Test and a call's ▶ open the callout for 9 s even when AION2 isn't running,
+to see the big text and put it in place. Under Test, a line says which
+voice spoke and whether the sound really started, or why not (the volume
+at 0, a clip that can't be decoded, the audio output standing still, the
+computer's voice failing or not starting).
+---
+ plugins/boss-telegraph/index.html |  1 +
+ plugins/boss-telegraph/plugin.js  | 94 +++++++++++++++++++++++++++----
+ plugins/boss-telegraph/style.css  |  3 +
+ 3 files changed, 88 insertions(+), 10 deletions(-)
+
+diff --git a/plugins/boss-telegraph/index.html b/plugins/boss-telegraph/index.html
+index ec5b850..2a03dd3 100644
+--- a/plugins/boss-telegraph/index.html
++++ b/plugins/boss-telegraph/index.html
+@@ -21,6 +21,7 @@
+       </div>
+       <p class="note info" data-t="styleNote">Short call: the colour or what to do, with its countdown, without the boss's line.</p>
+       <button type="button" class="btn test" data-t="test">Test</button>
++      <p class="note testNote" aria-live="polite" hidden></p>
+     </header>
+     <nav class="tabs" role="tablist">
+       <button type="button" class="tab isActive" role="tab" aria-selected="true" aria-controls="pane-bosses" id="tab-bosses" data-tab="bosses" data-t="bosses">Bosses</button>
+diff --git a/plugins/boss-telegraph/plugin.js b/plugins/boss-telegraph/plugin.js
+index 0c669d6..009cec5 100644
+--- a/plugins/boss-telegraph/plugin.js
++++ b/plugins/boss-telegraph/plugin.js
+@@ -75,12 +75,47 @@ const volumeGain = (percent) => Math.pow(Math.max(0, Math.min(100, Number(percen
+ // a boss's line still being read ("low") or a backlog, so the call that
+ // matters now is heard now; a line that comes while two wait is dropped.
+ const saying = new Map(); // utterance -> { at, prio }
++
++// Clicktrough: what the last Test (or ▶) did, said under the Test button:
++// which voice spoke, and whether the sound really started, or why not. On
++// Linux a voice that stays silent says nothing else.
++let testNote = null; // [parts] while a test is being reported
++function report(part) {
++  if (!testNote || testNote.includes(part)) return;
++  testNote.push(part);
++  const el = $(".testNote");
++  if (el) {
++    el.textContent = testNote.join(" · ");
++    el.hidden = false;
++  }
++}
++function startReport() {
++  testNote = [];
++  const el = $(".testNote");
++  if (el) el.textContent = "";
++  if (prefs.volume <= 0) report("the volume is 0 (Voice)");
++  // The report ends with the test: what comes later is a fight's.
++  clearTimeout(startReport.end);
++  startReport.end = setTimeout(() => { testNote = null; }, 9000);
++}
++
+ function say(text, prio = "high") {
+   if (!text || prefs.volume <= 0) return;
+   // The built-in voice says only its own lines: the player's own words for a
+   // call go to the computer's voices, when it has any.
+-  if (builtIn() && (clip(text) || !synth || !voices.length)) return sayBuiltIn(text, prio);
+-  if (!synth) return;
++  if (builtIn() && (clip(text) || !synth || !voices.length)) {
++    report("built-in voice (Kokoro)");
++    try {
++      return sayBuiltIn(text, prio);
++    } catch (e) {
++      report(`no sound: ${e?.name || "error"} ${e?.message || ""}`.trim());
++      return;
++    }
++  }
++  if (!synth) {
++    report("no voice: this computer has none, and the built-in one has no clip for these words");
++    return;
++  }
+   const now = Date.now();
+   for (const [u, s] of saying) if (now - s.at > 15_000) saying.delete(u);
+   const lowWaiting = [...saying.values()].some((s) => s.prio === "low");
+@@ -97,7 +132,18 @@ function say(text, prio = "high") {
+   u.rate = Number(prefs.rate) || 1;
+   u.pitch = 1;
+   u.volume = volumeGain(prefs.volume);
+-  u.onend = u.onerror = () => saying.delete(u);
++  u.onend = () => saying.delete(u);
++  u.onerror = (e) => {
++    saying.delete(u);
++    report(`the computer's voice failed: ${e?.error || "error"} (try Voice: Built-in)`);
++  };
++  u.onstart = () => report("speaking ✓");
++  report(`the computer's voice: ${voice ? voice.name : "default"}`);
++  if (testNote) {
++    setTimeout(() => {
++      if (saying.has(u) && !synth.speaking) report("the computer's voice didn't start (try Voice: Built-in)");
++    }, 3000);
++  }
+   saying.set(u, { at: now, prio });
+   synth.speak(u);
+ }
+@@ -184,8 +230,11 @@ async function playNext() {
+       if (!stretched.has(key)) stretched.set(key, stretch(context(), buffer, rate));
+       buffer = stretched.get(key);
+     }
+-  } catch {
++  } catch (e) {
+     buffer = null;
++    // A clip that can't be decoded is tried again next time.
++    decoded.delete(c.en);
++    report(`the voice clip can't be decoded: ${e?.name || "error"} ${e?.message || ""}`.trim());
+   }
+   if (playing !== slot) return; // cut off while it decoded
+   if (!buffer) {
+@@ -205,6 +254,14 @@ async function playNext() {
+     playNext();
+   };
+   node.start();
++  if (testNote) {
++    // The audio clock moves while the sound plays; standing still, the
++    // computer's audio output isn't taking it.
++    const t0 = ctx.currentTime;
++    setTimeout(() => {
++      report(ctx.currentTime > t0 ? "playing ✓" : `no sound: the audio output stands still (${ctx.state})`);
++    }, 700);
++  }
+ }
+ 
+ // Faster or slower at the same pitch (WSOLA): 30 ms windows laid half over
+@@ -287,12 +344,23 @@ const engine = BossLogic.create(DATA, {
+ 
+ let widgetOpen = false;
+ let lastSize = "";
++// Clicktrough: Test and ▶ show the big text for a while even when AION2
++// isn't running, to see it and put it in place.
++let previewUntil = 0;
++async function showPreview(ms, run) {
++  startReport();
++  previewUntil = Math.max(previewUntil, Date.now() + ms);
++  await placeWidget();
++  run();
++  clearTimeout(showPreview.end);
++  showPreview.end = setTimeout(placeWidget, ms + 100);
++}
+ const widgetSize = () => {
+   const s = Number(prefs.size) || 60;
+   return { width: Math.round(Math.min(1100, Math.max(520, s * 13))), height: Math.round(s * 3.4 + 48) };
+ };
+ async function placeWidget() {
+-  const want = prefs.enabled && prefs.widget && gameOpen;
++  const want = prefs.enabled && prefs.widget && (gameOpen || Date.now() < previewUntil);
+   const size = JSON.stringify(widgetSize());
+   if (!want) {
+     if (widgetOpen) await a2.widgets.close("callout").catch(() => {});
+@@ -428,7 +496,7 @@ function callRow(c) {
+   play.setAttribute("aria-label", words.previewCall);
+   play.addEventListener("click", (e) => {
+     e.preventDefault();
+-    engine.preview(c.k);
++    showPreview(9000, () => engine.preview(c.k));
+   });
+   const buttons = document.createElement("span");
+   buttons.className = "buttons";
+@@ -594,7 +662,7 @@ $(".contrast").addEventListener("click", () => {
+   save();
+   send();
+ });
+-$(".test").addEventListener("click", () => engine.test());
++$(".test").addEventListener("click", () => showPreview(9000, () => engine.test()));
+ 
+ for (const [key, el] of Object.entries(els)) {
+   el.addEventListener(el.type === "range" || el.type === "color" ? "input" : "change", () => {
+@@ -606,11 +674,17 @@ for (const [key, el] of Object.entries(els)) {
+     if (key === "enabled" || key === "widget" || key === "size") placeWidget();
+     else send();
+     if (key === "enabled" && !v) engine.clear();
+-    if (key === "voiceName" || key === "rate") say(words.preview);
++    if (key === "voiceName" || key === "rate") {
++      startReport();
++      say(words.preview);
++    }
+   });
+ }
+ // The volume, heard where the slider is let go.
+-els.volume.addEventListener("change", () => say(words.preview));
++els.volume.addEventListener("change", () => {
++  startReport();
++  say(words.preview);
++});
+ $(".lock").addEventListener("change", (e) => a2.widgets.lock(e.target.checked).catch(() => {}));
+ if (synth) {
+   loadVoices();
+@@ -638,7 +712,7 @@ a2.on("game", (d) => {
+   const open = !!(d && d.running);
+   if (open === gameOpen) return;
+   gameOpen = open;
+-  if (!open) engine.clear();
++  if (!open && Date.now() >= previewUntil) engine.clear();
+   placeWidget();
+ });
+ a2.on("locked", (on) => {
+diff --git a/plugins/boss-telegraph/style.css b/plugins/boss-telegraph/style.css
+index 4e2962c..9e8e429 100644
+--- a/plugins/boss-telegraph/style.css
++++ b/plugins/boss-telegraph/style.css
+@@ -219,3 +219,6 @@ select option { background: var(--a2-panel, #0e1420); color: #fff; }
+ /* Keyboard focus, on everything, thick enough to find at a glance. */
+ :focus-visible { outline: 3px solid var(--a2-accent, #8fc2ff); outline-offset: 2px; border-radius: 4px; }
+ input[type="checkbox"]:focus-visible { outline-offset: 3px; }
++
++/* Clicktrough: what the last test did (the voice, the sound). */
++.note.testNote { margin: 6px 0 0; }
+-- 
+2.43.0
+

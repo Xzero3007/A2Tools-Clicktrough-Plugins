@@ -39,7 +39,13 @@
     abyssSiege: async () => null,
     followBosses: async () => { throw new Error("not in this build"); },
     window: { show: ok, hide: ok, fit: ok, size: ok },
-    widgets: { open: ok, close: ok, send: ok, lock: ok, place: ok, list: async () => [] },
+    // The widgets opened and what was sent to them: window.__widgets.
+    widgets: {
+      open: async (name) => { (window.__widgets ||= {})[name] = { open: true, sent: [] }; },
+      close: async (name) => { if (window.__widgets?.[name]) window.__widgets[name].open = false; },
+      send: async (name, data) => { window.__widgets?.[name]?.sent.push(data); },
+      lock: ok, locked: async () => false, place: ok, list: async () => [],
+    },
     widget: { resize: ok },
     watchFps: ok,
   };
