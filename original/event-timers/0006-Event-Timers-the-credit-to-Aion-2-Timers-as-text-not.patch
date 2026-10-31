@@ -1,4 +1,4 @@
-From e08c39711a1a56315a8ac48f0ddc745c8004dbc1 Mon Sep 17 00:00:00 2001
+From 93d5af61251ee04d017df86bcda4352591f81eb0 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Tue, 27 Oct 2026 01:24:43 +0000
 Subject: [PATCH] Event Timers: the credit to Aion 2 Timers as text, not a link
@@ -13,10 +13,10 @@ Claude-Session: https://claude.ai/code/session_01RahWACwaxzLAcYgwc9jk8C
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
-index 33bfacd..8a278b0 100644
+index 84fb262..ef4c068 100644
 --- a/plugins/event-timers/index.html
 +++ b/plugins/event-timers/index.html
-@@ -58,7 +58,7 @@
+@@ -59,7 +59,7 @@
        <h2 class="group fieldHead"><button type="button" class="foldBtn" data-fold="field" aria-expanded="true" aria-controls="fieldList"><svg class="chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span class="foldLabel">World bosses</span></button></h2>
        <p class="note fieldNote"></p>
        <ol class="list fieldList" id="fieldList"></ol>

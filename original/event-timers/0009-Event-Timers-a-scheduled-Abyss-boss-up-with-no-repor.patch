@@ -1,0 +1,40 @@
+From eb2dbf4f9dde6daf1ac8125a14ab65eaccb4f363 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Sat, 31 Oct 2026 15:27:05 +0000
+Subject: [PATCH] Event Timers: a scheduled Abyss boss up with no report shows
+ when it came
+
+On the Bosses tab, a scheduled Abyss boss up by its schedule that no
+meter has reported yet (no entry in the shared feed) read "reported
+498,171h ago": the time of a report it never had. It shows the time its
+spawn came instead, as the folded view does (patch 0007), so both agree.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RahWACwaxzLAcYgwc9jk8C
+---
+ plugins/event-timers/plugin.js | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
+index 9d5ee05..e52cc24 100644
+--- a/plugins/event-timers/plugin.js
++++ b/plugins/event-timers/plugin.js
+@@ -1319,10 +1319,13 @@ function fieldItems(bosses, now, withHeads) {
+     if (group === "up") {
+       countdown = t.upSince ? words.upFor(span(now - t.upSince * 1000)) : words.up;
+       // Its HP while fresh (the feed drops it after 30 minutes), else when
+-      // it was last reported.
++      // it was last reported. A scheduled one up by its schedule, with no
++      // report yet: the time its spawn came, not "reported 490,000 h ago"
++      // (as folded, patch 0007).
+       at = t.hp != null && t.hpAt
+         ? `${words.hpLeft(t.hp)} · ${words.ago(age(now - t.hpAt * 1000))}`
+-        : words.seen(age(now - (t.reportedAt || 0) * 1000));
++        : t.reportedAt ? words.seen(age(now - t.reportedAt * 1000))
++        : t.upSince ? fmt.format(new Date(t.upSince * 1000)) : "";
+     } else if (group === "window") {
+       countdown = words.ago(age(now - next));
+       at = fmt.format(new Date(next));
+-- 
+2.43.0
+

@@ -2,9 +2,9 @@
 #   <plugin id> <commit of taengu/A2Tools-Plugins>
 # For taking one plugin's new version (or a new plugin) without moving PIN,
 # which would take every plugin's. build/assemble.sh applies these first.
-alt-roster ad825ecad7b9c88ec99b63b799b8417ccd33d538
+alt-roster 37e6a5a13abcf75094d1040af6a3b36410889348
 boss-telegraph ad825ecad7b9c88ec99b63b799b8417ccd33d538
-cooldowns ad825ecad7b9c88ec99b63b799b8417ccd33d538
-event-timers ad825ecad7b9c88ec99b63b799b8417ccd33d538
+cooldowns 37e6a5a13abcf75094d1040af6a3b36410889348
+event-timers 37e6a5a13abcf75094d1040af6a3b36410889348
 heal-alert ad825ecad7b9c88ec99b63b799b8417ccd33d538
 mantra-watch ad825ecad7b9c88ec99b63b799b8417ccd33d538

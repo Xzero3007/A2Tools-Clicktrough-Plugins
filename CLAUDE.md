@@ -66,7 +66,7 @@ with its own CLAUDE.md: work on the meter happens there, not here.
 
 ## What this repo is
 
-The plugins of the Clicktrough build: four of its own and its changes to the
+The plugins of the Clicktrough build: five of its own and its changes to the
 original's. Nothing is installed from here directly: the app's release puts
 them into its package (`build/assemble.sh`), and every meter updates through
 the green button. The original's plugins are frozen at one commit and taken
@@ -74,7 +74,7 @@ on only when the person decides (see below).
 
 | Path | What |
 |---|---|
-| `plugins/<id>/` | Own plugins: `armory`, `map`, `market`, `pet-finder`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
+| `plugins/<id>/` | Own plugins: `armory`, `inventory`, `map`, `market`, `pet-finder`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
 | `original/PIN` | The commit of `taengu/A2Tools-Plugins` the build takes the original's plugins at. |
 | `original/pins.txt` | Single plugins at another commit (`<id> <commit>`): a new plugin, or a new version of one, without moving PIN. |
 | `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link and with its Test shown while AION2 is closed; gold instead of blue in all four. A file `installed-only` there: the plugin still runs only where installed. |
@@ -197,6 +197,7 @@ Events (`a2.on(name, fn)`):
 | `character` | `events:character` | The character playing: name, server, class, level, combat power, gear score, and the game's entry counts (Odyle energy, content counts and times, shop limits, crafts, Kinah today, Abyss Points), each with when the game reported it (`seenAt`). Not replayed: a plugin not running misses changes. |
 | `decoded:<name>` | `decoder:<name>` | The plugin's own decoder (its manifest) on a matching game frame. Numbered and replayed for the meter's run. |
 | `world` | `events:world` | The zone, the player's position (exact or estimated, about 10 m in the median), monsters and objects around. At most 4 a second, a heartbeat every 2 s. |
+| `items` | `events:items` | The player's items (meter patch 0034): inventory (`1`), character storage (`15`), account storage (`2`) as `[[slot, item, count]]`, whole at a world entry (`snapshotAt`), each change after it (`changes`: the net of an item a frame changed; `null` when the count before isn't known) and the drops picked up from the ground (`pickups`). Kinah is item 930100031, Abyss Points 930100003. At start (no changes) and on each change. |
 | `shared` | `events:shared` | What other plugins `a2.share` (Pet Finder's pets, the Map's spawns, Event Timers' and Market's focus). |
 | `bossMap`, `abyss` | `feed:boss-timers` | Field bosses of a map the player opened; Abyss artifact holders. |
 | `ping`, `game`, `language`, `theme`, `compact`, `visible` | none | Ping, the game window, Settings' language and colours, the window folded, shown or hidden. |
@@ -229,7 +230,9 @@ skips the 500 ms wait that lets the login's identity land first.
   effect, a teleport or a loading screen. In between, the meter estimates it
   from what is around (SkeeveAN's method), and the Map smooths it.
 - Shop limits and crafts reach a plugin only when that window opens in the
-  game; Abyss Points only at login. Roster explains it in its hints.
+  game. Abyss Points come at login, and since patch 0034 each gain is added
+  (the inventory's Abyss Points item). The storages are exact only as of a
+  login or an inventory sort: moving items to or from a storage sends nothing. Roster explains it in its hints.
 - aion2.exchange is slow and often answers 503: Market reads the hourly copy
   first.
 - `pkill -f <pattern>` also kills the shell running it: use

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="widget.css" />
+  </head>
+  <body>
+    <div class="card">
+      <header class="head">
+        <strong class="title">Limits</strong>
+        <input type="range" class="opacity" min="20" max="100" step="5" title="Opacity" aria-label="Opacity" />
+        <button type="button" class="close" title="Close the floater" aria-label="Close the floater">×</button>
+      </header>
+      <ul class="rows"></ul>
+      <div class="corner e" data-edge="e" title="Drag to change the width"></div>
+      <div class="corner w" data-edge="w" title="Drag to change the width"></div>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

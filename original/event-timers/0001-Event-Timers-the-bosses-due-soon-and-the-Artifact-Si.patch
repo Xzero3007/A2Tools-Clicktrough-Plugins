@@ -1,4 +1,4 @@
-From c832dc90abf407b026f59b675d2c45425133d16d Mon Sep 17 00:00:00 2001
+From f5d10d498f0e650d974c08b09f5400585c7315f4 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Fri, 23 Oct 2026 13:03:59 +0000
 Subject: [PATCH] Event Timers: the bosses due soon and the Artifact Siege in
@@ -14,25 +14,25 @@ folded view too, however far off.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TUNxq4V2zBL7bJg3yPJ3oC
 ---
- plugins/event-timers/index.html |   3 +
- plugins/event-timers/plugin.js  | 106 +++++++++++++++++++++++++++++++-
- plugins/event-timers/style.css  |  17 +++++
- 3 files changed, 124 insertions(+), 2 deletions(-)
+ plugins/event-timers/index.html |  3 ++
+ plugins/event-timers/plugin.js  | 94 +++++++++++++++++++++++++++++++--
+ plugins/event-timers/style.css  | 17 ++++++
+ 3 files changed, 111 insertions(+), 3 deletions(-)
 
 diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
-index b6416bb..97dbe16 100644
+index 979b82f..cb49f18 100644
 --- a/plugins/event-timers/index.html
 +++ b/plugins/event-timers/index.html
-@@ -26,6 +26,8 @@
-     </div>
+@@ -27,6 +27,8 @@
      <section class="view events">
+       <h2 class="group eventsHead" hidden>Events</h2>
        <ol class="list eventList"></ol>
 +      <h2 class="group foldedBossHead" hidden></h2>
 +      <ol class="list foldedBossList"></ol>
        <div class="hidden"></div>
      </section>
      <section class="view bosses" hidden>
-@@ -68,6 +70,7 @@
+@@ -69,6 +71,7 @@
        <label class="setting"><span class="regionLabel">Region</span> <select class="regionSelect"></select></label>
        <label class="setting"><span class="zoneLabel">Show times in</span> <select class="zoneSelect"></select></label>
        <label class="setting"><span class="scaleLabel">Text size</span> <select class="scaleSelect"></select></label>
@@ -41,13 +41,13 @@ index b6416bb..97dbe16 100644
      <div class="modal" role="dialog" aria-modal="true" hidden>
        <div class="modalBox">
 diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
-index c715955..887079a 100644
+index 8a62bdf..c1d612a 100644
 --- a/plugins/event-timers/plugin.js
 +++ b/plugins/event-timers/plugin.js
-@@ -37,6 +37,10 @@ const els = {
-     settings: $(".view.settings"),
+@@ -38,6 +38,10 @@ const els = {
    },
    events: $(".eventList"),
+   eventsHead: $(".eventsHead"),
 +  foldedBossHead: $(".foldedBossHead"),
 +  foldedBoss: $(".foldedBossList"),
 +  foldedBossLabel: $(".foldedBossLabel"),
@@ -55,7 +55,7 @@ index c715955..887079a 100644
    hidden: $(".hidden"),
    scheduledHead: $(".scheduledHead"),
    scheduled: $(".scheduledList"),
-@@ -118,6 +122,13 @@ const ALERT_COLORS = {
+@@ -119,6 +123,13 @@ const ALERT_COLORS = {
  // Text size: the whole page scaled, spacing and controls with the text.
  // 100% is BASE_ZOOM, a little larger than the stylesheet's own sizes.
  const SCALES = [0.9, 1, 1.1, 1.25, 1.5];
@@ -69,7 +69,7 @@ index c715955..887079a 100644
  const BASE_ZOOM = 1.2;
  // The feed of world boss timers: read this often, or every FEED_BUSY_MS
  // while a world boss on the server is up, due within 15 minutes or overdue,
-@@ -346,6 +357,24 @@ const MORE_UI = {
+@@ -347,6 +358,24 @@ const MORE_UI = {
          bossSoon: (name, n) => `${name} ${n} 分钟后出现`, bossNow: (name) => `${name} 已出现` },
  };
  
@@ -94,7 +94,7 @@ index c715955..887079a 100644
  // The Bosses tab's row buttons: each boss's alert on or off, and the way to
  // its settings in Alerts.
  const ROW_UI = {
-@@ -428,7 +457,7 @@ let gameRunning = null;
+@@ -429,7 +458,7 @@ let gameRunning = null;
  // voiceRate.
  let prefs = { region: "auto", hidden: [], alerts: {}, leads: {}, closedLeads: {}, sound: "chime", repeat: 1, volume: 100, pop: false,
    tab: "events", display: "system", lastServer: 0, scale: 1, defaultLead: DEFAULT_LEAD, defaultClosedLead: DEFAULT_CLOSED_LEAD,
@@ -103,7 +103,7 @@ index c715955..887079a 100644
  // The world boss timers: { server, bosses, at, error }, from the feed and the
  // player's own map, the newest report of each boss kept.
  let feed = null;
-@@ -703,6 +732,9 @@ function renderStatic() {
+@@ -751,6 +780,9 @@ function renderStatic() {
    els.defaultClosed.value = String(defaultClosed());
    els.scaleSelect.replaceChildren(...SCALES.map((x) => option(x, `${Math.round(x * 100)}%`)));
    els.scaleSelect.value = String(prefs.scale);
@@ -113,22 +113,31 @@ index c715955..887079a 100644
    els.soundLabel.textContent = a.sound;
    els.testAlert.textContent = words.testAlert;
    els.alertOptionsBtn.textContent = words.alertOptions;
-@@ -1012,6 +1044,7 @@ function renderSchedule(list, events, now, { hideable, actions = false }) {
+@@ -1096,12 +1128,14 @@ function renderSchedule(list, events, now, { hideable, actions = false }) {
+         render();
+       });
+     }
+-    return row({
++    const li = row({
+       id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running, hide, actions,
+       soon: next.start - now <= SOON_MS,
+       countdown: running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
+       at: fmt.format(new Date(next.start)),
      });
-     if (live) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, live.hp))}%`);
-     li.classList.toggle("hasHp", !!live);
 +    li.classList.toggle("keepFolded", FOLDED_ALWAYS.has(ev.id));
-     return li;
++    return li;
    }));
    return shown;
-@@ -1104,10 +1137,71 @@ function fieldItems(bosses, now, withHeads) {
+ }
+@@ -1194,10 +1228,56 @@ function fieldItems(bosses, now, withHeads) {
    return items;
  }
  
-+// Folded: under the next events, the scheduled bosses on now or starting
-+// within the chosen time, and the world bosses up, in their window or back
-+// within it; the ones up first, then by time. Rows as on the Bosses tab, a
-+// bell where an alert is on, without its buttons.
++// Folded: under the next events, the world bosses up, in their window or
++// back within the chosen time (the Abyss's scheduled bosses among them, as
++// 0.6.23 lists them: up while their spawn is on); the ones up first, then by
++// time. Rows as on the Bosses tab, a bell where an alert is on, without its
++// buttons.
 +function renderFoldedBosses(now) {
 +  const minutes = foldedMinutes();
 +  if (!document.body.classList.contains("compact") || !minutes) {
@@ -139,23 +148,7 @@ index c715955..887079a 100644
 +  const limit = minutes * 60_000;
 +  const words = ui();
 +  const fmt = clock();
-+  const tz = timeZone();
 +  const items = [];
-+  for (const ev of scheduled("boss")) {
-+    if (!tz && !ev.utc) continue;
-+    const next = nextOf(ev, tz || "UTC", now);
-+    if (!next || next.start - now > limit) continue;
-+    const running = next.start <= now;
-+    items.push({
-+      first: running, at: next.start,
-+      li: row({
-+        id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
-+        soon: next.start - now <= SOON_MS,
-+        countdown: running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
-+        at: fmt.format(new Date(next.start)),
-+      }),
-+    });
-+  }
 +  for (const b of fieldBosses()) {
 +    const t = fieldTimer(b.id);
 +    const next = t?.state === "dead" && t.nextSpawn ? t.nextSpawn * 1000 : null;
@@ -193,7 +186,7 @@ index c715955..887079a 100644
    // Not while a row's button is pressed; a focused one keeps its focus.
    if (rowPress) return;
    const focused = document.activeElement?.closest?.(".rowBtn");
-@@ -2001,6 +2095,11 @@ els.scaleSelect.addEventListener("change", () => {
+@@ -2103,6 +2183,11 @@ els.scaleSelect.addEventListener("change", () => {
    savePrefs();
    applyScale();
  });
@@ -205,7 +198,7 @@ index c715955..887079a 100644
  els.regionSelect.addEventListener("change", () => {
    prefs.region = els.regionSelect.value;
    savePrefs();
-@@ -2039,7 +2138,10 @@ a2.on("bossMap", (m) => {
+@@ -2141,7 +2226,10 @@ a2.on("bossMap", (m) => {
  a2.on("game", (g) => {
    gameRunning = typeof g?.running === "boolean" ? g.running : null;
  });
@@ -218,10 +211,10 @@ index c715955..887079a 100644
  (async () => {
    prefs = { ...prefs, ...((await a2.storage.get("prefs").catch(() => null)) || {}) };
 diff --git a/plugins/event-timers/style.css b/plugins/event-timers/style.css
-index ad221aa..fdfbf65 100644
+index 62b294e..554c059 100644
 --- a/plugins/event-timers/style.css
 +++ b/plugins/event-timers/style.css
-@@ -25,6 +25,23 @@ body.compact .eventList li:nth-child(n + 4) {
+@@ -26,6 +26,23 @@ body.compact .eventList li:nth-child(n + 4) {
  body.compact .view.events {
    display: block;
  }

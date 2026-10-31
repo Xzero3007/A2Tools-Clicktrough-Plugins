@@ -1,0 +1,81 @@
+/* The host window paints the panel; the page stays transparent. Neutral
+   colours as the meter's, gold for what sells; no blue anywhere (the game's
+   Legend grade, blue in the game, is purple here, as in the Armory). */
+[hidden] { display: none !important; }
+:root {
+  --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
+  --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035);
+  --gold: var(--a2-accent, #e0a526); --gold-t: #f2c46b;
+  --g1: #c8ccd2; --g2: #7fdc9a; --g3: #c39bff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8;
+}
+html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+body { padding: 8px 10px 10px; box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+button { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 4px; padding: 2px 9px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.16); }
+button:disabled { opacity: .45; cursor: default; }
+select, input[type=search] { background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 3px 6px; box-sizing: border-box; }
+select option { background: #1c1f24; color: #fff; }
+input:focus, select:focus { outline: none; border-color: rgba(255,255,255,.45); }
+input[type=checkbox] { accent-color: var(--gold); margin: 0; }
+.muted { color: var(--muted); font-size: 12px; }
+.note { color: var(--muted); font-size: 12px; margin: 6px 2px; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+.check { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+
+.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.who { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.who .state { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick { max-width: 220px; }
+.priceBox { display: flex; align-items: center; gap: 8px; }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px; flex-wrap: wrap; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 5px 10px; color: var(--muted); }
+.tabs button:hover { color: var(--text); background: none; }
+.tabs button[aria-selected="true"] { color: #fff; border-bottom-color: var(--gold); }
+
+.tools { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.tools .search { flex: 1; min-width: 120px; }
+.sessionBar { display: flex; align-items: center; gap: 10px; margin: 2px 0 6px; }
+.sessionBar .sessionText { flex: 1; color: var(--muted); font-size: 12px; }
+.summary { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 2px 2px 6px; }
+.summary b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary .worth b { color: var(--gold-t); }
+
+.items { list-style: none; margin: 0; padding: 0; }
+.items li { display: grid; grid-template-columns: 38px minmax(0, 1fr) 64px 82px 92px; gap: 8px; align-items: center;
+  padding: 3px 4px; border-bottom: 1px solid var(--line); }
+.items li.head { border-bottom-color: rgba(255,255,255,.18); color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.items li.group { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding-top: 10px; }
+.items li.sellable { background: linear-gradient(90deg, rgba(224,165,38,.09), transparent 60%); }
+.icon { width: 34px; height: 34px; border-radius: 5px; background: rgba(255,255,255,.06); border: 1px solid var(--gc, rgba(255,255,255,.15));
+  display: grid; place-items: center; overflow: hidden; font-size: 13px; font-weight: 600; color: var(--gc, var(--muted)); }
+.icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.nm { min-width: 0; }
+.nm .n { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gc, var(--text)); }
+.nm .tags { display: flex; gap: 5px; font-size: 10.5px; color: var(--faint); }
+.tag { border: 1px solid rgba(255,255,255,.18); border-radius: 3px; padding: 0 4px; line-height: 15px; }
+.tag.sell { border-color: rgba(242,196,107,.6); color: var(--gold-t); }
+.tag.loot { border-color: rgba(127,220,154,.5); color: #a8ecbd; }
+.cnt, .unit, .tot { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cnt { color: var(--text); }
+.unit { color: var(--muted); font-size: 12px; }
+.tot { color: var(--muted); }
+li.sellable .tot { color: var(--gold-t); font-weight: 600; }
+.g1 { --gc: var(--g1); } .g2 { --gc: var(--g2); } .g3 { --gc: var(--g3); } .g4 { --gc: var(--g4); }
+.g5 { --gc: var(--g5); } .g6 { --gc: var(--g6); } .g7 { --gc: var(--g7); }
+.empty { color: var(--muted); font-size: 12px; margin: 14px 2px; }
+.more { margin: 8px 2px; }
+
+.floaterBar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.limits, .tickets { list-style: none; margin: 0; padding: 0; }
+.limits li, .tickets li { display: grid; grid-template-columns: 22px minmax(0, 1fr) 150px 120px; gap: 8px; align-items: center; padding: 4px 2px; border-bottom: 1px solid var(--line); }
+.limits li .lbl, .tickets li .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--gold); }
+.bar.full > i { background: #7fdc9a; }
+.val { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.val .x { color: var(--muted); font-size: 11.5px; }
+.credit { margin-top: 14px; font-size: 11px; color: var(--faint); }
+.limits li.empty, .tickets li.empty { display: block; }
+.items li.empty { display: block; }

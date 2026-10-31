@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="who">
+        <select class="pick" title="Whose items: the character you play, or one seen before"></select>
+        <span class="state muted"></span>
+      </div>
+      <div class="priceBox">
+        <span class="priceState muted"></span>
+        <button type="button" class="update" title="Read your server's market prices again">Update prices</button>
+      </div>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button type="button" data-tab="inv" role="tab">Inventory</button>
+      <button type="button" data-tab="char" role="tab">Character storage</button>
+      <button type="button" data-tab="acc" role="tab">Server storage</button>
+      <button type="button" data-tab="drops" role="tab">Drops</button>
+      <button type="button" data-tab="limits" role="tab">Limits</button>
+    </nav>
+    <section class="listView">
+      <div class="tools">
+        <input type="search" class="search" placeholder="Search …" autocomplete="off" spellcheck="false" />
+        <label class="check"><input type="checkbox" class="sellableOnly" /> Sellable only</label>
+        <select class="sort" title="Order">
+          <option value="value">By value</option>
+          <option value="name">By name</option>
+          <option value="count">By count</option>
+          <option value="grade">By grade</option>
+        </select>
+      </div>
+      <div class="sessionBar" hidden>
+        <span class="sessionText"></span>
+        <button type="button" class="newSession" title="Start counting the drops from now">New session</button>
+      </div>
+      <div class="summary"></div>
+      <p class="note hint" hidden></p>
+      <ul class="items"></ul>
+    </section>
+    <section class="limitsView" hidden>
+      <div class="floaterBar">
+        <label class="check"><input type="checkbox" class="floater" /> Floater</label>
+        <label class="check"><input type="checkbox" class="floaterLock" /> Lock in place</label>
+        <span class="muted">Shown in the floater: tick what you want to see.</span>
+      </div>
+      <h3>Limits</h3>
+      <ul class="limits"></ul>
+      <h3>Keys and entry counts</h3>
+      <ul class="tickets"></ul>
+      <p class="note">Counts come from the game when you log in and each time one changes. A count not shown yet appears once the game has sent it (log in again, or use it).</p>
+    </section>
+    <footer class="credit muted">
+      Items and tickets: AION 2's game data via SkeeveAN's Aion-DPS-Meter (MIT) and Aion2Data. Prices: aion2.exchange (players' collected market prices).
+    </footer>
+    <script src="/_sdk/a2.js"></script>
+    <script src="data.js"></script>
+    <script src="calc.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

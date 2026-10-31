@@ -1,51 +1,49 @@
-From 6c3f6c89a391d71a3394d98398f92d854c65bdde Mon Sep 17 00:00:00 2001
+From cb7d2751b19e76ecb40828c46805aa12074f74cb Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Wed, 28 Oct 2026 09:50:05 +0000
 Subject: [PATCH] Event Timers: the folded Abyss bosses with their live HP
 
-0.6.19 shows a scheduled Abyss boss that is up and fought with its HP from
-the shared feed on the Bosses tab; the folded view (patches 0001 to 0003)
-shows it the same: in Now, its HP and how fresh it is.
+0.6.22 shows the Abyss's scheduled bosses up with their HP from the
+shared feed, and 0.6.23 lists them as world bosses, purple where a world
+boss is green. The folded view (patches 0001 to 0003) takes them with the
+world bosses and shows them the same: in Now, purple, with their HP and
+how fresh it is. One up by its schedule with no report yet shows the time
+its spawn came, not "reported 490,000 h ago".
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01RahWACwaxzLAcYgwc9jk8C
 ---
- plugins/event-timers/plugin.js | 24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
+ plugins/event-timers/plugin.js | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
-index 4185adf..5793a9f 100644
+index d66664e..9d5ee05 100644
 --- a/plugins/event-timers/plugin.js
 +++ b/plugins/event-timers/plugin.js
-@@ -1270,17 +1270,21 @@ function renderFoldedBosses(now) {
-   for (const ev of scheduled("boss")) {
-     if (!tz && !ev.utc) continue;
-     const next = nextOf(ev, tz || "UTC", now);
--    if (!next || next.start - now > limit) continue;
--    const running = next.start <= now;
--    items.push({
--      first: running, at: next.start, part: running ? "now" : next.start - now <= SOON_MS ? "soon" : "later",
--      li: row({
--        id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
--        soon: next.start - now <= SOON_MS,
--        countdown: running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
--        at: fmt.format(new Date(next.start)),
--      }),
-+    // An Abyss boss up and fought (0.6.19): now, with its HP from the feed.
-+    const live = abyssLive(ev);
-+    if (!live && (!next || next.start - now > limit)) continue;
-+    const running = !!next && next.start <= now;
-+    const first = running || !!live;
-+    const li = row({
-+      id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running, up: !!live,
-+      soon: !!next && next.start - now <= SOON_MS,
-+      countdown: live && !running ? words.up
-+        : running ? `${ev.enter ? enterWord() : words.now} · ${words.left(span(next.end - now))}` : words.in(span(next.start - now)),
-+      at: live ? `${words.hpLeft(live.hp)} · ${words.ago(age(now - live.hpAt * 1000))}` : fmt.format(new Date(next.start)),
-     });
-+    if (live) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, live.hp))}%`);
-+    li.classList.toggle("hasHp", !!live);
-+    items.push({ first, at: first ? 0 : next.start, part: first ? "now" : next.start - now <= SOON_MS ? "soon" : "later", li });
-   }
-   for (const b of fieldBosses()) {
-     const t = fieldTimer(b.id);
+@@ -1371,9 +1371,12 @@ function renderFoldedBosses(now) {
+     let at;
+     if (up) {
+       countdown = t.upSince ? words.upFor(span(now - t.upSince * 1000)) : words.up;
++      // A scheduled one up by its schedule, with no report yet: the time
++      // its spawn came, not "reported 490,000 h ago".
+       at = t.hp != null && t.hpAt
+         ? `${words.hpLeft(t.hp)} · ${words.ago(age(now - t.hpAt * 1000))}`
+-        : words.seen(age(now - (t.reportedAt || 0) * 1000));
++        : t.reportedAt ? words.seen(age(now - t.reportedAt * 1000))
++        : t.upSince ? fmt.format(new Date(t.upSince * 1000)) : "";
+     } else {
+       countdown = inWindow ? words.ago(age(now - next)) : words.in(span(next - now));
+       at = fmt.format(new Date(next));
+@@ -1383,6 +1386,9 @@ function renderFoldedBosses(now) {
+     // Clicktrough: folded too, a world boss's map button after its map's name.
+     const map = mapButton(`field:${b.id}`);
+     if (map) li.querySelector(".where")?.append(map);
++    // An Abyss boss (its scheduled ones among them, 0.6.23) as on the Bosses
++    // tab: purple, up with its HP from the feed (0.6.22).
++    li.classList.toggle("abyss", isAbyssBoss(b));
+     if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
+     li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
+     // In its window it may come any moment, but it isn't there yet: soon,
 -- 
 2.43.0
 

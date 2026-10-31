@@ -8,7 +8,8 @@
 // events.json: [["character", {...}, {meta}], ["decoded:pet-list", {...}], ...]
 // WEB_FIXTURES=<json> answers a2.web.get ({ "<url or its start>": answer }),
 // STORE=<json> fills the plugin's storage first; pictures are grey squares.
-// WAIT=<ms> after the events (default 500), FULL=1 the whole page.
+// WAIT=<ms> after the events (default 500), FULL=1 the whole page, PAGE=<file>
+// another page of the plugin (widget.html: emit "widget" with what it shows).
 // The page gets the meter's dark ground; external requests are listed (there
 // should be none) and so are page errors.
 import http from "node:http";
@@ -27,7 +28,7 @@ const here = path.dirname(new URL(import.meta.url).pathname);
 const types = { ".js": "text/javascript", ".css": "text/css", ".html": "text/html", ".json": "application/json", ".webp": "image/webp", ".png": "image/png", ".svg": "image/svg+xml" };
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split("?")[0]);
-  const file = url === "/_sdk/a2.js" ? path.join(here, "a2.js") : path.join(dir, url === "/" ? "index.html" : url);
+  const file = url === "/_sdk/a2.js" ? path.join(here, "a2.js") : path.join(dir, url === "/" ? process.env.PAGE || "index.html" : url);
   fs.readFile(file, (err, body) => {
     if (err) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream" });

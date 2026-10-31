@@ -46,7 +46,8 @@
       send: async (name, data) => { window.__widgets?.[name]?.sent.push(data); },
       lock: ok, locked: async () => false, place: ok, list: async () => [],
     },
-    widget: { resize: ok },
+    // A widget page's own calls (PAGE=widget.html): what it posts is kept in window.__posts.
+    widget: { resize: ok, area: ok, drag: ok, post: async (m) => { (window.__posts ||= []).push(m); } },
     watchFps: ok,
   };
   window.open = (u) => { window.__opened.push(u); };

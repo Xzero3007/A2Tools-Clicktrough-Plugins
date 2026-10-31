@@ -1,4 +1,4 @@
-From 7fe8af2ad125e82b2f159b722bfa30fb64c91d1e Mon Sep 17 00:00:00 2001
+From 24ca009763bec12354ac4d82ab2a231993c21011 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Sat, 24 Oct 2026 14:06:24 +0000
 Subject: [PATCH] Event Timers: the folded bosses now, soon and later, each
@@ -18,15 +18,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
 ---
  plugins/event-timers/index.html |  15 +++-
- plugins/event-timers/plugin.js  | 124 +++++++++++++++++++++-----------
- plugins/event-timers/style.css  |  75 ++++++++++++++++---
- 3 files changed, 163 insertions(+), 51 deletions(-)
+ plugins/event-timers/plugin.js  | 122 +++++++++++++++++++++-----------
+ plugins/event-timers/style.css  |  75 +++++++++++++++++---
+ 3 files changed, 162 insertions(+), 50 deletions(-)
 
 diff --git a/plugins/event-timers/index.html b/plugins/event-timers/index.html
-index 594c63a..33bfacd 100644
+index 67c088b..84fb262 100644
 --- a/plugins/event-timers/index.html
 +++ b/plugins/event-timers/index.html
-@@ -25,10 +25,23 @@
+@@ -25,11 +25,24 @@
        </div>
      </div>
      <section class="view events">
@@ -40,6 +40,7 @@ index 594c63a..33bfacd 100644
 +        <button type="button" class="foldedLayoutBtn" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg></button>
 +      </div>
        <div class="foldedCol foldedColEvents">
+         <h2 class="group eventsHead" hidden>Events</h2>
 -        <h2 class="group foldedEventsHead"><span class="foldedEventsLabel">Events</span><button type="button" class="foldedLayoutBtn" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg></button></h2>
 +        <h2 class="group foldedEventsHead"><span class="foldedEventsLabel">Events</span></h2>
          <ol class="list eventList"></ol>
@@ -52,11 +53,11 @@ index 594c63a..33bfacd 100644
          <h2 class="group foldedBossHead" hidden></h2>
          <ol class="list foldedBossList"></ol>
 diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
-index 73c3d44..4e145ad 100644
+index 6d20e29..080513a 100644
 --- a/plugins/event-timers/plugin.js
 +++ b/plugins/event-timers/plugin.js
-@@ -39,6 +39,10 @@ const els = {
-   events: $(".eventList"),
+@@ -40,6 +40,10 @@ const els = {
+   eventsHead: $(".eventsHead"),
    foldedBossHead: $(".foldedBossHead"),
    foldedBoss: $(".foldedBossList"),
 +  foldedColNow: $(".foldedColNow"),
@@ -66,7 +67,7 @@ index 73c3d44..4e145ad 100644
    foldedColSoon: $(".foldedColSoon"),
    foldedColLater: $(".foldedColLater"),
    foldedLaterHead: $(".foldedLaterHead"),
-@@ -368,17 +372,55 @@ const MORE_UI = {
+@@ -369,17 +373,55 @@ const MORE_UI = {
  // The words for the folded view: its bosses, and its layout (below each
  // other, or side by side: events, bosses now and soon, later bosses).
  const FOLDED_UI = {
@@ -132,7 +133,7 @@ index 73c3d44..4e145ad 100644
  const FOLDED_LAYOUTS = ["stacked", "columns"];
  const foldedColumns = () => prefs.foldedLayout === "columns";
  // Side by side, the folded view is a wide bar with a column each; narrower
-@@ -479,7 +521,7 @@ let gameRunning = null;
+@@ -480,7 +522,7 @@ let gameRunning = null;
  // voiceRate.
  let prefs = { region: "auto", hidden: [], alerts: {}, leads: {}, closedLeads: {}, sound: "chime", repeat: 1, volume: 100, pop: false,
    tab: "events", display: "system", lastServer: 0, scale: 1, defaultLead: DEFAULT_LEAD, defaultClosedLead: DEFAULT_CLOSED_LEAD,
@@ -141,7 +142,7 @@ index 73c3d44..4e145ad 100644
  // The world boss timers: { server, bosses, at, error }, from the feed and the
  // player's own map, the newest report of each boss kept.
  let feed = null;
-@@ -761,6 +803,7 @@ function renderStatic() {
+@@ -809,6 +851,7 @@ function renderStatic() {
    els.foldedLayoutSelect.replaceChildren(...FOLDED_LAYOUTS.map((x) => option(x, foldedWords()[x])));
    els.foldedEventsLabel.textContent = ui().events;
    applyFoldedLayout();
@@ -149,7 +150,7 @@ index 73c3d44..4e145ad 100644
    els.soundLabel.textContent = a.sound;
    els.testAlert.textContent = words.testAlert;
    els.alertOptionsBtn.textContent = words.alertOptions;
-@@ -1170,12 +1213,12 @@ function fieldItems(bosses, now, withHeads) {
+@@ -1262,12 +1305,12 @@ function fieldItems(bosses, now, withHeads) {
  function renderFoldedBosses(now) {
    const minutes = foldedMinutes();
    if (!document.body.classList.contains("compact") || !minutes) {
@@ -168,16 +169,7 @@ index 73c3d44..4e145ad 100644
      return;
    }
    const limit = minutes * 60_000;
-@@ -1189,7 +1232,7 @@ function renderFoldedBosses(now) {
-     if (!next || next.start - now > limit) continue;
-     const running = next.start <= now;
-     items.push({
--      first: running, at: next.start, now: running || next.start - now <= SOON_MS,
-+      first: running, at: next.start, part: running ? "now" : next.start - now <= SOON_MS ? "soon" : "later",
-       li: row({
-         id: ev.id, name: eventName(ev), where: ev.where.map(text).join(", "), running,
-         soon: next.start - now <= SOON_MS,
-@@ -1219,32 +1262,29 @@ function renderFoldedBosses(now) {
+@@ -1295,32 +1338,29 @@ function renderFoldedBosses(now) {
      const li = row({ id: `field:${b.id}`, name, where: text(b.where), countdown, at, up, soon: inWindow || next - now <= SOON_MS });
      if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
      li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
@@ -230,7 +222,7 @@ index 73c3d44..4e145ad 100644
  }
  
  function render() {
-@@ -2148,6 +2188,7 @@ els.scaleSelect.addEventListener("change", () => {
+@@ -2236,6 +2276,7 @@ els.scaleSelect.addEventListener("change", () => {
  els.foldedBossSelect.addEventListener("change", () => {
    prefs.foldedBossMinutes = Number(els.foldedBossSelect.value);
    savePrefs();
@@ -238,7 +230,7 @@ index 73c3d44..4e145ad 100644
    render();
  });
  const setFoldedLayout = (layout) => {
-@@ -2158,6 +2199,7 @@ const setFoldedLayout = (layout) => {
+@@ -2246,6 +2287,7 @@ const setFoldedLayout = (layout) => {
  };
  els.foldedLayoutSelect.addEventListener("change", () => setFoldedLayout(els.foldedLayoutSelect.value));
  els.foldedLayoutBtn.addEventListener("click", () => setFoldedLayout(foldedColumns() ? "stacked" : "columns"));
@@ -247,10 +239,10 @@ index 73c3d44..4e145ad 100644
    prefs.region = els.regionSelect.value;
    savePrefs();
 diff --git a/plugins/event-timers/style.css b/plugins/event-timers/style.css
-index fb4233f..c5f555e 100644
+index 2a5d4a2..7b3fb06 100644
 --- a/plugins/event-timers/style.css
 +++ b/plugins/event-timers/style.css
-@@ -28,14 +28,19 @@ body.compact .view.events {
+@@ -29,14 +29,19 @@ body.compact .view.events {
  /* Folded, under the next events: the bosses up now or due soon (Settings:
     "Folded: bosses due within"). Only there. */
  .foldedBossHead,
@@ -273,7 +265,7 @@ index fb4233f..c5f555e 100644
    margin-top: 8px;
  }
  /* Folded, the next Artifact Siege shows too, past the next three events. */
-@@ -43,8 +48,55 @@ body.compact .eventList li.keepFolded {
+@@ -44,8 +49,55 @@ body.compact .eventList li.keepFolded {
    display: grid;
  }
  
@@ -331,7 +323,7 @@ index fb4233f..c5f555e 100644
  .foldedEventsHead,
  .foldedLaterHead,
  .foldedLaterList {
-@@ -83,21 +135,26 @@ body.compact .foldedLaterList {
+@@ -84,21 +136,26 @@ body.compact .foldedLaterList {
    color: rgba(255, 255, 255, 0.9);
    border-color: rgba(255, 255, 255, 0.35);
  }

@@ -1,4 +1,4 @@
-From 7e87139894f28ec043ba1287a388efa8f6ae4c3d Mon Sep 17 00:00:00 2001
+From f4c7f7cdeef27f8d1c493421c95fbfab24102f93 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Sun, 25 Oct 2026 01:56:22 +0000
 Subject: [PATCH] Event Timers: a world boss on the Map, with the way there
@@ -15,12 +15,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RBQati3x8VviBbpY9juEWf
 ---
  plugins/event-timers/manifest.json |  3 +-
- plugins/event-timers/plugin.js     | 48 ++++++++++++++++++++++++++++--
- plugins/event-timers/style.css     | 12 ++++++++
- 3 files changed, 60 insertions(+), 3 deletions(-)
+ plugins/event-timers/plugin.js     | 51 ++++++++++++++++++++++++++++--
+ plugins/event-timers/style.css     | 12 +++++++
+ 3 files changed, 63 insertions(+), 3 deletions(-)
 
 diff --git a/plugins/event-timers/manifest.json b/plugins/event-timers/manifest.json
-index 6928a35..9d7a63d 100644
+index 34d80b1..71e5fd4 100644
 --- a/plugins/event-timers/manifest.json
 +++ b/plugins/event-timers/manifest.json
 @@ -10,7 +10,8 @@
@@ -34,10 +34,10 @@ index 6928a35..9d7a63d 100644
    "decoders": [],
    "ui": {
 diff --git a/plugins/event-timers/plugin.js b/plugins/event-timers/plugin.js
-index 43060fb..4185adf 100644
+index c2391d2..d66664e 100644
 --- a/plugins/event-timers/plugin.js
 +++ b/plugins/event-timers/plugin.js
-@@ -886,6 +886,9 @@ const BELL_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" s
+@@ -958,6 +958,9 @@ const BELL_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" s
    + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/>'
    + '<path class="fillable" d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8'
    + 'c0 4.499-1.411 5.956-2.738 7.326"/></svg>';
@@ -47,7 +47,7 @@ index 43060fb..4185adf 100644
  const GEAR_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" '
    + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 '
    + '1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 '
-@@ -931,9 +934,36 @@ function rowActions(id) {
+@@ -1003,9 +1006,39 @@ function rowActions(id) {
    gear.setAttribute("aria-label", gear.title);
    gear.innerHTML = GEAR_ICON;
    box.append(bell, gear);
@@ -59,9 +59,12 @@ index 43060fb..4185adf 100644
  }
  
 +// Clicktrough: the button that shows a world boss on the Map plugin, or
-+// null (not a world boss, or a meter that doesn't share).
++// null (not a world boss, or a meter that doesn't share). The Abyss's
++// scheduled bosses, world bosses since 0.6.23, have none: their spawns' ids
++// (2002-2008) are not ones the Map knows.
 +function mapButton(id) {
 +  if (!id.startsWith("field:") || typeof a2.share !== "function") return null;
++  if (FIELD_BOSSES[id.slice(6)]?.schedule) return null;
 +  const map = document.createElement("button");
 +  map.type = "button";
 +  map.className = "rowBtn mapBtn";
@@ -84,7 +87,7 @@ index 43060fb..4185adf 100644
  function toggleBossAlert(id) {
    if (id in prefs.alerts) delete prefs.alerts[id];
    else prefs.alerts[id] = prefs.leads[id] ?? defaultLead();
-@@ -953,6 +983,7 @@ for (const list of [els.scheduled, els.field]) {
+@@ -1025,6 +1058,7 @@ for (const list of [els.scheduled, els.field]) {
      e.stopPropagation();
      const id = btn.dataset.id;
      if (btn.dataset.act === "alert") toggleBossAlert(id);
@@ -92,7 +95,7 @@ index 43060fb..4185adf 100644
      else if (btn.dataset.act === "settings") {
        const { key } = bossAlert(id);
        if (key) openAlert(key);
-@@ -963,11 +994,21 @@ for (const list of [els.scheduled, els.field]) {
+@@ -1035,7 +1069,7 @@ for (const list of [els.scheduled, els.field]) {
  // release land on two drawings of the row would be lost.
  let rowPress = false;
  const endPress = () => { rowPress = false; };
@@ -101,7 +104,10 @@ index 43060fb..4185adf 100644
    list.addEventListener("pointerdown", (e) => {
      if (e.target.closest?.(".rowBtn")) rowPress = true;
    });
- }
+@@ -1063,6 +1097,16 @@ const chatSpan = (ms) => {
+   const m = Math.round(s / 60);
+   return m >= 60 ? `${unit(Math.floor(m / 60), "hour")} ${unit(m % 60, "minute")}` : unit(m, "minute");
+ };
 +// Clicktrough: the folded view's map buttons.
 +for (const list of [els.foldedNow, els.foldedBoss, els.foldedLater]) {
 +  list.addEventListener("click", (e) => {
@@ -115,7 +121,7 @@ index 43060fb..4185adf 100644
  // A boss row's nearest teleport, in a tooltip while the pointer is on it.
  // One tooltip for the page, placed by the row (the rows are drawn anew every
  // second; the tooltip stays). Positions are corrected by what the browser
-@@ -1260,6 +1301,9 @@ function renderFoldedBosses(now) {
+@@ -1336,6 +1380,9 @@ function renderFoldedBosses(now) {
      }
      const name = text(b.name) + (b.level ? ` · Lv ${b.level}` : "");
      const li = row({ id: `field:${b.id}`, name, where: text(b.where), countdown, at, up, soon: inWindow || next - now <= SOON_MS });
@@ -125,7 +131,7 @@ index 43060fb..4185adf 100644
      if (up && t.hp != null && t.hpAt) li.style.setProperty("--hp", `${Math.max(0, Math.min(100, t.hp))}%`);
      li.classList.toggle("hasHp", up && t.hp != null && !!t.hpAt);
      // In its window it may come any moment, but it isn't there yet: soon,
-@@ -1293,9 +1337,9 @@ function render() {
+@@ -1369,9 +1416,9 @@ function render() {
    const now = Date.now();
    renderHeader(now);
    renderHidden(renderSchedule(els.events, scheduled("event"), now, { hideable: true }));
@@ -135,12 +141,12 @@ index 43060fb..4185adf 100644
 +  renderFoldedBosses(now);
    const focused = document.activeElement?.closest?.(".rowBtn");
    const refocus = focused && { act: focused.dataset.act, id: focused.dataset.id };
-   renderSchedule(els.scheduled, scheduled("boss"), now, { hideable: false, actions: true });
+   els.scheduled.replaceChildren(...fieldItems(fieldBosses().filter(isAbyssBoss), now, false));
 diff --git a/plugins/event-timers/style.css b/plugins/event-timers/style.css
-index c5f555e..3860ed9 100644
+index 7b3fb06..0188201 100644
 --- a/plugins/event-timers/style.css
 +++ b/plugins/event-timers/style.css
-@@ -1243,3 +1243,15 @@ body.alertOnly .openFull:hover {
+@@ -1254,3 +1254,15 @@ body.alertOnly .openFull:hover {
  .voiceTestRow { justify-content: flex-end; }
  /* An alert's own note (the Dimensional Invasion's), under its name. */
  .alertNote { margin: 2px 0 6px 24px; font-size: 11.5px; }
