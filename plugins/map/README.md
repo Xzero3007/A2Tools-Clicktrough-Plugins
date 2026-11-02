@@ -176,12 +176,13 @@ its title; **S, M, L, XL** in its title (shown while the pointer is on it) or
 **Overlay size** here set its size, or drag one of its corners (the brackets)
 for any other, which the window manager does as for any window; the wheel
 zooms it; the slider in its title (or **Opacity** here) sets how much of the
-game shows through (the marks stay solid); **Lock it** lets clicks through to
-the game. **1 2 3** in its title are three places of your own: a right-click
+game shows through (the marks stay solid). The meter's lock (in its title)
+locks the overlay too: locked, clicks go through it to the game; unlocked,
+it moves and its buttons work. **1 2 3** in its title are three places of your own: a right-click
 on a number keeps where the overlay is and its size there, a click goes back
 to it (a kept place's number is gold). With Clicktrough's meter (patch 0035)
 a **map button in the meter's title** shows or hides the overlay without the
-plugin window, also while the plugins are hidden with the puzzle button.
+plugin window; the puzzle button leaves it as it is.
 
 Maps: Verteron, Altgard, the Abyss (its lower, middle and upper layers),
 Eltnen, Morheim, Poeta and Ishalgen, whole, as the game draws its world map

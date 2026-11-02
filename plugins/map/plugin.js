@@ -487,7 +487,8 @@
         zoom: settings.overlayZoom,
         opacity: settings.overlayOpacity,
         onThisMap: !!onThisMap,
-        locked: settings.overlayLock,
+        // The meter's lock is the overlay's (Clicktrough: no lock of its own).
+        locked: false,
         size: sizeName(),
         slots: (settings.overlaySlots || []).map(Boolean),
         region,
@@ -515,7 +516,9 @@
     try {
       if (settings.overlay) {
         await a2.widgets.open("overlay", overlaySize());
-        await a2.widgets.lock(!!settings.overlayLock);
+        // No lock of its own: the meter's lock lets clicks through to the
+        // game, one lock for everything (a lock kept from before is undone).
+        await a2.widgets.lock(false);
         lastSent = 0;
         render();
       } else {
@@ -644,7 +647,6 @@
       return b;
     }));
     $(".overlayOpacity").value = String(Math.round(settings.overlayOpacity * 100));
-    $(".overlayLock").checked = !!settings.overlayLock;
     document.body.classList.toggle("bigMap", !!settings.bigMap);
     $(".bigBtn").setAttribute("aria-pressed", String(!!settings.bigMap));
     $(".resultsBtn").hidden = !settings.focus;
@@ -760,12 +762,6 @@
     saveLater();
     render();
   });
-  $(".overlayLock").addEventListener("change", () => {
-    settings.overlayLock = $(".overlayLock").checked;
-    saveLater();
-    a2.widgets.lock(settings.overlayLock).catch(() => {});
-    render();
-  });
   function pickMap(value) {
     settings.pick = value;
     if (settings.pick !== "auto") settings.follow = false;
@@ -878,5 +874,8 @@
     render();
     if (settings.overlay) applyOverlay();
     a2.ready();
+    // One lock for everything: the meter's. A lock of the overlay's own,
+    // kept from an earlier version, is undone.
+    a2.widgets.lock(false).catch(() => {});
   })();
 })();

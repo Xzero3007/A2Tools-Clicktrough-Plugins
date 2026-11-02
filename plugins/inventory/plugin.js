@@ -396,7 +396,6 @@
   }
   function renderLimits() {
     $(".floater").checked = !!settings.floater;
-    $(".floaterLock").checked = !!settings.floaterLock;
     const rows = limitRows();
     const line = (r) => {
       const box = el("input", { type: "checkbox", checked: r.shown, title: "Show it in the floater" });
@@ -433,7 +432,7 @@
     const rows = all.filter((r) => r.shown).map((r) => ({ label: r.short || r.label, title: r.label, value: r.value, max: r.max, text: r.text }));
     const empty = all.length ? "Nothing ticked: pick in the window's Limits" : "Waiting for the game's values (log in)";
     const slots = (Array.isArray(settings.floaterSlots) ? settings.floaterSlots : []).map(Boolean);
-    return { rows, empty, slots, opacity: settings.floaterOpacity, locked: !!settings.floaterLock, who: character?.name || "" };
+    return { rows, empty, slots, opacity: settings.floaterOpacity, locked: false, who: character?.name || "" };
   }
   const floaterSize = (n) => ({ width: Math.max(180, Math.min(600, settings.floaterWidth || 260)), height: Math.max(80, Math.min(700, 40 + Math.max(1, n) * 24)) });
   async function applyFloater() {
@@ -441,7 +440,9 @@
       if (settings.floater) {
         const st = floaterState();
         await a2.widgets.open("limits", floaterSize(st.rows.length));
-        await a2.widgets.lock(!!settings.floaterLock);
+        // No lock of its own: the meter's lock lets clicks through to the
+        // game, one lock for everything (a lock kept from before is undone).
+        await a2.widgets.lock(false);
         floaterOpen = true;
         lastFloater = "";
         sendFloater();
@@ -570,13 +571,6 @@
     saveSettings();
     applyFloater();
   });
-  $(".floaterLock").addEventListener("change", () => {
-    settings.floaterLock = $(".floaterLock").checked;
-    saveSettings();
-    a2.widgets.lock(settings.floaterLock).catch(() => {});
-    lastFloater = "";
-    sendFloater();
-  });
 
   // ---------- from the meter ----------
   a2.on("character", async (c) => {
@@ -617,6 +611,9 @@
     await loadStock(viewKey());
     render();
     a2.ready();
+    // One lock for everything: the meter's. A lock of the overlay's own,
+    // kept from an earlier version, is undone.
+    a2.widgets.lock(false).catch(() => {});
     if (settings.floater) applyFloater();
     await loadServers();
     render();
