@@ -12,16 +12,25 @@ body { --alpha: 0.86; }
 .opacity { width: 64px; min-width: 40px; flex: 0 1 64px; margin: 0; accent-color: #c8ccd2; }
 /* The size buttons and the slider show while the pointer is on the overlay;
    else the title has the room. */
-.card:not(:hover) .sizes, .card:not(:hover) .opacity:not(:focus) { display: none; }
+.card:not(:hover) .sizes, .card:not(:hover) .slots, .card:not(:hover) .opacity:not(:focus) { display: none; }
 .sizes { display: inline-flex; flex: none; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.18); }
 .sizes button { background: rgba(255, 255, 255, 0.04); border: 0; color: rgba(255, 255, 255, 0.75); font-family: inherit; font-weight: 600; font-size: 11px; line-height: 1;
   padding: 3px 6px; cursor: pointer; }
 .sizes button + button { border-left: 1px solid rgba(255, 255, 255, 0.14); }
 .sizes button:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .sizes button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.22); color: #fff; }
+/* The places 1 2 3: a click goes there, a right-click keeps the place here.
+   A kept one is gold; one just kept flashes. */
+.slots { display: inline-flex; flex: none; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.18); }
+.slots button { background: rgba(255, 255, 255, 0.04); border: 0; color: rgba(255, 255, 255, 0.4); font-family: inherit; font-weight: 600; font-size: 11px; line-height: 1;
+  padding: 3px 6px; cursor: pointer; }
+.slots button + button { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.slots button.saved { color: #f2c46b; }
+.slots button:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.slots button.kept { background: rgba(224, 165, 38, 0.45); color: #fff; }
 .close { background: none; border: 0; color: rgba(255, 255, 255, 0.6); font-size: 16px; line-height: 1; padding: 0 2px; cursor: pointer; }
 .close:hover { color: #fff; }
-body.locked .close, body.locked .opacity, body.locked .sizes, body.locked .corner, body.noResize .corner { display: none; }
+body.locked .close, body.locked .opacity, body.locked .sizes, body.locked .slots, body.locked .corner, body.noResize .corner { display: none; }
 body.locked .head { cursor: default; }
 .mapBox { position: relative; flex: 1; margin: 0 6px; border-radius: 7px; overflow: hidden; background: rgba(0, 0, 0, calc(var(--alpha) * 0.35)); }
 .mapTiles { position: absolute; inset: 0; overflow: hidden; z-index: 0; opacity: var(--alpha); }

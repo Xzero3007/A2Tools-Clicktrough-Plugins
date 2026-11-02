@@ -25,6 +25,11 @@ pick.
   with its bar. A tick puts it in the **floater**, a small card over the game
   (switched on here; dragged by its head, its sides set the width, the slider
   how much of the game shows through; **Lock in place** keeps it still).
+  **1 2 3** in its head are three places of your own: a right-click on a
+  number keeps where the floater is and its width there, a click goes back
+  to it (a kept place's number is gold). The **gauge button in the meter's
+  title** (meter patch 0035) shows or hides the floater without the plugin
+  window, also while the plugins are hidden with the puzzle button.
 - **Another character**: the menu at the top shows the items of every
   character seen before, as they were last.
 

@@ -1,7 +1,7 @@
 {
   "id": "inventory",
   "name": "Inventory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "apiVersion": 2,
   "author": "Clicktrough (items and tickets: the game client via SkeeveAN's Aion-DPS-Meter, MIT, and Aion2Data; prices: aion2.exchange)",
   "description": "Your inventory, character storage and server storage with each item's picture and name, what the sellable ones are worth on your server's market, the drops of a session, and a floater with today's Kinah, the week's Abyss Points and your keys and entry counts.",
@@ -18,6 +18,11 @@
     "panel": {
       "width": 600,
       "height": 660
+    },
+    "overlay": {
+      "widget": "limits",
+      "title": "Limits",
+      "icon": "gauge"
     }
   }
 }

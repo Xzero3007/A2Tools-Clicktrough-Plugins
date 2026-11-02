@@ -35,6 +35,11 @@
     $(".title").textContent = `${map?.title || "Map"}${state.region ? ` · ${state.region}` : ""}${state.guess ? "?" : ""}`;
     $(".title").title = $(".title").textContent;
     for (const b of document.querySelectorAll(".sizes button")) b.setAttribute("aria-pressed", String(b.dataset.size === state.size));
+    for (const b of document.querySelectorAll(".slots button")) {
+      const saved = !!state.slots?.[Number(b.dataset.slot)];
+      b.classList.toggle("saved", saved);
+      b.title = saved ? `Go to place ${Number(b.dataset.slot) + 1} (right-click: keep this place there instead)` : `Right-click: keep this place as place ${Number(b.dataset.slot) + 1}`;
+    }
     // Not while the slider is in use: the plugin's answer lags behind it.
     if (Date.now() - opacityTouched > 1500) applyOpacity(state.opacity ?? 0.86);
     const chip = $(".nextChip");
@@ -106,6 +111,18 @@
     draw();
     a2.widget.post({ type: "zoom", value: next }).catch(() => {});
   }, { passive: false });
+
+  // The places: a click goes there, a right-click keeps the overlay's place
+  // and size there (the plugin keeps them).
+  for (const b of document.querySelectorAll(".slots button")) {
+    b.addEventListener("click", () => a2.widget.post({ type: "slot", slot: Number(b.dataset.slot) }).catch(() => {}));
+    b.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      b.classList.add("kept");
+      setTimeout(() => b.classList.remove("kept"), 600);
+      a2.widget.post({ type: "slot-save", slot: Number(b.dataset.slot) }).catch(() => {});
+    });
+  }
 
   // The sizes: the plugin opens the overlay at that size.
   for (const b of document.querySelectorAll(".sizes button")) {

@@ -31,6 +31,7 @@
     floaterLock: false,
     floaterOpacity: 0.86,
     floaterWidth: 260,
+    floaterSlots: [null, null, null], // the floater's places 1 2 3: { x, y, width }
     shown: { kinah: true, abyss: true, gathering: true },
     tickets: null, // ids shown in the floater; null: FIRST_TICKETS
   };
@@ -431,7 +432,8 @@
     const all = limitRows();
     const rows = all.filter((r) => r.shown).map((r) => ({ label: r.short || r.label, title: r.label, value: r.value, max: r.max, text: r.text }));
     const empty = all.length ? "Nothing ticked: pick in the window's Limits" : "Waiting for the game's values (log in)";
-    return { rows, empty, opacity: settings.floaterOpacity, locked: !!settings.floaterLock, who: character?.name || "" };
+    const slots = (Array.isArray(settings.floaterSlots) ? settings.floaterSlots : []).map(Boolean);
+    return { rows, empty, slots, opacity: settings.floaterOpacity, locked: !!settings.floaterLock, who: character?.name || "" };
   }
   const floaterSize = (n) => ({ width: Math.max(180, Math.min(600, settings.floaterWidth || 260)), height: Math.max(80, Math.min(700, 40 + Math.max(1, n) * 24)) });
   async function applyFloater() {
@@ -480,7 +482,49 @@
     } else if (data.type === "resized" && Number.isFinite(data.width)) {
       settings.floaterWidth = Math.round(data.width);
       saveSettings();
+    } else if (data.type === "slot" && Number.isInteger(data.slot)) {
+      goToSlot(data.slot);
+    } else if (data.type === "slot-save" && Number.isInteger(data.slot)) {
+      saveSlot(data.slot);
     }
+  });
+
+  // The floater's places 1 2 3: where it is and how wide, kept with a
+  // right-click on its number, gone to with a click.
+  async function saveSlot(n) {
+    if (n < 0 || n > 2) return;
+    let at = null;
+    try {
+      at = await a2.widgets.where("limits");
+    } catch {}
+    if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return;
+    const slots = Array.isArray(settings.floaterSlots) ? [...settings.floaterSlots] : [null, null, null];
+    slots[n] = { x: Math.round(at.x), y: Math.round(at.y), width: settings.floaterWidth };
+    settings.floaterSlots = slots;
+    saveSettings();
+    lastFloater = "";
+    sendFloater();
+  }
+  async function goToSlot(n) {
+    const slot = settings.floaterSlots?.[n];
+    if (!slot) return;
+    if (Number.isFinite(slot.width)) settings.floaterWidth = slot.width;
+    saveSettings();
+    try {
+      await a2.widgets.place("limits", { x: slot.x, y: slot.y });
+      if (settings.floater && floaterOpen) await a2.widgets.open("limits", floaterSize(floaterState().rows.length));
+    } catch {}
+    lastFloater = "";
+    sendFloater();
+  }
+
+  // The meter's header button for the floater (Clicktrough's meter): on or
+  // off, as the Floater tick here.
+  a2.on("overlay", (data) => {
+    settings.floater = !!data?.show;
+    saveSettings();
+    applyFloater();
+    if (settings.tab === "limits") renderLimits();
   });
 
   // ---------- controls ----------

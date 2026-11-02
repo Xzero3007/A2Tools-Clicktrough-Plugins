@@ -489,6 +489,7 @@
         onThisMap: !!onThisMap,
         locked: settings.overlayLock,
         size: sizeName(),
+        slots: (settings.overlaySlots || []).map(Boolean),
         region,
         guess,
       }).then(() => { learnedSent = sentVersion; }).catch(() => {});
@@ -525,6 +526,46 @@
     }
   }
 
+  // The overlay's places 1 2 3: where it is and how big, kept with a
+  // right-click on its number, gone to with a click.
+  async function saveSlot(n) {
+    if (n < 0 || n > 2) return;
+    let at = null;
+    try {
+      at = await a2.widgets.where("overlay");
+    } catch {}
+    if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return;
+    const slots = Array.isArray(settings.overlaySlots) ? [...settings.overlaySlots] : [null, null, null];
+    slots[n] = { x: Math.round(at.x), y: Math.round(at.y), size: [...overlaySizeArr()] };
+    settings.overlaySlots = slots;
+    saveLater();
+    lastSent = 0;
+    render();
+  }
+  async function goToSlot(n) {
+    const slot = settings.overlaySlots?.[n];
+    if (!slot) return;
+    if (Array.isArray(slot.size)) settings.overlaySize = [...slot.size];
+    saveLater();
+    renderTools();
+    try {
+      await a2.widgets.place("overlay", { x: slot.x, y: slot.y });
+      if (settings.overlay) await a2.widgets.open("overlay", overlaySize());
+    } catch {}
+    lastSent = 0;
+    render();
+  }
+  const overlaySizeArr = () => (Array.isArray(settings.overlaySize) ? settings.overlaySize : SIZES.m);
+
+  // The meter's header button for the overlay (Clicktrough's meter): on or
+  // off, as the overlay switch here.
+  a2.on("overlay", (data) => {
+    settings.overlay = !!data?.show;
+    saveLater();
+    renderTools();
+    applyOverlay();
+  });
+
   a2.on("widget-message", ({ name, data }) => {
     if (name !== "overlay" || !data) return;
     if (data.type === "zoom" && Number.isFinite(data.value)) {
@@ -549,6 +590,10 @@
       saveLater();
       renderTools();
       applyOverlay();
+    } else if (data.type === "slot" && Number.isInteger(data.slot)) {
+      goToSlot(data.slot);
+    } else if (data.type === "slot-save" && Number.isInteger(data.slot)) {
+      saveSlot(data.slot);
     } else if (data.type === "focus-clear") {
       setFocus(null);
     } else if (data.type === "ready") {

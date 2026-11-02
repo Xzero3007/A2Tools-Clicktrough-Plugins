@@ -35,6 +35,11 @@
     });
     $(".rows").replaceChildren(...(list.length ? list : [el("li", "empty", state?.empty || "Nothing to show yet")]));
     if (Date.now() - opacityTouched > 1500) applyOpacity(state?.opacity ?? 0.86);
+    for (const b of document.querySelectorAll(".slots button")) {
+      const saved = !!state?.slots?.[Number(b.dataset.slot)];
+      b.classList.toggle("saved", saved);
+      b.title = saved ? `Go to place ${Number(b.dataset.slot) + 1} (right-click: keep this place there instead)` : `Right-click: keep this place as place ${Number(b.dataset.slot) + 1}`;
+    }
   }
 
   function applyOpacity(value) {
@@ -53,6 +58,17 @@
     a2.widget.drag().catch(() => {});
   });
   $(".close").addEventListener("click", () => a2.widget.post({ type: "close" }).catch(() => {}));
+  // The places: a click goes there, a right-click keeps the floater's place
+  // and width there (the plugin keeps them).
+  for (const b of document.querySelectorAll(".slots button")) {
+    b.addEventListener("click", () => a2.widget.post({ type: "slot", slot: Number(b.dataset.slot) }).catch(() => {}));
+    b.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      b.classList.add("kept");
+      setTimeout(() => b.classList.remove("kept"), 600);
+      a2.widget.post({ type: "slot-save", slot: Number(b.dataset.slot) }).catch(() => {});
+    });
+  }
   $(".opacity").addEventListener("input", () => {
     opacityTouched = Date.now();
     const v = Number($(".opacity").value) / 100;

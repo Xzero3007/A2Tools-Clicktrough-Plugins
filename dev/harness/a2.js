@@ -44,7 +44,10 @@
       open: async (name) => { (window.__widgets ||= {})[name] = { open: true, sent: [] }; },
       close: async (name) => { if (window.__widgets?.[name]) window.__widgets[name].open = false; },
       send: async (name, data) => { window.__widgets?.[name]?.sent.push(data); },
-      lock: ok, locked: async () => false, place: ok, list: async () => [],
+      lock: ok, locked: async () => false, list: async () => [],
+      // Where a widget is, and where it was placed (window.__placed).
+      where: async (name) => ({ x: 100, y: 120, width: 300, height: 330, ...(window.__placed?.[name] || {}) }),
+      place: async (name, at) => { (window.__placed ||= {})[name] = { x: at?.x, y: at?.y }; },
     },
     // A widget page's own calls (PAGE=widget.html): what it posts is kept in window.__posts.
     widget: { resize: ok, area: ok, drag: ok, post: async (m) => { (window.__posts ||= []).push(m); } },
