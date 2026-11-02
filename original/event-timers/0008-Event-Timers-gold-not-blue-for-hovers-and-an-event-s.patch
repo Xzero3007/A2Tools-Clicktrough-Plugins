@@ -1,4 +1,4 @@
-From ee341a31850c3abc8cc87a1f2a2ca0f522f77d72 Mon Sep 17 00:00:00 2001
+From 6223b59d1457b4ccda0fd19690b3d47defe04055 Mon Sep 17 00:00:00 2001
 From: A2Tools-patch <patch@localhost>
 Date: Thu, 29 Oct 2026 14:52:33 +0000
 Subject: [PATCH] Event Timers: gold, not blue, for hovers and an event's ring

@@ -1,0 +1,30 @@
+From 7f5660475142d149769b51868e7007480a9c0bd9 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Mon, 2 Nov 2026 14:09:01 +0000
+Subject: [PATCH] Event Timers: no lock of its own, the meter's lock is the
+ icons'
+
+---
+ plugins/event-timers/pins.js | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/plugins/event-timers/pins.js b/plugins/event-timers/pins.js
+index 5ac9be3..1f562c2 100644
+--- a/plugins/event-timers/pins.js
++++ b/plugins/event-timers/pins.js
+@@ -631,7 +631,11 @@ function renderPinLock() {
+     const lock = switchBox("pinLock");
+     const note = document.createElement("p");
+     note.className = "note pinLockNote";
+-    box.append(row("styleRow", style), row("keepRow", keep), row("effectRow", effect), row("nameRow", name), row("tpRow", tp), row("lockRow", lock), note);
++    // Clicktrough: the meter's lock is the icons' lock (no lock of their own).
++    const lockRow = row("lockRow", lock);
++    lockRow.style.display = "none";
++    note.style.display = "none";
++    box.append(row("styleRow", style), row("keepRow", keep), row("effectRow", effect), row("nameRow", name), row("tpRow", tp), lockRow, note);
+     // First under the Alerts heading.
+     // First in Settings, under its own "On screen" heading (anchor.js),
+     // ahead of the Alerts heading.
+-- 
+2.43.0
+

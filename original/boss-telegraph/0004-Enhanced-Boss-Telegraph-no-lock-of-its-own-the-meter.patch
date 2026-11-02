@@ -1,0 +1,27 @@
+From 81b1dd614210480b1624e505191ac2b111687bf2 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Mon, 2 Nov 2026 14:09:01 +0000
+Subject: [PATCH] Enhanced Boss Telegraph: no lock of its own, the meter's lock
+ is the big text's
+
+---
+ plugins/boss-telegraph/index.html | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/plugins/boss-telegraph/index.html b/plugins/boss-telegraph/index.html
+index 2a03dd3..10d9aea 100644
+--- a/plugins/boss-telegraph/index.html
++++ b/plugins/boss-telegraph/index.html
+@@ -10,7 +10,8 @@
+       <label class="switch"><span data-t="enabled">Callouts on</span><input type="checkbox" class="enabled" /></label>
+       <label class="switch"><span data-t="showWidget">Big text on screen</span><input type="checkbox" class="widget" /></label>
+       <p class="note sub" data-t="showWidgetNote">Off: spoken only.</p>
+-      <label class="switch"><span data-t="lock">Lock in place</span><input type="checkbox" class="lock" /></label>
++      <!-- Clicktrough: the meter's lock is the big text's lock (no lock of its own). -->
++      <label class="switch" style="display:none"><span data-t="lock">Lock in place</span><input type="checkbox" class="lock" /></label>
+       <div class="row">
+         <span data-t="style" id="styleLabel">Call style</span>
+         <select class="style" aria-labelledby="styleLabel">
+-- 
+2.43.0
+

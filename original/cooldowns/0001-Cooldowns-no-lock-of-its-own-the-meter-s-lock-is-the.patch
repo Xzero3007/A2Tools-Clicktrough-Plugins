@@ -1,0 +1,26 @@
+From eebf3d0d7fbb6aa5afee3cd4de0134e270c84e43 Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Mon, 2 Nov 2026 14:09:01 +0000
+Subject: [PATCH] Cooldowns: no lock of its own, the meter's lock is the icons'
+
+---
+ plugins/cooldowns/index.html | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/plugins/cooldowns/index.html b/plugins/cooldowns/index.html
+index 9514e03..a78ea73 100644
+--- a/plugins/cooldowns/index.html
++++ b/plugins/cooldowns/index.html
+@@ -12,7 +12,8 @@
+         <span class="char"></span>
+       </div>
+       <label class="switch"><span data-t="showWidget">Show the icons</span><input type="checkbox" class="show" /></label>
+-      <label class="switch"><span data-t="lock">Lock in place</span><input type="checkbox" class="lock" /></label>
++      <!-- Clicktrough: the meter's lock is the icons' lock (no lock of their own). -->
++      <label class="switch" style="display:none"><span data-t="lock">Lock in place</span><input type="checkbox" class="lock" /></label>
+     </header>
+     <nav class="tabs" role="tablist">
+       <button type="button" class="tab isActive" data-tab="skills" data-t="skills">Skills</button>
+-- 
+2.43.0
+

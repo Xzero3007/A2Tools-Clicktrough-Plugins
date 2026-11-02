@@ -1,0 +1,31 @@
+From 6ad56a70a2d951fa9f3a90563fdb84a56e6c99dd Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Mon, 2 Nov 2026 14:09:01 +0000
+Subject: [PATCH] Ping: no lock of its own, the meter's lock is the widget's
+
+---
+ plugins/ping/index.html | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/ping/index.html b/plugins/ping/index.html
+index 802dfce..137d511 100644
+--- a/plugins/ping/index.html
++++ b/plugins/ping/index.html
+@@ -15,11 +15,12 @@
+         <span data-t="show">Show the ping widget</span>
+         <input type="checkbox" class="show" />
+       </label>
+-      <label class="row">
++      <!-- Clicktrough: the meter's lock is the widget's lock (no lock of its own). -->
++      <label class="row" style="display:none">
+         <span data-t="lock">Lock the widget</span>
+         <input type="checkbox" class="lock" />
+       </label>
+-      <p class="note" data-t="lockNote">Clicks pass through to the game. Unlock to move it.</p>
++      <p class="note" data-t="lockNote" style="display:none">Clicks pass through to the game. Unlock to move it.</p>
+       <label class="row">
+         <span data-t="fps">Show the game's FPS</span>
+         <input type="checkbox" class="fps" />
+-- 
+2.43.0
+
