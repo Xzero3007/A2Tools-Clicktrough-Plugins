@@ -50,7 +50,9 @@
     $(".title").textContent = st?.who ? `Black Cloud · ${st.who}` : "Black Cloud";
     const offers = Array.isArray(st?.offers) ? st.offers : [];
     const fresh = offers.filter((o) => o.status === "new").length;
-    $(".info").textContent = !offers.length ? "Open a tab of the shop: its skins show here."
+    const known = st?.count != null;
+    $(".info").textContent = !known ? "Closet not known yet: log in once with the meter running (until then every skin shows ?)"
+      : !offers.length ? "Open a tab of the shop: its skins show here."
       : `${fresh ? `${fresh} new for you` : "Nothing new for you"}${st.refresh ? ` · changes at ${clock(st.refresh)}` : ""}`;
     $(".info").classList.toggle("good", fresh > 0);
     $(".chars").replaceChildren();
