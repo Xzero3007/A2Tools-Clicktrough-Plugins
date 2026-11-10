@@ -8,7 +8,7 @@
   const $ = (s) => document.querySelector(s);
   const ICONS = "https://assets.playnccdn.com/static-aion2-gamedata/resources/";
 
-  const settings = { tab: "merchant", popup: true, toast: true, popupMinutes: 3, status: false, sizes: {}, kind: "all", grade: "all", order: "price", lucky: false };
+  const settings = { tab: "merchant", popup: true, toast: true, popupMinutes: 3, status: false, statusAlways: false, sizes: {}, kind: "all", grade: "all", order: "price", lucky: false };
   let closet = null; // Map closet id -> copies
   let closetAt = 0;
   let chars = {}; // key -> { name, serverId, stocks: { tab: stock } }
@@ -57,6 +57,8 @@
     closetAt = meta?.at || Date.now();
     saveCloset();
     shareCount();
+    // Sent at login and when the closet opens: at login you are not in it.
+    if (Date.now() - (meta?.at || Date.now()) < 60000) arrived("closet");
     sendWidgets();
     dirty();
   });
@@ -86,7 +88,20 @@
     dirty();
   });
 
+  a2.on("world", (w) => {
+    if (!here || !w) return;
+    // Only the game's own reports of where you are: the meter's estimate
+    // wanders by metres while you stand.
+    const me = w.me;
+    if (anchor && w.zone != null && anchor.zone != null && w.zone !== anchor.zone) return left();
+    if (!me?.exact || !Number.isFinite(me.x) || !Number.isFinite(me.y)) return;
+    if (!anchor) anchor = { x: me.x, y: me.y, zone: w.zone };
+    else if (Math.hypot(me.x - anchor.x, me.y - anchor.y) > 6) left();
+  });
+
   a2.on("items", (it) => {
+    // A world entry (login, teleport): a closet list just before it was the login's.
+    if (it?.snapshotAt && here && hereBy === "closet" && Date.now() - hereSince < 15000) left();
     const inv = it?.containers?.["1"];
     if (Array.isArray(inv)) {
       bag = inv;
@@ -140,7 +155,8 @@
       a2.notify(`Black Cloud: ${fresh.length === 1 ? "a skin you lack" : `${fresh.length} skins you lack`} on offer (${names.join(", ")})`).catch(() => {});
     }
     if (settings.popup) openPopup();
-    else sendWidgets();
+    arrived();
+    sendWidgets();
     dirty();
   }
 
@@ -268,7 +284,7 @@
   function closeWidget(name) {
     open[name] = false;
     a2.widgets.close(name).catch(() => {});
-    if (name === "shop" && settings.status && !open.status) openWidget("status");
+    if (name === "shop" && statusWanted() && !open.status) openWidget("status");
   }
   function keepPopup() {
     clearTimeout(popupTimer);
@@ -280,9 +296,32 @@
     if (open.status) closeWidget("status");
     openWidget("shop");
   }
+  // The floater shows at the shop and the closet (or always, when ticked so):
+  // opened by the shop's stock or the closet's list, gone when you walk off
+  // or after the pop-up's minutes; the game sends nothing when they close.
+  let here = false; // at the shop or the closet now
+  let hereTimer = 0;
+  let anchor = null; // where you stood when they opened
+  const statusWanted = () => settings.status && (settings.statusAlways || here) && !open.shop;
   function applyStatus() {
-    if (settings.status) openWidget("status");
-    else closeWidget("status");
+    if (statusWanted()) openWidget("status");
+    else if (open.status) closeWidget("status");
+  }
+  let hereBy = "", hereSince = 0;
+  function arrived(by = "") {
+    hereBy = by;
+    hereSince = Date.now();
+    here = true;
+    anchor = null;
+    clearTimeout(hereTimer);
+    hereTimer = setTimeout(left, Math.max(1, settings.popupMinutes) * 60 * 1000);
+    applyStatus();
+  }
+  function left() {
+    here = false;
+    clearTimeout(hereTimer);
+    if (open.shop) closeWidget("shop");
+    applyStatus();
   }
   function sendWidgets() {
     for (const name of ["shop", "status"]) if (open[name]) a2.widgets.send(name, stateOf(name)).catch(() => {});
@@ -298,7 +337,7 @@
       // A widget the meter brought back from before (at its start) that this
       // page did not open: the pop-up belongs to an open shop only, the
       // floater to its tick.
-      const wanted = open[name] || (name === "status" && settings.status);
+      const wanted = open[name] || (name === "status" && statusWanted());
       if (!wanted) {
         a2.widgets.close(name).catch(() => {});
         return;
@@ -313,7 +352,10 @@
         saveSettings();
         dirty();
       }
-    } else if (data.type === "keep" && name === "shop") keepPopup();
+    } else if (data.type === "keep" && name === "shop") {
+      keepPopup();
+      if (here) arrived();
+    }
     else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
       settings.sizes = { ...(settings.sizes || {}), [name]: { width: Math.round(data.width), height: Math.round(data.height) } };
       saveSettings();
@@ -323,6 +365,7 @@
   a2.on("overlay", (data) => {
     settings.status = !!data?.show;
     saveSettings();
+    if (settings.status) arrived(); // shown now, until you walk off
     applyStatus();
     dirty();
   });
@@ -383,6 +426,7 @@
   function renderMerchant() {
     $(".popup").checked = !!settings.popup;
     $(".statusBox").checked = !!settings.status;
+    $(".statusAlways").checked = !!settings.statusAlways;
     $(".toast").checked = !!settings.toast;
     const now = Date.now();
     const list = Object.entries(chars).filter(([, c]) => Object.values(c.stocks).some((s) => s.refresh > now));
@@ -549,6 +593,7 @@
   }
   $(".popup").addEventListener("change", (e) => { settings.popup = e.target.checked; saveSettings(); if (!settings.popup) closeWidget("shop"); });
   $(".statusBox").addEventListener("change", (e) => { settings.status = e.target.checked; saveSettings(); applyStatus(); });
+  $(".statusAlways").addEventListener("change", (e) => { settings.statusAlways = e.target.checked; saveSettings(); applyStatus(); });
   $(".toast").addEventListener("change", (e) => { settings.toast = e.target.checked; saveSettings(); });
   $(".showPopup").addEventListener("click", () => openPopup());
   $(".search").addEventListener("input", () => renderMissing());

@@ -25,8 +25,11 @@ and extract and what no longer pays.
   a slim window that stays: your count, when the merchant changes, each
   character of the server looked at this hour or not (and how many new
   skins it had), what to combine and extract, and the gear in your bag to
-  extract. Moved and sized like the pop-up. It steps aside while the
-  pop-up is open, and stays off when its tick is off.
+  extract. Moved and sized like the pop-up. It shows at the Black Cloud shop
+  and in the closet (the game sends the closet when it opens) and goes when
+  you walk off or after 3 minutes; **Everywhere** keeps it up all the time.
+  It steps aside while the pop-up is open. Walking off closes the pop-up
+  too.
 - **Missing**: every skin you lack (one per closet entry) with its picture,
   grade, slot and the merchant's list price, filterable by kind and grade,
   searchable; above, what the skins still needed for 700 cost: the cheapest
@@ -78,7 +81,7 @@ and extract and what no longer pays.
 
 `storage` (settings, your closet, the stocks seen), `notify` (a skin you
 lack on offer), `widgets` (the pop-up and the status floater), `share` (the count for the
-Inventory), `events:character` (whose stock it is), `events:items` (which
+Inventory), `events:character` (whose stock it is), `events:world` (walking off closes the windows), `events:items` (which
 skin was just bought, for the looks it learns, and the gear in your bag), `web:assets.playnccdn.com`
 (the skins' pictures from the game's icon server), and one `decoder:` per
 game message it reads. Nothing is sent anywhere.
