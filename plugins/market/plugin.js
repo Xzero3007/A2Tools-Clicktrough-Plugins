@@ -236,19 +236,49 @@
   const favsOf = (list, idOf) => (settings.pins === false ? [] : list.filter((x) => isFav(idOf(x))));
 
   /**
-   * A tab's list with its favourites pinned: `pinRows` (copies of the
-   * favourites' rows, opened on their own) in a block that stays at the top
-   * while the list scrolls, with the column heads; then the whole list as
-   * before. Without favourites, the list alone with its heads kept at the top.
+   * A tab's list with its favourites pinned: the column heads and `pinRows`
+   * (copies of the favourites' rows, opened on their own) stand above the
+   * list, which scrolls in its own box under them. Nothing lies over the
+   * list, so the heads and favourites need no background of their own and
+   * are as see-through as the rest of the window (its opacity slider).
    */
   function pinned(widths, head, body, pinRows) {
-    if (!pinRows.length) return [table(widths, head, body)];
-    const pinBody = el("tbody", {}, groupRow(`★ Favorites (${pinRows.filter((r) => !r.classList.contains("detail")).length})`, widths.length), ...pinRows);
-    const pins = el("div", { className: "pins" }, table(widths, head, pinBody));
-    const rest = table(widths, [], body);
-    rest.classList.add("rest");
-    return [pins, rest];
+    const top = [table(widths, head, el("tbody"))];
+    if (pinRows.length) {
+      const pinBody = el("tbody", {}, groupRow(`★ Favorites (${pinRows.filter((r) => !r.classList.contains("detail")).length})`, widths.length), ...pinRows);
+      top.push(el("div", { className: "pins" }, table(widths, [], pinBody)));
+    }
+    const scroll = el("div", { className: "scroll" }, table(widths, [], body));
+    return [el("div", { className: "listTop" }, ...top), scroll];
   }
+
+  // The list's own scroll box: as high as the window leaves it, what the
+  // tab adds after it ("Show more", "Nothing matches") inside it, and where
+  // it was scrolled to kept across a redraw (a row opened, prices updated).
+  const scrolled = {};
+  function fitScrolls() {
+    for (const box of document.querySelectorAll(".pane:not([hidden]) .scroll")) {
+      const pane = box.closest(".pane")?.dataset.pane || "";
+      while (box.nextSibling) box.append(box.nextSibling);
+      const top = box.getBoundingClientRect().top + window.scrollY;
+      box.style.maxHeight = `${Math.max(180, window.innerHeight - top - 34)}px`;
+      if (!box.dataset.ready) {
+        box.dataset.ready = "1";
+        box.scrollTop = scrolled[pane] || 0;
+        box.addEventListener("scroll", () => { scrolled[pane] = box.scrollTop; }, { passive: true });
+      }
+    }
+  }
+  let fitting = false;
+  new MutationObserver(() => {
+    if (fitting) return;
+    fitting = true;
+    requestAnimationFrame(() => {
+      fitScrolls();
+      fitting = false;
+    });
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+  window.addEventListener("resize", fitScrolls);
   const SVG = "http://www.w3.org/2000/svg";
   const icon = (d, cls) => {
     const svg = document.createElementNS(SVG, "svg");

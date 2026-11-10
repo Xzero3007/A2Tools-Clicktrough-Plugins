@@ -72,6 +72,8 @@ In every tab:
   their rows that stays while the list under it scrolls, with the column
   heads, whatever the search or filter; the item also stays in its place
   in the list. **Favorites** in the bar hides or shows the pinned block.
+  The list scrolls in its own box under the heads and the favourites, so
+  they are as see-through as the rest of the window (0.4.3).
 - **A click** on a material (Gatherables, Odyle morph, Materials) lists the
   recipes that need it, how many and what that many cost.
 - **A map button** beside a gathered material (also in a recipe's materials)
