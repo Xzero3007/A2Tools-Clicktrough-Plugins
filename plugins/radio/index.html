@@ -25,10 +25,12 @@
       <input type="search" class="search" placeholder="Search stations" aria-label="Search stations" />
     </div>
     <ul class="list"></ul>
+    <p class="note hiddenNote" hidden></p>
     <p class="note empty" hidden>No station here.</p>
     <footer class="foot">
       <label class="opt"><input type="checkbox" class="autoplay" /> Play the last station when the meter starts</label>
       <label class="opt"><input type="checkbox" class="overlayOn" /> Player over the game</label>
+      <label class="opt"><input type="checkbox" class="hideFailed" /> Hide stations that didn't play</label>
       <span class="grow"></span>
       <button type="button" class="checkAll" title="Tries every station in the list for a few seconds, muted, and marks the ones that don't play from here (some stations play only in their own country)">Check stations</button>
     </footer>

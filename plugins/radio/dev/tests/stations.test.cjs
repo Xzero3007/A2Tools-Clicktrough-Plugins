@@ -83,8 +83,9 @@ test("checks: a week, known stations only", () => {
   const byId = new Map(S.map((s) => [s.id, s]));
   const now = 1_000_000_000_000;
   const kept = R.freshChecks({
-    [S[0].id]: { ok: false, at: now - 3600e3, why: "x" },
-    [S[1].id]: { ok: true, at: now - 8 * 86400e3 },
+    [S[0].id]: { ok: false, at: now - 3600e3, why: "x", sig: R.signature(S[0]) },
+    [S[2].id]: { ok: false, at: now - 3600e3, why: "other streams then", sig: "0:0" },
+    [S[1].id]: { ok: true, at: now - 8 * 86400e3, sig: R.signature(S[1]) },
     gone: { ok: true, at: now },
   }, byId, now);
   assert.deepStrictEqual(Object.keys(kept), [S[0].id]);

@@ -40,8 +40,17 @@ Nothing is sent but the request for the stream itself, and the plugin links
 to no website. The meter lets it play only from the stations' servers
 (permission `radio`, meter patch 0043, `RADIO_HOSTS`); a station on a new
 server needs that list changed too, and `dev/ci.sh` checks both agree.
-Stations that send AAC need `gst-libav` on Arch (`sudo pacman -S
-gst-libav`); MP3 and the HLS streams play with what the meter needs anyway.
+On Arch, stations that send AAC need `gst-libav`, and stations that send
+HLS (most Turkish ones: Kral, Power, TRT Türkü, TRT Nağme ...) need
+`gst-plugins-bad` (`sudo pacman -S gst-libav gst-plugins-bad`); MP3 plays
+with what the meter needs anyway.
+
+0.2.0: stations that didn't play are **hidden** (a tick at the bottom shows
+them again; the list says how many are hidden), and **Check stations** tries
+the hidden ones too. A check counts only for the addresses it tried: a
+station whose addresses changed in an update is tried afresh. Süper FM, Joy
+Türk, JoyTürk Rock, Metro FM and Gönül Türküleri try their AAC streams first
+(their Shoutcast ones didn't play).
 
 The stream addresses were taken from the stations' own stream pages and from
 radio directories that print them (November 2026). No station's name, logo

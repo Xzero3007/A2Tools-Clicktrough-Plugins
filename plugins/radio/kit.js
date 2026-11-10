@@ -61,9 +61,18 @@
     const out = {};
     for (const [id, c] of Object.entries(checked || {})) {
       if (!byId.has(id) || !c || typeof c.at !== "number" || now - c.at > keepMs) continue;
-      out[id] = { ok: !!c.ok, at: c.at, why: String(c.why || "") };
+      if (c.sig !== signature(byId.get(id))) continue;
+      out[id] = { ok: !!c.ok, at: c.at, why: String(c.why || ""), sig: c.sig };
     }
     return out;
+  }
+
+  // A station's addresses in short: a check counts only for the same ones.
+  function signature(station) {
+    const text = (station?.streams || []).join("|");
+    let h = 0;
+    for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+    return `${text.length}:${h >>> 0}`;
   }
 
   // Whether one stream starts within `ms` (an <audio> given, muted).
@@ -89,5 +98,5 @@
     });
   }
 
-  globalThis.RadioKit = { filter, countByCountry, genresOf, debounce, ago, mediaError, freshChecks, probe, fold };
+  globalThis.RadioKit = { filter, countByCountry, genresOf, debounce, ago, mediaError, freshChecks, probe, fold, signature };
 })();

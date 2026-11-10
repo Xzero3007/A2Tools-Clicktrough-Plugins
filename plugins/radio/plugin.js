@@ -14,7 +14,7 @@
 
   let settings = {
     country: "TR", genre: "", station: null, volume: 0.6, muted: false,
-    favourites: [], autoplay: false, overlay: false,
+    favourites: [], autoplay: false, overlay: false, hideFailed: true,
   };
   // Stations checked on this computer: id -> { ok, at, why }.
   let checked = {};
@@ -111,15 +111,22 @@
   });
 
   function markChecked(id, ok, text = "") {
-    checked[id] = { ok, at: Date.now(), why: ok ? "" : text };
+    checked[id] = { ok, at: Date.now(), why: ok ? "" : text, sig: R.signature(byId.get(id)) };
     saveChecked();
   }
 
   // ---- the list ----
-  const visible = () => R.filter(STATIONS, {
+  // The list as filtered, before stations that didn't play are hidden.
+  const filtered = () => R.filter(STATIONS, {
     country: settings.country, genre: settings.genre, query: $(".search").value,
     favourites: new Set(settings.favourites),
   });
+  const failed = (s) => checked[s.id]?.ok === false;
+  const visible = () => {
+    const list = filtered();
+    // Hidden: a station that didn't play, unless it is the one picked.
+    return settings.hideFailed ? list.filter((s) => !failed(s) || s.id === (playing || settings.station)) : list;
+  };
 
   function step(dir) {
     const list = visible();
@@ -211,6 +218,9 @@
       li.addEventListener("click", () => (s.id === playing ? stop() : play(s.id)));
       return li;
     }));
+    const hidden = settings.hideFailed ? filtered().length - list.length : 0;
+    $(".hiddenNote").hidden = hidden === 0;
+    $(".hiddenNote").textContent = `${hidden} station${hidden === 1 ? "" : "s"} that didn't play from here hidden`;
     $(".empty").hidden = list.length > 0;
     $(".empty").textContent = settings.country === "fav" ? "No favourites yet: ☆ beside a station adds it." : "No station here.";
   }
@@ -247,6 +257,7 @@
     $(".volText").textContent = `${Math.round(settings.volume * 100)} %`;
     $(".autoplay").checked = !!settings.autoplay;
     $(".overlayOn").checked = !!settings.overlay;
+    $(".hideFailed").checked = !!settings.hideFailed;
   }
 
   function render() {
@@ -340,7 +351,8 @@
     if (checking) { checking = false; return; }
     checking = true;
     const btn = $(".checkAll");
-    const list = visible();
+    // Every station of the tab and genre, the hidden ones too.
+    const list = filtered();
     const probe = new Audio();
     probe.muted = true;
     probe.preload = "auto";
@@ -377,6 +389,7 @@
   $(".autoplay").addEventListener("change", () => { settings.autoplay = $(".autoplay").checked; save(); });
   $(".overlayOn").addEventListener("change", () => { settings.overlay = $(".overlayOn").checked; save(); applyOverlay(); });
   $(".checkAll").addEventListener("click", checkAll);
+  $(".hideFailed").addEventListener("change", () => { settings.hideFailed = $(".hideFailed").checked; save(); renderList(); });
   // The wheel over the player changes the volume.
   $(".now").addEventListener("wheel", (e) => {
     e.preventDefault();

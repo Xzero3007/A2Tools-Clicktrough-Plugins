@@ -63,10 +63,10 @@ globalThis.RADIO_STATIONS = [
     "https://listen.powerapp.com.tr/powerfm/abr/powerfm/128/playlist.m3u8",
     "https://listen.powerapp.com.tr/powerfm/256/chunks.m3u8",
   ] },
-  { id: "super-fm", name: "Süper FM", country: "TR", genres: ["pop"], streams: [`${STW}SUPER_FM_SC`] },
-  { id: "joy-turk", name: "Joy Türk", country: "TR", genres: ["slow"], streams: [`${STW}JOY_TURK_SC`] },
-  { id: "joy-turk-rock", name: "JoyTürk Rock", country: "TR", genres: ["rock"], streams: [`${STW}JOYTURK_ROCK_SC`] },
-  { id: "metro-fm", name: "Metro FM", country: "TR", info: "International hits", genres: ["hits"], streams: [`${STW}METRO_FM_SC`] },
+  { id: "super-fm", name: "Süper FM", country: "TR", genres: ["pop"], streams: [`${STW}SUPER_FMAAC.aac`, `${STW}SUPER_FM_SC`] },
+  { id: "joy-turk", name: "Joy Türk", country: "TR", genres: ["slow"], streams: [`${STW}JOY_TURKAAC.aac`, `${STW}JOY_TURK_SC`] },
+  { id: "joy-turk-rock", name: "JoyTürk Rock", country: "TR", genres: ["rock"], streams: [`${STW}JOYTURK_ROCKAAC.aac`, `${STW}JOYTURK_ROCK_SC`] },
+  { id: "metro-fm", name: "Metro FM", country: "TR", info: "International hits", genres: ["hits"], streams: [`${STW}METRO_FM128AAC.aac`, `${STW}METRO_FMAAC.aac`, `${STW}METRO_FM_SC`] },
   { id: "number1-turk", name: "Number1 Türk", country: "TR", genres: ["pop"], streams: [
     "https://n10101m.mediatriple.net/numberoneturk",
     "https://n10101m.mediatriple.net/videoonlylive/mtkgeuihrlfwlive/u_stream_5c9e30cf8d28e_1/playlist.m3u8",
@@ -116,7 +116,7 @@ globalThis.RADIO_STATIONS = [
   ] },
   { id: "mamas-turku", name: "Mamaş FM Türkü", country: "TR", genres: ["turku"], streams: ["https://mamasturku-erdem.radioca.st/stream.mp3"] },
   { id: "trd-halk", name: "TRD 4 Halk", country: "TR", info: "Halk müziği", genres: ["turku"], streams: ["https://live.streamlojik.com:8000/trd4.aac"] },
-  { id: "gonul-turkuleri", name: "Gönül Türküleri", country: "TR", genres: ["turku"], streams: ["https://22653.live.streamtheworld.com/SC020_SO1AAC.aac"] },
+  { id: "gonul-turkuleri", name: "Gönül Türküleri", country: "TR", genres: ["turku"], streams: [`${STW}SC020_SO1AAC.aac`, "https://22653.live.streamtheworld.com/SC020_SO1AAC.aac"] },
   { id: "turkuvaz-musiki", name: "Turkuvaz Musiki", country: "TR", info: "Türk sanat müziği", genres: ["sanat"], streams: [
     "https://trkvz-radyolar.ercdn.net/turkuvazmusiki/playlist.m3u8",
   ] },
