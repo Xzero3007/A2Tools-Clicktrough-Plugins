@@ -1,0 +1,80 @@
+/* The host window paints the panel; the page stays transparent. Neutral
+   colours as the meter's, gold for what you lack; no blue anywhere (the
+   game's Legend grade is purple here, as in the Inventory and the Armory). */
+[hidden] { display: none !important; }
+:root {
+  --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
+  --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035);
+  --gold: var(--a2-accent, #e0a526); --gold-t: #f2c46b;
+  --g1: #c8ccd2; --g2: #7fdc9a; --g3: #c39bff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8;
+}
+html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+body { padding: 8px 10px 10px; box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+button { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 4px; padding: 2px 9px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.16); }
+select, input[type=search] { background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 3px 6px; box-sizing: border-box; }
+select option { background: #1c1f24; color: #fff; }
+input:focus, select:focus { outline: none; border-color: rgba(255,255,255,.45); }
+input[type=checkbox] { accent-color: var(--gold); margin: 0; }
+.muted { color: var(--muted); font-size: 12px; }
+.note { color: var(--muted); font-size: 12px; margin: 6px 2px; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+.check { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+
+.top { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.goal { flex: 1; min-width: 220px; }
+.goalText .count { font-size: 20px; color: var(--gold-t); }
+.bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; margin-top: 3px; }
+.bar > i { display: block; height: 100%; background: var(--gold); }
+.state { white-space: nowrap; }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 5px 10px; color: var(--muted); }
+.tabs button:hover { color: var(--text); background: none; }
+.tabs button[aria-selected="true"] { color: #fff; border-bottom-color: var(--gold); }
+.tools { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+.tools .search { flex: 1; min-width: 140px; }
+.unchecked { color: var(--gold-t); }
+
+.char { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; }
+.charHead { display: flex; gap: 8px; align-items: baseline; }
+.tabHead { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin: 6px 0 2px; }
+.offers { list-style: none; margin: 0; padding: 0; }
+.offer { display: grid; grid-template-columns: 32px minmax(0,1fr) auto 52px; gap: 8px; align-items: center; padding: 3px 0; border-top: 1px solid rgba(255,255,255,.05); }
+.offer.owned { opacity: .55; }
+.offer .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.offer.new .name { color: var(--gold-t); font-weight: 600; }
+.sub { color: var(--muted); font-size: 11.5px; }
+.price { text-align: right; font-variant-numeric: tabular-nums; }
+.price b { display: block; font-weight: 600; }
+.price small { color: var(--muted); }
+.chip { font-size: 11px; text-align: center; border-radius: 10px; padding: 1px 6px; border: 1px solid rgba(255,255,255,.2); color: var(--muted); }
+.chip.new { background: var(--gold); border-color: var(--gold); color: #1a1408; font-weight: 700; }
+.icon { width: 32px; height: 32px; border-radius: 5px; background: rgba(255,255,255,.08); display: inline-flex; align-items: center; justify-content: center; color: var(--faint); font-weight: 700; overflow: hidden; flex: none; }
+.icon img { width: 100%; height: 100%; object-fit: cover; }
+.empty { padding: 4px 0; }
+
+table.refresh { border-collapse: collapse; font-size: 12px; margin: 4px 2px; }
+table.refresh th, table.refresh td { padding: 2px 10px 2px 0; text-align: right; }
+table.refresh th { color: var(--muted); font-weight: 500; }
+
+.costs { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.costs .k { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.costs .k span, .costs .k small { display: block; color: var(--muted); font-size: 11.5px; }
+.costs .k b { display: block; font-size: 17px; color: var(--gold-t); }
+.missCount { margin: 2px 2px 6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.card { display: flex; gap: 8px; align-items: center; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--g1); border-radius: 6px; padding: 5px 7px; }
+.card .icon { width: 40px; height: 40px; }
+.card .text { min-width: 0; }
+.card .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .price { text-align: left; color: var(--muted); font-size: 11.5px; }
+.card.g1 { border-left-color: var(--g1); } .card.g2 { border-left-color: var(--g2); } .card.g3 { border-left-color: var(--g3); }
+.card.g4 { border-left-color: var(--g4); } .card.g5 { border-left-color: var(--g5); } .card.g7 { border-left-color: var(--g7); }
+
+table.combine { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.combine th { color: var(--muted); font-weight: 500; text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); }
+table.combine td { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,.05); font-variant-numeric: tabular-nums; }
+td.g1 { color: var(--g1); } td.g2 { color: var(--g2); } td.g3 { color: var(--g3); } td.g4 { color: var(--g4); } td.g5 { color: var(--g5); }
+.credit { margin-top: 12px; font-size: 11px; color: var(--faint); }

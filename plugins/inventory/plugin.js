@@ -561,12 +561,18 @@
     return `${h}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   };
   /** Every limit and ticket as a row: { key, label, value, max, text, shown }. */
+  let skins = null; // { skins, goal } from the Closet plugin
   function limitRows() {
     const { character: ch, old } = C.withKept(character, kept.get(limitsKey()), Date.now());
     const rows = C.limits(ch).map((l) => ({
       key: l.key, label: l.label, value: l.value, max: l.max, shown: settings.shown[l.key] !== false,
       text: `${C.kina(l.value)}${l.max ? ` / ${C.short(l.max)}` : ""}`,
     }));
+    // The skins against Empty Closet's 700 (the Closet plugin shares them).
+    if (Number.isFinite(skins?.skins)) {
+      const max = Number(skins.goal) || 700;
+      rows.push({ key: "skins", label: "Skins (Empty Closet)", short: "Skins", value: skins.skins, max, shown: settings.shown.skins !== false, text: `${skins.skins} / ${max}` });
+    }
     const shown = ticketsShown();
     for (const t of C.tickets(ch)) {
       rows.push(t.time
@@ -808,6 +814,12 @@
   });
   // Where you are: the Map plugin shares its map and region.
   a2.on("shared", ({ plugin, value }) => {
+    if (plugin === "closet") {
+      skins = value && Number.isFinite(value.skins) ? value : null;
+      if (settings.tab === "limits") renderLimits();
+      sendFloater();
+      return;
+    }
     if (plugin !== "map" || !value?.title) return;
     area = value.region ? `${value.title} · ${value.region}` : String(value.title);
   });

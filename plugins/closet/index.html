@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Closet</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="goal">
+        <div class="goalText"><b class="count">–</b> <span class="muted goalOf">of 700 skins for Empty Closet</span></div>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="state muted"></div>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button type="button" data-tab="merchant" role="tab">Merchant</button>
+      <button type="button" data-tab="missing" role="tab">Missing</button>
+      <button type="button" data-tab="combine" role="tab">Combine</button>
+    </nav>
+
+    <section class="view merchantView">
+      <div class="tools">
+        <label class="check" title="Opens a small window with the offers when you open the Black Cloud shop"><input type="checkbox" class="popup" /> Pop up at the shop</label>
+        <label class="check" title="A note when a skin you lack is on offer"><input type="checkbox" class="toast" /> Note new skins</label>
+        <button type="button" class="showPopup" title="Open the pop-up now">Pop-up</button>
+      </div>
+      <p class="unchecked note"></p>
+      <div class="chars"></div>
+      <h3>What the merchant brings</h3>
+      <div class="stats"></div>
+    </section>
+
+    <section class="view missingView" hidden>
+      <div class="costs"></div>
+      <div class="tools">
+        <input type="search" class="search" placeholder="Search a skin …" autocomplete="off" spellcheck="false" />
+        <select class="kind" title="Which skins">
+          <option value="all">All</option>
+          <option value="weapon">Weapons</option>
+          <option value="armour">Armour</option>
+          <option value="jewel">Jewellery</option>
+          <option value="other">Other</option>
+        </select>
+        <select class="grade" title="Grade">
+          <option value="all">Every grade</option>
+          <option value="shop">Sold by the merchant</option>
+          <option value="1">Common</option>
+          <option value="2">Rare</option>
+          <option value="3">Legend</option>
+          <option value="4">Unique</option>
+          <option value="7">Special</option>
+        </select>
+        <select class="order" title="Order">
+          <option value="price">By price</option>
+          <option value="name">By name</option>
+          <option value="grade">By grade</option>
+        </select>
+      </div>
+      <div class="missCount muted"></div>
+      <div class="grid"></div>
+    </section>
+
+    <section class="view combineView" hidden>
+      <div class="tools">
+        <label class="check"><input type="checkbox" class="lucky" /> With a Lucky Aura</label>
+      </div>
+      <table class="combine">
+        <thead><tr><th>Put in</th><th>Next grade</th><th>You lack</th><th>New skin per combine</th><th>Combines for one</th><th>Fees for one</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="note">Chances and fees are NCSOFT's published ones (Common 25%, Rare 20%, Legend 15%, Unique 10% to the next grade; 35/30/25/15% with a Lucky Aura). Every skin of the grade that comes out is equally likely, so the chance of a new one is the share of that grade you lack. A combine that does not go up is counted as a random skin of the same grade (sources differ on this). The skins you put in are not counted: use your spare copies.</p>
+      <p class="note">Extracting gear gives its skin too: Common, Rare and Legend gear one time in four, Unique one in ten.</p>
+    </section>
+
+    <footer class="credit muted">Skins: AION 2's game data via SkeeveAN's Aion-DPS-Meter (MIT) and Aion2Data. Prices: the merchant's own offers.</footer>
+    <script src="/_sdk/a2.js"></script>
+    <script src="data.js"></script>
+    <script src="logic.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

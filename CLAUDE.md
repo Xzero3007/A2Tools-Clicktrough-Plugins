@@ -69,7 +69,7 @@ with its own CLAUDE.md: work on the meter happens there, not here.
 
 ## What this repo is
 
-The plugins of the Clicktrough build: seven of its own and its changes to the
+The plugins of the Clicktrough build: eight of its own and its changes to the
 original's. Nothing is installed from here directly: the app's release puts
 them into its package (`build/assemble.sh`), and every meter updates through
 the green button. The original's plugins are frozen at one commit and taken
@@ -77,7 +77,7 @@ on only when the person decides (see below).
 
 | Path | What |
 |---|---|
-| `plugins/<id>/` | Own plugins: `armory`, `inventory`, `map`, `market`, `pet-finder`, `radio`, `shugo-cards`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
+| `plugins/<id>/` | Own plugins: `armory`, `closet`, `inventory`, `map`, `market`, `pet-finder`, `radio`, `shugo-cards`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
 | `original/PIN` | The commit of `taengu/A2Tools-Plugins` the build takes the original's plugins at. |
 | `original/pins.txt` | Single plugins at another commit (`<id> <commit>`): a new plugin, or a new version of one, without moving PIN. |
 | `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link and with its Test shown while AION2 is closed; gold instead of blue in all four; no lock of their own in Event Timers, Enhanced Boss Telegraph, Cooldowns and Ping (the meter's lock is every widget's, meter patch 0036). A file `installed-only` there: the plugin still runs only where installed. |
