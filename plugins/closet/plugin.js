@@ -268,6 +268,7 @@
   function closeWidget(name) {
     open[name] = false;
     a2.widgets.close(name).catch(() => {});
+    if (name === "shop" && settings.status && !open.status) openWidget("status");
   }
   function keepPopup() {
     clearTimeout(popupTimer);
@@ -275,6 +276,8 @@
   }
   function openPopup() {
     keepPopup();
+    // The pop-up shows what the floater does: the floater steps aside meanwhile.
+    if (open.status) closeWidget("status");
     openWidget("shop");
   }
   function applyStatus() {
@@ -292,7 +295,16 @@
   a2.on("widget-message", ({ name, data }) => {
     if (!SIZE[name] || !data) return;
     if (data.type === "ready") {
-      if (open[name]) a2.widgets.send(name, stateOf(name)).catch(() => {});
+      // A widget the meter brought back from before (at its start) that this
+      // page did not open: the pop-up belongs to an open shop only, the
+      // floater to its tick.
+      const wanted = open[name] || (name === "status" && settings.status);
+      if (!wanted) {
+        a2.widgets.close(name).catch(() => {});
+        return;
+      }
+      open[name] = true;
+      a2.widgets.send(name, stateOf(name)).catch(() => {});
     } else if (data.type === "close") {
       clearTimeout(popupTimer);
       closeWidget(name);
@@ -567,7 +579,9 @@
     }
     shareCount();
     render();
-    if (settings.status) applyStatus();
+    // A pop-up the meter kept from before belongs to no open shop.
+    if (!open.shop) a2.widgets.close("shop").catch(() => {});
+    applyStatus();
     a2.ready?.();
   })();
 })();

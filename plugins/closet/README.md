@@ -25,7 +25,8 @@ and extract and what no longer pays.
   a slim window that stays: your count, when the merchant changes, each
   character of the server looked at this hour or not (and how many new
   skins it had), what to combine and extract, and the gear in your bag to
-  extract. Moved and sized like the pop-up.
+  extract. Moved and sized like the pop-up. It steps aside while the
+  pop-up is open, and stays off when its tick is off.
 - **Missing**: every skin you lack (one per closet entry) with its picture,
   grade, slot and the merchant's list price, filterable by kind and grade,
   searchable; above, what the skins still needed for 700 cost: the cheapest
