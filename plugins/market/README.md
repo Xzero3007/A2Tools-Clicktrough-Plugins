@@ -59,6 +59,9 @@ goes.
 
 In every tab:
 
+- **Each item's picture** before its name (0.4.2), the game's icon through
+  the meter.
+
 - **Asmodian / Elyos** beside Update (remembered; your server's side until
   picked): only that side's materials and recipes (Asvata, Azpha ... are
   Asmodian; Yggdrasil, Aria ... Elyos; Odyle and ore both).

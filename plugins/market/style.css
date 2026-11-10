@@ -132,3 +132,6 @@ tr.why > td { text-align: left; white-space: normal; font-size: 11px; color: rgb
   border-bottom: 1px solid var(--a2-accent, #e0a526); box-shadow: 0 6px 8px -6px rgba(0,0,0,.6); }
 .pins tr.group th { color: var(--a2-accent, #e0a526); }
 table.rest > thead { display: none; }
+
+/* The small picture before a name in every tab's lists. */
+.icon.mini { display: inline-grid; width: 22px; height: 22px; border-radius: 4px; font-size: 10px; vertical-align: middle; margin-right: 6px; }

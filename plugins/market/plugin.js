@@ -295,7 +295,13 @@
   }
 
   /** The first cell of an item's row: star, name, what follows, map link. */
-  const nameCell = (id, ...after) => el("td", { className: "name" }, star(id), el("span", { className: "label" }, C.name(id)), ...after, flag(id), mapButton(id));
+  const nameCell = (id, ...after) => el("td", { className: "name" }, star(id), mini(id), el("span", { className: "label" }, C.name(id)), ...after, flag(id), mapButton(id));
+  /** A small picture before a name in the lists (the game's icon). */
+  const mini = (id) => {
+    const b = iconBox(id);
+    b.classList.add("mini");
+    return b;
+  };
 
   // ---------- anomalies ----------
   const judged = (id) => A.judge(prices.get(String(id)), A.usual(hist, id));
@@ -417,7 +423,7 @@
       el("th", { title: "The product's lowest listing, less the fee" }, "Product sells for"));
     const rows = us.slice().sort((a, b) => b.count - a.count || C.name(a.recipe[6]).localeCompare(C.name(b.recipe[6]))).map((u) => {
       const s = C.recipeSums(u.recipe, prices, n, { fee });
-      return el("tr", {}, el("td", {}, C.name(u.recipe[6]), el("span", { className: "sub" }, ` · ${u.recipe[2]}`)),
+      return el("tr", {}, el("td", { className: "name" }, mini(u.recipe[6]), C.name(u.recipe[6]), el("span", { className: "sub" }, ` · ${u.recipe[2]}`)),
         el("td", {}, `× ${u.count}`), priceCell(best.unit == null ? null : best.unit * u.count), priceCell(s.net));
     });
     return el("table", { className: "inner" }, el("thead", {}, h), el("tbody", {}, ...rows));
