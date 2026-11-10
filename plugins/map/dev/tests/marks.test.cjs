@@ -395,6 +395,24 @@ test("the place shown: an exact report at once, else the report and the middle w
   assert.equal(M.steady(e, { me: null }), null);
 });
 
+test("the place shown: standing stays exact, walked on follows closely", () => {
+  const t0 = 1_000_000;
+  const fix = { x: 1000, y: 0, at: t0 };
+  // Standing since the report (the meter hears no steps): exact a minute on.
+  const s = M.steady(null, { me: { x: 1000, y: 0, exact: true, from: "pose", at: t0 }, fix, moving: false }, t0 + 60_000);
+  assert.deepEqual([s.x, s.exact, s.acc], [1000, true, 1]);
+  // Not known to stand: after 1.5 s no longer exact.
+  const u = M.steady(null, { me: { x: 1000, y: 0, exact: true, from: "pose", at: t0 }, fix, moving: null }, t0 + 3000);
+  assert.equal(u.exact, false);
+  // Walked on: the shown place follows within half a second.
+  let p = M.steady(null, { me: { x: 1000, y: 0, exact: false, from: "reckoned", at: t0 }, fix, moving: true }, t0 + 100);
+  for (let i = 1; i <= 8; i++) {
+    p = M.steady(p, { me: { x: 1000 + 100 * i, y: 0, exact: false, from: "reckoned", at: t0 }, fix, moving: true }, t0 + 100 + i * 250);
+  }
+  assert.ok(1800 - p.x < 300, String(p.x));
+  assert.ok(p.acc >= 1 && p.acc <= 10, String(p.acc));
+});
+
 test("the map follows Pet Finder's list alone once it shares", () => {
   const both = {
     "pet-finder": { pets: [{ id: 1116, mark: "pinned" }] },

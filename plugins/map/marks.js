@@ -193,7 +193,8 @@
   // around him, which jumps about by 10 to 15 m (SkeeveAN's measurements: the
   // last exact report is off by 0.5 m at once, 5 m after 1 to 2.5 s, 14 m
   // after 2.5 to 5 s; the middle by 11 to 15 m). The client's own movement
-  // to the server is encrypted, so there is nothing better to read. So: the
+  // to the server is encrypted: the meter hears only that it moves, and
+  // walks the place on from the last report (about 2 m off). So: the
   // last exact report and the middle weighed by how far each is likely off,
   // and the shown place moving toward that smoothly, at most as fast as one
   // runs, instead of jumping.
@@ -211,10 +212,18 @@
     let tx = me.x;
     let ty = me.y;
     let acc;
-    if (me.exact && age < 1.5) {
+    // Standing since an exact report (the meter hears the client's steps,
+    // Clicktrough patch 0041): exact for as long as one stands.
+    if (me.exact && (age < 1.5 || w.moving === false)) {
       return { x: me.x, y: me.y, exact: true, acc: 1, at: now };
     }
-    if (!me.exact && me.from === "around" && fix && age < 30) {
+    // Walked on from the last exact report at the speed between the last
+    // two (the meter, patch 0041): about 2 m off, more the longer.
+    if (me.from === "reckoned") {
+      tx = me.x;
+      ty = me.y;
+      acc = Math.min(10, 1 + 1.5 * age);
+    } else if (!me.exact && me.from === "around" && fix && age < 30) {
       const wf = 1 / fixOff(age) ** 2;
       const wa = 1 / AROUND_OFF_M ** 2;
       tx = (fix.x * wf + me.x * wa) / (wf + wa);
@@ -227,7 +236,8 @@
     // Nothing shown yet, or a jump no one runs (a teleport): there at once.
     if (!prev || Math.hypot(tx - prev.x, ty - prev.y) > 15000) return target;
     const dt = Math.min(2, Math.max(0, (now - prev.at) / 1000));
-    const k = 1 - Math.exp(-dt / 0.8);
+    // Walked on, the place moves by itself: followed closely, else it lags.
+    const k = 1 - Math.exp(-dt / (me.from === "reckoned" ? 0.25 : 0.8));
     let dx = (tx - prev.x) * k;
     let dy = (ty - prev.y) * k;
     const most = 1200 * dt + 150; // 12 m/s, and a little

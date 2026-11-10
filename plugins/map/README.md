@@ -186,6 +186,10 @@ plugin window; the puzzle button leaves it as it is. The overlay keeps
 following you while the Map's tab is closed or the dock hidden (0.12.2),
 also when the Map's page was never opened since the meter started (0.12.3).
 
+Your position (0.13.0, with meter patch 0041): standing, your mark stays
+exactly where the game last placed you; walking, it moves on at your speed
+until the game places you again (about 2 m off in between).
+
 Maps: Verteron, Altgard, the Abyss (its lower, middle and upper layers),
 Eltnen, Morheim, Poeta and Ishalgen, whole, as the game draws its world map
 (on its parchment, the sea painted), and 25 instances. Eltnen and Morheim at
