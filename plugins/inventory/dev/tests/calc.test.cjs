@@ -118,3 +118,77 @@ test("a lowest listing far above the usual price counts at the usual price", () 
   assert.equal(w.unit, 65000);
   assert.equal(C.list({ [CLOAK]: 7 }, prices, { hist }).rows[0].total, 455000);
 });
+
+const STAFF = 110860021, OHKRA = 610680050, ODYLE = 610610013, CUBE_KEY = 630900003, SHARD = 533460004, CODEX = 535400001, SILENTIUM = 630840002;
+
+test("drops: gear broken down at once is no drop; its stones and bound Kinah are counted", () => {
+  let s = C.newSession(1000);
+  s = C.addDrops(s, { changes: [[1, 2000, 1, STAFF, 1]], pickups: [[2, 1990, STAFF, 1]] });
+  assert.equal(s.loot[STAFF], 1);
+  s = C.addDrops(s, { changes: [[3, 2100, 1, C.KINA_BOUND, -1000], [4, 2100, 1, STAFF, -1], [5, 2100, 1, C.ENHANCE_STONE, 18]], pickups: [] });
+  assert.equal(s.items[STAFF], undefined);
+  assert.equal(s.loot[STAFF], undefined);
+  assert.deepEqual(s.dismantled, { pieces: 1, stones: 18, kinahBound: 1000 });
+  // Throwing an item away is no dismantling.
+  s = C.addDrops(s, { changes: [[6, 3000, 1, MEAT, 2]], pickups: [] });
+  s = C.addDrops(s, { changes: [[7, 3100, 1, MEAT, -2]], pickups: [] });
+  assert.equal(s.dismantled.pieces, 1);
+});
+
+test("drops: gathering counted from the game's result, either order", () => {
+  let s = C.newSession(1000);
+  s = C.addGather(s, { great: 0, kind: 58, node: 7, item: OHKRA, amount: 1, bonus: 0 }, 2000, "Altgard · Immortal Isle");
+  s = C.addDrops(s, { changes: [[1, 2050, 1, OHKRA, 1]], pickups: [] });
+  s = C.addDrops(s, { changes: [[2, 9000, 1, OHKRA, 6]], pickups: [] });
+  s = C.addGather(s, { great: 1, kind: 58, node: 7, item: OHKRA, amount: 3, bonus: 3 }, 9060, "Altgard · Immortal Isle");
+  s = C.addGather(s, { great: 0, kind: 58, node: 9, item: ODYLE, amount: 1, bonus: 1 }, 15000, null);
+  s = C.addDrops(s, { changes: [[3, 15100, 1, ODYLE, 2]], pickups: [] });
+  assert.equal(s.gathered[OHKRA], 7);
+  assert.equal(s.gathered[ODYLE], 2);
+  assert.deepEqual([s.gather.n, s.gather.great, s.gather.amount, s.gather.bonus, s.gather.spots], [3, 1, 5, 4, 2]);
+  assert.deepEqual(s.gather.byArea, { "Altgard · Immortal Isle": { n: 2, count: 7 }, Unknown: { n: 1, count: 2 } });
+  assert.deepEqual(C.bySource(s).other, {});
+  // Played: the steps between doings, a pause of 5 minutes or more not.
+  assert.equal(s.active, 15100 - 2000);
+  s = C.addDrops(s, { changes: [[4, 15100 + 10 * 60_000, 1, MEAT, 1]], pickups: [] });
+  assert.equal(s.active, 15100 - 2000);
+  assert.equal(C.bySource(s).other[MEAT], 1);
+});
+
+test("drops: a key's chest and many items at once are rewards", () => {
+  let s = C.newSession(1000);
+  s = C.addDrops(s, { changes: [[1, 5000, 1, CUBE_KEY, -1]], pickups: [] });
+  s = C.addDrops(s, { changes: [[2, 5300, 1, SILENTIUM, 10]], pickups: [] });
+  assert.equal(s.reward[SILENTIUM], 10);
+  s = C.addDrops(s, { changes: [[3, 60000, 1, SHARD, 120], [4, 60000, 1, CODEX, 5], [5, 60000, 1, MEAT, 1]], pickups: [] });
+  assert.equal(s.reward[SHARD], 120);
+  assert.equal(s.reward[MEAT], 1);
+});
+
+test("sessions: a break starts a new one, a session kept for the list, older sessions read", () => {
+  const H = 3_600_000;
+  let s = C.newSession(0);
+  assert.equal(C.isBreak(s, 2 * H, 3 * H), false);
+  s = C.addDrops(s, { changes: [[1, 1000, 1, MEAT, 1]], pickups: [] });
+  assert.equal(C.isBreak(s, 1000 + 2 * H, 3 * H), false, "a change of character, an hour or two off: the same session");
+  assert.equal(C.isBreak(s, 1000 + 4 * H, 3 * H), true);
+  assert.equal(C.isBreak(s, 1000 + 4 * H, 0), false, "only by hand");
+  const sum = C.summary(s);
+  assert.equal(sum.end, 1000);
+  assert.equal(sum.recent, undefined);
+  // A version 1 session (no last doing): over at the first doing after the break.
+  const old = C.normalize({ start: 5, items: { [MEAT]: 3 }, loot: { [MEAT]: 1 }, kinah: 9, abyss: 0, recent: [{ at: 6, item: MEAT, delta: 1, loot: true }], pickups: [] });
+  assert.equal(old.recent[0].src, "loot");
+  assert.equal(old.recent[0].left, 1);
+  assert.equal(C.isBreak(old, 5 + 4 * H, 3 * H), true);
+  assert.deepEqual(C.bySource(old).other, { [MEAT]: 2 });
+});
+
+test("the gathering decoder reads the game's layout (with the meter's decoder.rs)", { skip: !require("node:fs").existsSync(path.join(__dirname, "gather-events.jsonl")) && "no meter source given" }, () => {
+  const lines = require("node:fs").readFileSync(path.join(__dirname, "gather-events.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const got = lines.filter((l) => l.event === "decoded:gathered").map((l) => l.data);
+  assert.deepEqual(got, [
+    { great: 1, kind: 58, node: 129, item: OHKRA, amount: 3, bonus: 3 },
+    { great: 0, kind: 58, node: 5, item: ODYLE, amount: 1, bonus: 1 },
+  ]);
+});

@@ -201,8 +201,9 @@ gathering spots, Hidden Cube places, places, services and quests.
 The meter's `events:world` (Clicktrough patch 0010) reads where you and the
 monsters, players and objects around you are from the game's own data, and the
 pets to show come from other plugins through `events:shared` (patch 0011);
-the Map shares each pet's nearest spawn point on your map back (`share`),
-for Pet Finder's **Nearest** sort. The monsters' levels come from Pet
+the Map shares each pet's nearest spawn point on your map back (`share`)
+for Pet Finder's **Nearest** sort, with the map's name and the region you
+are in (for the Inventory's gathering by place). The monsters' levels come from Pet
 Finder's copy of the Pet Soul Tracker's game data (GPL-3.0). The
 map pictures come through the meter (`a2.file`, patch 0012): WebKitGTK 2.54
 lets a plugin load no file of its own once its page has started. No network.

@@ -34,12 +34,19 @@
     floaterSlots: [null, null, null], // the floater's places 1 2 3: { x, y, width }
     shown: { kinah: true, abyss: true, gathering: true },
     tickets: null, // ids shown in the floater; null: FIRST_TICKETS
+    breakMin: 180, // a new session after this long off (minutes; 0: only by hand)
+    source: "all", // Drops: all, gathered, loot, reward, other
   };
+  const HISTORY = 40; // earlier sessions kept
+  const SOURCE_NAMES = { all: "All", gathered: "Gathered", loot: "Loot", reward: "Rewards", other: "Other" };
   let character = null;
   let chars = []; // [{ key, name, serverId, at }]
   const stocks = new Map(); // key -> { name, serverId, inv, char, exactAt, at }
   const accounts = new Map(); // serverId -> { acc, exactAt, at }
-  let session = { start: Date.now(), items: {}, loot: {}, kinah: 0, abyss: 0, recent: [], pickups: [] };
+  let session = C.newSession(Date.now());
+  let history = []; // earlier sessions, newest first (C.summary)
+  let pastView = null; // the start of the earlier session looked at; null: this one
+  let area = null; // where you are, as the Map plugin shares it
   let lastItems = null;
   let servers = [];
   let prices = new Map();
@@ -71,6 +78,7 @@
   };
   const saveSettings = saver(() => a2.storage.set("settings", settings).catch(() => {}));
   const saveSession = saver(() => a2.storage.set("session", session).catch(() => {}), 1500);
+  const saveHistory = saver(() => a2.storage.set("sessions", history).catch(() => {}), 800);
   const saveChars = saver(() => a2.storage.set("chars", chars).catch(() => {}), 800);
   const dirty = new Set();
   const saveStocks = saver(async () => {
@@ -104,10 +112,30 @@
     }
   }
 
+  // A new session by itself after a break (a change of character is none).
+  function rollAt(at) {
+    if (!C.isBreak(session, at, (Number(settings.breakMin) || 0) * 60_000)) return;
+    if (C.isEmpty(session)) {
+      session = C.newSession(at);
+      return;
+    }
+    endSession(at);
+  }
+  function endSession(at) {
+    if (!C.isEmpty(session)) {
+      history = [C.summary(session), ...history.filter((h) => h.start !== session.start)].slice(0, HISTORY);
+      saveHistory();
+    }
+    session = C.newSession(at);
+    saveSession();
+  }
+
   function noteItems(it) {
     lastItems = it;
     // The drops of the session: the changes of whoever plays.
     if ((it.changes && it.changes.length) || (it.pickups && it.pickups.length)) {
+      const first = Math.min(...(it.changes || []).map((c) => c[1]).filter(Number.isFinite));
+      if (Number.isFinite(first)) rollAt(first);
       session = C.addDrops(session, it);
       saveSession();
     }
@@ -291,10 +319,15 @@
       case "inv": return st?.inv || {};
       case "char": return st?.char || {};
       case "acc": return accounts.get(st?.serverId ?? character?.serverId)?.acc || {};
-      case "drops": return session.items || {};
+      case "drops": {
+        const s = dropSession();
+        return settings.source === "all" ? s.items || {} : C.bySource(s)[settings.source] || {};
+      }
       default: return {};
     }
   }
+
+  const dropSession = () => (pastView != null && history.find((h) => h.start === pastView)) || session;
 
   function render() {
     renderTop();
@@ -314,14 +347,12 @@
     $(".sellableOnly").checked = !!settings.sellableOnly;
     $(".sort").value = settings.sort;
     const { rows, sum } = C.list(counts(), prices, { fee: settings.fee, sort: settings.sort, search, sellableOnly: settings.sellableOnly, hist });
-    // The session line on Drops.
+    // The session line, the sources and gathering on Drops.
     $(".sessionBar").hidden = tab !== "drops";
-    if (tab === "drops") {
-      const bits = [`Since ${when(session.start)} (${span(Date.now() - session.start)})`];
-      if (session.kinah) bits.push(`Kina +${C.kina(session.kinah)}`);
-      if (session.abyss) bits.push(`Abyss Points +${C.kina(session.abyss)}`);
-      $(".sessionText").textContent = bits.join(" · ");
-    }
+    $(".sources").hidden = tab !== "drops";
+    $(".gatherBox").hidden = true;
+    const ds = dropSession();
+    if (tab === "drops") renderSession(ds);
     // The summary: how many, and what the sellable ones are worth.
     const st = viewed();
     const parts = [el("span", {}, el("b", { text: String(rows.filter((r) => !r.currency).length) }), " items")];
@@ -338,7 +369,7 @@
     // Why a list is empty, or not complete.
     const hint = $(".hint");
     let text = "";
-    if (tab === "drops") text = rows.length ? "" : "Nothing came in since the session started. Items you pick up, gather or get count here; Loot marks what came from the ground.";
+    if (tab === "drops") text = rows.length ? "" : settings.source !== "all" ? "Nothing of this kind in the session." : "Nothing came in since the session started. Items you gather, pick up or get count here, each with where it came from.";
     else if (!st) text = "Enter the world (log in, or switch character) while the meter runs: the game sends the inventory and both storages then.";
     else if (!st.exactAt && tab !== "inv") text = "Not seen yet: the game sends the storages when you enter the world. Log in again (or switch character) while the meter runs.";
     else if (!st.exactAt) text = "Only what changed since the meter started: log in again (or switch character) while the meter runs for the whole inventory.";
@@ -362,7 +393,11 @@
       if (r.sellable) tags.append(el("span", { class: "tag sell", title: `On the market: ${r.listings} listed${r.sold != null ? `, ${r.sold} sold in 28 days` : ""}`, text: "Sellable" }));
       else if (r.bound) tags.append(el("span", { class: "tag", text: "Bound" }));
       if (r.odd) tags.append(el("span", { class: "tag odd", title: `The lowest listing, ${C.kina(r.listed)}, is far above the usual price: ${globalThis.MarketAnomaly.reason(r.odd, C.kina)}. Counted at ${C.kina(r.unit)} each.`, text: "Usual price" }));
-      if (tab === "drops" && session.loot?.[r.item]) tags.append(el("span", { class: "tag loot", title: "Picked up from the ground", text: `Loot ${C.kina(session.loot[r.item])}` }));
+      if (tab === "drops" && settings.source === "all") {
+        if (ds.gathered?.[r.item]) tags.append(el("span", { class: "tag gath", title: "Gathered", text: `Gathered ${C.kina(ds.gathered[r.item])}` }));
+        if (ds.loot?.[r.item]) tags.append(el("span", { class: "tag loot", title: "Picked up from the ground", text: `Loot ${C.kina(ds.loot[r.item])}` }));
+        if (ds.reward?.[r.item]) tags.append(el("span", { class: "tag rew", title: "From a chest, a key or a reward of several items", text: `Reward ${C.kina(ds.reward[r.item])}` }));
+      }
       out.push(
         el("li", { class: `g${r.grade}${r.sellable ? " sellable" : ""}`, title: `${r.name} (${r.item})` },
           iconBox(r.item),
@@ -381,6 +416,78 @@
       out.push(el("li", { class: "group" }, more));
     }
     list.replaceChildren(...out);
+  }
+
+  const perHour = (n, ms) => (ms >= 5 * 60_000 ? n / (ms / 3_600_000) : null);
+  const sumWorth = (counts) => Object.entries(counts || {}).reduce((t, [id, n]) => t + (C.worth(Number(id), n, prices, settings.fee, hist).total || 0), 0);
+
+  function renderSession(ds) {
+    const past = ds !== session;
+    // Which session: this one or an earlier one.
+    const pick = $(".sessionPick");
+    const label = (h, cur) => `${cur ? "This session" : when(h.start)}${cur ? "" : ` – ${when(h.end ?? h.last ?? h.start).replace(/^.*, /, "")}`}${h.active ? ` (${span(h.active)})` : ""}`;
+    pick.replaceChildren(
+      el("option", { value: "", text: label(session, true), selected: !past }),
+      ...history.map((h) => el("option", { value: String(h.start), text: label(h, false), selected: past && h.start === ds.start })),
+    );
+    $(".breakPick").value = String(settings.breakMin ?? 180);
+    $(".newSession").hidden = past;
+    const end = past ? ds.end ?? ds.last ?? ds.start : Date.now();
+    const played = ds.active || 0;
+    const bits = [`Since ${when(ds.start)}`];
+    if (played) bits.push(`played ${span(played)}`);
+    if (ds.kinah) {
+      const h = perHour(ds.kinah, played);
+      bits.push(`Kina +${C.kina(ds.kinah)}${h != null ? ` (${C.short(h)}/h)` : ""}`);
+    }
+    if (ds.abyss) bits.push(`Abyss Points +${C.kina(ds.abyss)}`);
+    $(".sessionText").textContent = bits.join(" · ");
+    $(".sessionText").title = `From ${when(ds.start)} to ${when(end)}. Played: the time with something happening, pauses of 5 minutes or more left out. A new session starts by itself after the break set on the right.`;
+    // Where it came from.
+    const src = C.bySource(ds);
+    const n = (m) => Object.values(m || {}).reduce((t, x) => t + (x > 0 ? 1 : 0), 0);
+    const chips = ["all", "gathered", "loot", "reward", "other"].map((k) => {
+      const count = k === "all" ? n(ds.items) : n(src[k]);
+      const b = el("button", { type: "button", "aria-pressed": String(settings.source === k), title: k === "other" ? "Bought, crafted, from mail or a quest ..." : "" }, SOURCE_NAMES[k], el("b", { text: String(count) }));
+      b.addEventListener("click", () => {
+        settings.source = k;
+        shownRows = PAGE;
+        saveSettings();
+        renderList();
+      });
+      return b;
+    });
+    $(".sources").replaceChildren(...chips);
+    // Gathering and what was broken down.
+    const box = $(".gatherBox");
+    const lines = [];
+    const g = ds.gather || {};
+    if (g.n && (settings.source === "all" || settings.source === "gathered")) {
+      const got = (g.amount || 0) + (g.bonus || 0);
+      const worth = sumWorth(src.gathered);
+      const wh = perHour(worth, played);
+      lines.push(el("div", {},
+        el("span", { class: "head", text: "Gathering" }),
+        el("b", { text: C.kina(g.n) }), ` times at `, el("b", { text: C.kina(g.spots || 0) }), ` spots · `,
+        el("b", { text: C.kina(got) }), ` items (`, el("b", { text: (got / g.n).toFixed(1) }), ` a time) · `,
+        el("span", { title: "Gatherings the game marked as a great success" }, "great ", el("b", { text: `${C.kina(g.great || 0)}` }), ` (${Math.round(((g.great || 0) / g.n) * 100)} %)`), ` · `,
+        el("span", { title: "Items the game added to a gathering as a bonus" }, "bonus ", el("b", { text: `+${C.kina(g.bonus || 0)}` })),
+        prices.size ? el("span", { class: "worth" }, ` · worth `, el("b", { text: C.kina(worth) }), wh != null ? ` (${C.short(wh)}/h)` : "") : null));
+      const areas = Object.entries(g.byArea || {}).sort((a, b) => b[1].n - a[1].n);
+      if (areas.length && !(areas.length === 1 && areas[0][0] === "Unknown")) {
+        lines.push(el("div", { title: "Where you gathered (as the Map plugin knows it)" }, "Where: ",
+          ...areas.flatMap(([a, v], i) => [i ? " · " : "", `${a === "Unknown" ? "Map not open" : a} `, el("b", { text: C.kina(v.n) })])));
+      }
+    }
+    const d = ds.dismantled || {};
+    if (d.pieces && (settings.source === "all" || settings.source === "other")) {
+      lines.push(el("div", { title: "Gear the game broke down as it came in: not counted as a drop" },
+        el("span", { class: "head", text: "Dismantled" }),
+        el("b", { text: C.kina(d.pieces) }), ` pieces → `, el("b", { text: C.kina(d.stones) }), ` Enhance Stones`,
+        ...(d.kinahBound ? [` · `, el("b", { text: `−${C.kina(d.kinahBound)}` }), ` bound Kina`] : [])));
+    }
+    box.hidden = !lines.length;
+    box.replaceChildren(...lines.flat());
   }
 
   // ---------- limits and the floater ----------
@@ -573,9 +680,18 @@
   });
   $(".update").addEventListener("click", () => loadPrices(true));
   $(".newSession").addEventListener("click", () => {
-    session = { start: Date.now(), items: {}, loot: {}, kinah: 0, abyss: 0, recent: [], pickups: [] };
-    saveSession();
+    endSession(Date.now());
     renderList();
+  });
+  $(".sessionPick").addEventListener("change", () => {
+    const v = $(".sessionPick").value;
+    pastView = v ? Number(v) : null;
+    shownRows = PAGE;
+    renderList();
+  });
+  $(".breakPick").addEventListener("change", () => {
+    settings.breakMin = Number($(".breakPick").value) || 0;
+    saveSettings();
   });
   $(".floater").addEventListener("change", () => {
     settings.floater = $(".floater").checked;
@@ -598,6 +714,20 @@
   a2.on("items", (it) => {
     if (it && typeof it === "object") noteItems(it);
   });
+  // The game's gathering result (the plugin's decoder): item, amount, bonus.
+  a2.on("decoded:gathered", (d, meta) => {
+    if (!d || d.kind !== 58) return;
+    const at = Number(meta?.at) || Date.now();
+    rollAt(at);
+    session = C.addGather(session, d, at, area);
+    saveSession();
+    if (settings.tab === "drops") renderList();
+  });
+  // Where you are: the Map plugin shares its map and region.
+  a2.on("shared", ({ plugin, value }) => {
+    if (plugin !== "map" || !value?.title) return;
+    area = value.region ? `${value.title} · ${value.region}` : String(value.title);
+  });
 
   (async () => {
     try {
@@ -610,7 +740,11 @@
     } catch {}
     try {
       const s = await a2.storage.get("session");
-      if (s && typeof s === "object" && s.start) session = { ...session, ...s };
+      if (s && typeof s === "object" && s.start) session = C.normalize(s);
+    } catch {}
+    try {
+      const h = await a2.storage.get("sessions");
+      if (Array.isArray(h)) history = h.filter((x) => x && Number.isFinite(x.start)).map(C.normalize).map((x) => ({ ...x, end: x.end ?? x.last ?? x.start }));
     } catch {}
     try {
       const c = await a2.storage.get("servers");

@@ -1,10 +1,10 @@
 {
   "id": "inventory",
   "name": "Inventory",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "apiVersion": 2,
   "author": "Clicktrough (items and tickets: the game client via SkeeveAN's Aion-DPS-Meter, MIT, and Aion2Data; prices: aion2.exchange)",
-  "description": "Your inventory, character storage and server storage with each item's picture and name, what the sellable ones are worth on your server's market, the drops of a session, and a floater with today's Kinah, the week's Abyss Points and your keys and entry counts.",
+  "description": "Your inventory, character storage and server storage with each item's picture and name, what the sellable ones are worth on your server's market (a fantasy-priced listing at its usual price), the drops of each session by where they came from (gathered, loot, rewards) with your gathering's numbers and the gear broken down, earlier sessions, and a floater with today's Kinah, the week's Abyss Points and your keys and entry counts.",
   "permissions": [
     "storage",
     "events:character",
@@ -12,7 +12,42 @@
     "widgets",
     "web:raw.githubusercontent.com",
     "web:aion2.exchange",
-    "web:assets.playnccdn.com"
+    "web:assets.playnccdn.com",
+    "events:shared",
+    "decoder:gathered"
+  ],
+  "decoders": [
+    {
+      "name": "gathered",
+      "opcode": "33 8D",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "great",
+          "type": "u8"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "node",
+          "type": "varint"
+        },
+        {
+          "name": "item",
+          "type": "u32"
+        },
+        {
+          "name": "amount",
+          "type": "u32"
+        },
+        {
+          "name": "bonus",
+          "type": "u32"
+        }
+      ]
+    }
   ],
   "ui": {
     "panel": {

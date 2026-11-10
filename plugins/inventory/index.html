@@ -34,9 +34,19 @@
         </select>
       </div>
       <div class="sessionBar" hidden>
+        <select class="sessionPick" title="This session, or an earlier one"></select>
         <span class="sessionText"></span>
-        <button type="button" class="newSession" title="Start counting the drops from now">New session</button>
+        <select class="breakPick" title="A new session starts by itself when you come back after a break this long (a change of character stays in the session)">
+          <option value="60">New after 1 h off</option>
+          <option value="180">New after 3 h off</option>
+          <option value="360">New after 6 h off</option>
+          <option value="720">New after 12 h off</option>
+          <option value="0">Only by hand</option>
+        </select>
+        <button type="button" class="newSession" title="Start counting from now (this session goes to the earlier ones)">New session</button>
       </div>
+      <div class="sources" hidden></div>
+      <div class="gatherBox" hidden></div>
       <div class="summary"></div>
       <p class="note hint" hidden></p>
       <ul class="items"></ul>

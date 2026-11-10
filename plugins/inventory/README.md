@@ -18,11 +18,29 @@ pick.
   plugin's, with the course the hourly price copy keeps. Bound items and
   currencies are listed without a value; the inventory's Kinah stands in the
   line above the list.
-- **Drops**: what came into your inventory since **New session** (pressed, or
-  the plugin's first start): every item picked up, gathered, crafted or
-  bought, with its count and worth; **Loot** marks what came from the ground.
-  Kinah and Abyss Points gained stand in the line above. The session goes on
-  across restarts until **New session**.
+- **Drops**: what came into your inventory in a **session**, every item
+  with its count and worth and **where it came from**: the buttons above
+  the list show **All**, **Gathered** (the game's own gathering result for
+  the item), **Loot** (picked up from the ground), **Rewards** (a chest or
+  Hidden Cube opened with a key, or several items at once) and **Other**
+  (bought, crafted, from mail or a quest). Kinah, Kinah per hour and Abyss
+  Points gained stand in the line above.
+  - **Gathering**: how often you gathered, at how many spots, how many items
+    (and per gathering), the **great** gatherings the game marked, the
+    **bonus** items it added, and what it is worth (in all and per hour);
+    **Where** splits them by map and region (as the Map plugin knows them:
+    with the Map's window or overlay open).
+  - **Dismantled**: common gear the game breaks down for Enhance Stones as
+    it comes in is **no drop**: it is taken out of the list, and the line
+    says how many pieces, how many Enhance Stones and the bound Kinah it
+    cost.
+  - **Sessions**: a session goes on across restarts and changes of
+    character, and a **new one starts by itself** when you play again after
+    a break (3 hours at first; 1, 6 or 12 hours, or only by hand, in the
+    menu on the right). **Played** counts the time something happened,
+    pauses of 5 minutes or more left out, and the per-hour numbers go by it.
+    The menu on the left shows the **earlier sessions** (the last 40).
+    **New session** starts one at once.
 - **Limits**: Kinah gained today (of 1,000,000), the week's Abyss Points (of
   the week's limit), and the keys and entry counts the game keeps (Shugo
   Festival keys, Nightmare, Dimensional Invasion, the daily dungeons, the
@@ -56,6 +74,10 @@ each character's (the server storage once per server). So:
   with patch 0034 each gain is added to them at once.
 - The keys and entry counts come at login and each time one changes.
 - The **server's gathering limit** is not read from the game yet.
+- Gathering: the game reports each gathering's item, amount and bonus; the
+  plugin reads it with its own decoder (`gathered`, permission
+  `decoder:gathered`) and matches it to the item coming in. The map and
+  region come from the Map plugin (`events:shared`).
 
 Prices: aion2.exchange's (players' collected market prices), first from the
 Clicktrough fork's hourly copy on GitHub, else from aion2.exchange itself,

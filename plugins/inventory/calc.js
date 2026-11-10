@@ -149,51 +149,192 @@
     return { rows, sum };
   }
 
-  /** A session's drops after an items event: the items that came into the
-   *  inventory (more of an item than before; never a currency), Kinah and
-   *  Abyss Points gained, and which came from the ground (a pickup of the same
-   *  item within 1.5 s, either way round). Returns a new session. */
+  // ---------- the drops of a session ----------
+  // What came into the inventory, by where it came from: Gathered (the game's
+  // gathering result for the same item), Loot (picked up from the ground),
+  // Rewards (a chest, a key or several items at once), and the rest (bought,
+  // crafted, mail ...). Common gear the game breaks down at once for Enhance
+  // Stones is taken out again and counted as Dismantled.
   const WINDOW = 1500;
-  function addDrops(session, it) {
-    const s = {
-      ...session,
-      items: { ...(session.items || {}) },
-      loot: { ...(session.loot || {}) },
-      recent: [...(session.recent || [])],
-      pickups: [...(session.pickups || [])],
-      kinah: session.kinah || 0,
-      abyss: session.abyss || 0,
+  const ENHANCE_STONE = 930100023;
+  const KINA_BOUND = 930100001;
+  const SOURCES = ["gathered", "loot", "reward"];
+  const opener = (id) => /^Key:|\b(Chest|Box|Pouch|Bundle|Crate|Coffer|Casket)\b/i.test(name(id));
+
+  function newSession(now) {
+    return {
+      v: 2, start: now, last: null, active: 0,
+      items: {}, loot: {}, gathered: {}, reward: {}, kinah: 0, abyss: 0,
+      dismantled: { pieces: 0, stones: 0, kinahBound: 0 },
+      gather: { n: 0, great: 0, amount: 0, bonus: 0, spots: 0, byItem: {}, byArea: {} },
+      recent: [], pickups: [], gathers: [], opened: [], nodes: [],
     };
-    const since = s.start || 0;
-    const mark = (g) => {
-      if (g.loot) return;
+  }
+  /** A stored session of any version as this one's shape. */
+  function normalize(s) {
+    const base = newSession(Number(s?.start) || Date.now());
+    if (!s || typeof s !== "object") return base;
+    const out = { ...base, ...s };
+    for (const k of ["items", "loot", "gathered", "reward"]) out[k] = { ...(s[k] || {}) };
+    out.dismantled = { ...base.dismantled, ...(s.dismantled || {}) };
+    out.gather = { ...base.gather, ...(s.gather || {}), byItem: { ...(s.gather?.byItem || {}) }, byArea: { ...(s.gather?.byArea || {}) } };
+    for (const k of ["recent", "pickups", "gathers", "opened", "nodes"]) out[k] = Array.isArray(s[k]) ? s[k].map((x) => (x && typeof x === "object" ? { ...x } : x)) : [];
+    // Version 1 kept { at, item, delta, loot }.
+    out.recent = out.recent.filter((g) => g && Number.isFinite(g.delta)).map((g) => ({ ...g, left: g.left ?? g.delta, src: g.src ?? (g.loot ? "loot" : null) }));
+    out.v = 2;
+    return out;
+  }
+  const isEmpty = (s) => !Object.keys(s.items || {}).length && !s.kinah && !s.abyss && !(s.gather?.n) && !(s.dismantled?.pieces);
+  /** Whether an event at `at` starts a new session: a break of more than
+   *  `breakMs` since the session's last doing (0: never). An empty session
+   *  just starts again then (see `restart`). */
+  function isBreak(s, at, breakMs) {
+    if (!breakMs || !Number.isFinite(at)) return false;
+    const last = s.last ?? s.start;
+    return at - last > breakMs;
+  }
+  /** What a finished session keeps for the list of earlier ones. */
+  function summary(s) {
+    const { recent, pickups, gathers, opened, nodes, ...kept } = s;
+    return { ...kept, end: s.last ?? s.start };
+  }
+  // A doing at `at`: the time played grows by the step since the last one
+  // when it was short (a pause of 5 minutes or more is no play).
+  const ACTIVE_STEP = 5 * 60_000;
+  function touch(s, at) {
+    if (!Number.isFinite(at)) return;
+    if (s.last != null && at > s.last && at - s.last <= ACTIVE_STEP) s.active += at - s.last;
+    if (s.last == null || at > s.last) s.last = at;
+  }
+  /** Items that came in by source: { gathered, loot, reward, other }. */
+  function bySource(s) {
+    const other = {};
+    for (const [id, n] of Object.entries(s.items || {})) {
+      const rest = n - SOURCES.reduce((t, k) => t + (s[k]?.[id] || 0), 0);
+      if (rest > 0) other[id] = rest;
+    }
+    return { gathered: s.gathered || {}, loot: s.loot || {}, reward: s.reward || {}, other };
+  }
+  function clone(session) {
+    return normalize(session);
+  }
+  // Match what came in to a source, either way round (the frames come in any order).
+  function mark(s) {
+    for (const g of s.recent) {
+      if (g.src || g.left <= 0) continue;
       const p = s.pickups.find((x) => x.item === g.item && !x.used && Math.abs(x.at - g.at) <= WINDOW);
       if (p) {
         p.used = true;
-        g.loot = true;
-        s.loot[g.item] = (s.loot[g.item] || 0) + g.delta;
+        g.src = "loot";
+      } else {
+        const h = s.gathers.find((x) => x.item === g.item && !x.used && Math.abs(x.at - g.at) <= WINDOW);
+        if (h) {
+          h.used = true;
+          g.src = "gathered";
+        } else if (s.opened.some((o) => g.at - o.at >= -200 && g.at - o.at <= 2500)) {
+          g.src = "reward";
+        }
       }
-    };
+      if (g.src) s[g.src][g.item] = (s[g.src][g.item] || 0) + g.left;
+    }
+  }
+  function prune(s) {
+    const now = Math.max(0, ...s.recent.map((g) => g.at), ...s.pickups.map((p) => p.at), ...s.gathers.map((p) => p.at));
+    const fresh = (x) => now - x.at <= 15_000;
+    s.recent = s.recent.filter(fresh).slice(-200);
+    s.pickups = s.pickups.filter(fresh).slice(-200);
+    s.gathers = s.gathers.filter(fresh).slice(-200);
+    s.opened = s.opened.filter(fresh).slice(-50);
+  }
+
+  /** A session after an items event. Returns a new session. */
+  function addDrops(session, it) {
+    const s = clone(session);
+    const since = s.start || 0;
     for (const p of Array.isArray(it?.pickups) ? it.pickups : []) {
       const [, at, item, count] = p;
       if (at < since) continue;
       s.pickups.push({ at, item, count, used: false });
     }
+    // The changes by frame (one `at`): a frame that breaks gear down is one.
+    const frames = new Map();
     for (const ch of Array.isArray(it?.changes) ? it.changes : []) {
       const [, at, container, item, delta] = ch;
-      if (String(container) !== INVENTORY || !Number.isFinite(delta) || delta <= 0 || at < since) continue;
-      if (item === KINA) s.kinah += delta;
-      else if (item === ABYSS_POINTS) s.abyss += delta;
-      else if (!currency(item)) {
-        s.items[item] = (s.items[item] || 0) + delta;
-        s.recent.push({ at, item, delta, loot: false });
+      if (String(container) !== INVENTORY || !Number.isFinite(delta) || delta === 0 || at < since) continue;
+      if (!frames.has(at)) frames.set(at, []);
+      frames.get(at).push({ item, delta });
+    }
+    for (const [at, list] of [...frames].sort((a, b) => a[0] - b[0])) {
+      touch(s, at);
+      const stones = list.find((c) => c.item === ENHANCE_STONE && c.delta > 0);
+      const gone = list.filter((c) => c.delta < 0 && !currency(c.item));
+      if (stones && gone.length) {
+        // Broken down: the pieces out, their stones and bound Kinah counted.
+        for (const c of gone) {
+          let n = -c.delta;
+          s.dismantled.pieces += n;
+          for (const g of [...s.recent].reverse()) {
+            if (g.item !== c.item || g.left <= 0 || n <= 0) continue;
+            const take = Math.min(n, g.left);
+            g.left -= take;
+            n -= take;
+            s.items[c.item] = Math.max(0, (s.items[c.item] || 0) - take);
+            if (!s.items[c.item]) delete s.items[c.item];
+            if (g.src) {
+              s[g.src][c.item] = Math.max(0, (s[g.src][c.item] || 0) - take);
+              if (!s[g.src][c.item]) delete s[g.src][c.item];
+            }
+          }
+        }
+        s.dismantled.stones += stones.delta;
+        const bound = list.find((c) => c.item === KINA_BOUND && c.delta < 0);
+        if (bound) s.dismantled.kinahBound += -bound.delta;
+        continue;
+      }
+      for (const c of list) if (c.delta < 0 && opener(c.item)) s.opened.push({ at, item: c.item });
+      const ups = list.filter((c) => c.delta > 0);
+      const many = ups.filter((c) => !currency(c.item)).length >= 3;
+      for (const { item, delta } of ups) {
+        if (item === KINA) s.kinah += delta;
+        else if (item === ABYSS_POINTS) s.abyss += delta;
+        else if (!currency(item)) {
+          s.items[item] = (s.items[item] || 0) + delta;
+          const g = { at, item, delta, left: delta, src: many ? "reward" : null };
+          if (g.src) s.reward[item] = (s.reward[item] || 0) + delta;
+          s.recent.push(g);
+        }
       }
     }
-    // Late either way: match what is still open.
-    for (const g of s.recent) mark(g);
-    const now = Math.max(0, ...s.recent.map((g) => g.at), ...s.pickups.map((p) => p.at));
-    s.recent = s.recent.filter((g) => now - g.at <= 10_000 || !g.loot).slice(-200);
-    s.pickups = s.pickups.filter((p) => now - p.at <= 10_000).slice(-200);
+    mark(s);
+    prune(s);
+    return s;
+  }
+
+  /** A session after the game's gathering result ({ item, amount, bonus,
+   *  great, node }, at `at`, in `area`). Returns a new session. */
+  function addGather(session, d, at, area) {
+    const s = clone(session);
+    const item = Number(d?.item), amount = Number(d?.amount) || 0, bonus = Number(d?.bonus) || 0;
+    if (!Number.isFinite(item) || item < 100_000_000 || amount + bonus <= 0 || amount + bonus > 1000 || at < (s.start || 0)) return session;
+    touch(s, at);
+    const g = s.gather;
+    g.n++;
+    g.amount += amount;
+    g.bonus += bonus;
+    if (d.great) g.great++;
+    const node = Number(d.node);
+    if (Number.isFinite(node) && !s.nodes.includes(node)) {
+      g.spots++;
+      s.nodes = [...s.nodes, node].slice(-50);
+    }
+    const bi = g.byItem[item] || { n: 0, count: 0 };
+    g.byItem[item] = { n: bi.n + 1, count: bi.count + amount + bonus };
+    const key = area || "Unknown";
+    const ba = g.byArea[key] || { n: 0, count: 0 };
+    g.byArea[key] = { n: ba.n + 1, count: ba.count + amount + bonus };
+    s.gathers.push({ at, item, count: amount + bonus, used: false });
+    mark(s);
+    prune(s);
     return s;
   }
 
@@ -251,6 +392,7 @@
   globalThis.InventoryCalc = Object.freeze({
     KINA, ABYSS_POINTS, KINA_DAILY, GRADES, INVENTORY, CHARACTER, ACCOUNT,
     name, grade, icon, bound, currency, totals, apply, readServers, serverOf, readCopy, readRows, worth, list,
-    addDrops, tickets, limits, kina, short, charKey,
+    addDrops, addGather, newSession, normalize, isEmpty, isBreak, summary, bySource,
+    tickets, limits, kina, short, charKey, ENHANCE_STONE, KINA_BOUND,
   });
 })();

@@ -232,7 +232,7 @@
     renderHeader(key, onThisMap, where, region);
     renderStatus(built, onThisMap);
     renderNear(key, onThisMap);
-    shareNearest(key, onThisMap);
+    shareNearest(key, onThisMap, region);
     renderFocus(key);
     // The overlay follows you on your own map, whichever one this window shows.
     const own = inZone || key;
@@ -320,15 +320,17 @@
   }
 
   // For Pet Finder's "Nearest": each pet's nearest spawn point on the map
-  // you're on (a2.share), again once you've moved 40 m or changed map.
+  // you're on (a2.share), again once you've moved 40 m or changed map or
+  // region; with the map's name and region for the Inventory's gathering.
   let nearestShared = null;
-  function shareNearest(key, onThisMap) {
+  function shareNearest(key, onThisMap, region) {
     if (typeof a2.share !== "function") return;
     const me = world?.me;
     if (!me || !onThisMap) return;
-    if (nearestShared && nearestShared.map === key && Math.hypot(me.x - nearestShared.x, me.y - nearestShared.y) < 4000) return;
-    nearestShared = { map: key, x: me.x, y: me.y };
-    a2.share({ source: "Map", map: key, at: Date.now(), nearest: M.nearestByPet(key, me) }).catch(() => {});
+    const regionName = region?.name || region || null;
+    if (nearestShared && nearestShared.map === key && nearestShared.region === regionName && Math.hypot(me.x - nearestShared.x, me.y - nearestShared.y) < 4000) return;
+    nearestShared = { map: key, region: regionName, x: me.x, y: me.y };
+    a2.share({ source: "Map", map: key, title: D.maps[key]?.title || key, region: typeof regionName === "string" ? regionName : null, at: Date.now(), nearest: M.nearestByPet(key, me) }).catch(() => {});
   }
 
   // ---------- the focus (the search, or a map link in another plugin) ----------
