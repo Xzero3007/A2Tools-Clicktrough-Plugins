@@ -1,0 +1,24 @@
+{
+  "id": "radio",
+  "name": "Radio",
+  "version": "0.1.0",
+  "apiVersion": 2,
+  "author": "Clicktrough",
+  "description": "Internet radio while you play: Best FM and other Turkish stations (pop, rap, türkü, halk and sanat), US hip hop, electronic and German stations, by country and genre, with favourites, volume, and a small player over the game.",
+  "permissions": [
+    "storage",
+    "widgets",
+    "radio"
+  ],
+  "ui": {
+    "panel": {
+      "width": 460,
+      "height": 560
+    },
+    "overlay": {
+      "widget": "player",
+      "title": "Radio player",
+      "icon": "radio"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="widget.css" />
+  </head>
+  <body>
+    <div class="card">
+      <header class="head">
+        <span class="dot" aria-hidden="true"></span>
+        <div class="text">
+          <strong class="name">Radio</strong>
+          <span class="state"></span>
+        </div>
+        <button type="button" class="fav" title="Favourite" aria-label="Favourite">☆</button>
+        <button type="button" class="close" title="Close the player (the radio keeps playing)" aria-label="Close the player">×</button>
+      </header>
+      <div class="row">
+        <button type="button" data-do="prev" title="Previous station" aria-label="Previous station">⏮</button>
+        <button type="button" data-do="playStop" class="play" title="Play or stop" aria-label="Play or stop">▶</button>
+        <button type="button" data-do="next" title="Next station" aria-label="Next station">⏭</button>
+        <button type="button" data-do="mute" class="mute" title="Mute" aria-label="Mute">🔊</button>
+        <input type="range" class="volume" min="0" max="100" step="1" title="Volume" aria-label="Volume" />
+      </div>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <section class="now">
+      <div class="nowText">
+        <strong class="nowName">No station</strong>
+        <span class="nowState muted">Pick a station below</span>
+      </div>
+      <div class="controls">
+        <button type="button" class="prev" title="The station before (in the list below)" aria-label="Previous station">⏮</button>
+        <button type="button" class="playStop big" title="Play or stop" aria-label="Play or stop">▶</button>
+        <button type="button" class="next" title="The next station (in the list below)" aria-label="Next station">⏭</button>
+        <button type="button" class="mute" title="Mute" aria-label="Mute">🔊</button>
+        <input type="range" class="volume" min="0" max="100" step="1" title="Volume" aria-label="Volume" />
+        <span class="volText muted"></span>
+      </div>
+    </section>
+    <nav class="countries" role="tablist"></nav>
+    <div class="filters">
+      <div class="genres"></div>
+      <input type="search" class="search" placeholder="Search stations" aria-label="Search stations" />
+    </div>
+    <ul class="list"></ul>
+    <p class="note empty" hidden>No station here.</p>
+    <footer class="foot">
+      <label class="opt"><input type="checkbox" class="autoplay" /> Play the last station when the meter starts</label>
+      <label class="opt"><input type="checkbox" class="overlayOn" /> Player over the game</label>
+      <span class="grow"></span>
+      <button type="button" class="checkAll" title="Tries every station in the list for a few seconds, muted, and marks the ones that don't play from here (some stations play only in their own country)">Check stations</button>
+    </footer>
+    <p class="note credit">The stations' own live streams, played as they broadcast them; ✕ marks a station that didn't play from here. Nothing is sent but the request for the stream itself.</p>
+    <script src="/_sdk/a2.js"></script>
+    <script src="stations.js"></script>
+    <script src="kit.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

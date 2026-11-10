@@ -1,0 +1,63 @@
+/* The host window paints the panel; the page stays transparent. Neutral
+   colours as the meter's, the meter's accent (gold) for what is on; no blue. */
+[hidden] { display: none !important; }
+:root {
+  --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
+  --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035);
+  --gold: var(--a2-accent, #e0a526); --gold-t: #f2c46b; --bad: #ff7a6b;
+}
+html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+body { padding: 8px 10px 10px; box-sizing: border-box; }
+button { font: inherit; color: inherit; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 4px; padding: 2px 9px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.16); }
+button:disabled { opacity: .45; cursor: default; }
+input[type="range"] { accent-color: var(--gold); }
+input[type="checkbox"] { accent-color: var(--gold); }
+input[type="search"] { font: inherit; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 4px; padding: 3px 8px; outline: none; min-width: 0; }
+input[type="search"]:focus { border-color: var(--gold); }
+.muted { color: var(--muted); font-size: 12px; }
+.note { color: var(--muted); font-size: 12px; margin: 8px 2px; }
+.grow { flex: 1; }
+
+.now { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); background: var(--card); border-radius: 8px; margin-bottom: 8px; }
+.nowText { display: flex; flex-direction: column; min-width: 0; flex: 1 1 160px; }
+.nowName { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nowState.playing { color: var(--gold-t); }
+.nowState.bad { color: var(--bad); }
+.controls { display: flex; align-items: center; gap: 6px; }
+.controls button { padding: 2px 7px; min-width: 28px; }
+.controls .big { min-width: 36px; font-size: 15px; }
+.controls .big.on { background: var(--gold); border-color: var(--gold); color: #1b1b1b; }
+.volume { width: 96px; }
+.volText { min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.countries { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 6px; flex-wrap: wrap; }
+.countries button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 5px 9px; color: var(--muted); }
+.countries button:hover { color: var(--text); background: none; }
+.countries button[aria-selected="true"] { color: #fff; border-bottom-color: var(--gold); }
+.filters { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+.genres { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.genres button { border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--muted); }
+.genres button[aria-pressed="true"] { color: #fff; border-color: var(--gold); background: rgba(224,165,38,.22); }
+.search { width: 130px; flex: 0 1 130px; }
+
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+.list li:hover { background: rgba(255,255,255,.06); }
+.list li.current { border-color: rgba(224,165,38,.6); background: rgba(224,165,38,.1); }
+.list .fav { background: none; border: 0; padding: 0 2px; font-size: 15px; color: var(--faint); }
+.list .fav.on { color: var(--gold-t); }
+.list .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list .info { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.list .mark { font-size: 12px; flex: none; }
+.list .mark.ok { color: var(--muted); }
+.list .mark.bad { color: var(--bad); }
+.list li.failed .name { color: var(--muted); }
+.list .flag { flex: none; font-size: 11px; color: var(--faint); width: 22px; }
+
+.foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.opt { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.credit { font-size: 11px; color: var(--faint); }
+
+/* Folded (the window's fold button): the player only. */
+body.compact .countries, body.compact .filters, body.compact .list, body.compact .foot, body.compact .credit, body.compact .empty { display: none !important; }

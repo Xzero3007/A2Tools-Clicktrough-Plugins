@@ -35,7 +35,10 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   (aion2.plaync.com/api/character/, api-search.plaync.com; the Armory),
   `a2.web.image` for the game's icons and NC's portraits
   (assets.playnccdn.com, profileimg.plaync.com), and the shared world boss /
-  Abyss siege timer files (`a2.bossTimers`, `a2.abyssSiege`, read only).
+  Abyss siege timer files (`a2.bossTimers`, `a2.abyssSiege`, read only), and the
+  Radio plugin's station streams (permission `radio`: the page's `media-src`
+  holds the meter's `RADIO_HOSTS`, patch 0043; listening only; the person's
+  decision, 2026-11-10). A new station's server needs a meter patch.
   Anything else needs the person's yes first, and a meter patch.
 - **This repo is public. No network analysis goes in here**: no write-ups of
   what the game's traffic holds, no packet captures, no logs. Those go in
@@ -66,7 +69,7 @@ with its own CLAUDE.md: work on the meter happens there, not here.
 
 ## What this repo is
 
-The plugins of the Clicktrough build: six of its own and its changes to the
+The plugins of the Clicktrough build: seven of its own and its changes to the
 original's. Nothing is installed from here directly: the app's release puts
 them into its package (`build/assemble.sh`), and every meter updates through
 the green button. The original's plugins are frozen at one commit and taken
@@ -74,7 +77,7 @@ on only when the person decides (see below).
 
 | Path | What |
 |---|---|
-| `plugins/<id>/` | Own plugins: `armory`, `inventory`, `map`, `market`, `pet-finder`, `shugo-cards`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
+| `plugins/<id>/` | Own plugins: `armory`, `inventory`, `map`, `market`, `pet-finder`, `radio`, `shugo-cards`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
 | `original/PIN` | The commit of `taengu/A2Tools-Plugins` the build takes the original's plugins at. |
 | `original/pins.txt` | Single plugins at another commit (`<id> <commit>`): a new plugin, or a new version of one, without moving PIN. |
 | `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link and with its Test shown while AION2 is closed; gold instead of blue in all four; no lock of their own in Event Timers, Enhanced Boss Telegraph, Cooldowns and Ping (the meter's lock is every widget's, meter patch 0036). A file `installed-only` there: the plugin still runs only where installed. |
@@ -212,7 +215,9 @@ character pages), `a2.web.image(url)` (`web:<host>`, the game's icon server
 and NC's portraits, as a data URL),
 `a2.bossTimers` / `a2.abyssSiege` (`feed:boss-timers`, read only; live
 updates and reporting don't exist in this build), `a2.window.*` (`window`),
-`a2.widgets.*` (`widgets`, `resize` is Clicktrough's).
+`a2.widgets.*` (`widgets`, `resize` is Clicktrough's). `<audio>` from the
+radio stations' servers (`radio`, meter patch 0043; only the hosts in the
+meter's `RADIO_HOSTS`).
 
 Decoders: fixed layouts read from the start of a frame's body: `u8`, `u16`,
 `u32`, `u64`, `i32`, `varint`, `skip:N`, `list` (counted, nested two deep);

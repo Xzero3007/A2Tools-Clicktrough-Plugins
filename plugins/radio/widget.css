@@ -1,0 +1,27 @@
+/* The player over the game: a dark card like the meter's, transparent
+   around it; the accent (gold) while it plays. No blue. */
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; background: transparent; overflow: hidden;
+  font: 13px/1.3 "Segoe UI", system-ui, sans-serif; color: rgba(255, 255, 255, 0.92); }
+.card { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 6px 10px; box-sizing: border-box;
+  border-radius: 10px; background: rgba(14, 16, 20, 0.86); border: 1px solid rgba(255, 255, 255, 0.12); }
+.head { display: flex; align-items: center; gap: 8px; cursor: move; user-select: none; min-width: 0; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); flex: none; }
+body.on .dot { background: var(--a2-accent, #e0a526); box-shadow: 0 0 6px var(--a2-accent, #e0a526); }
+body.failed .dot { background: #ff7a6b; }
+.text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+.state { font-size: 11px; color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.failed .state { color: #ff7a6b; }
+button { font: inherit; color: rgba(255, 255, 255, 0.85); background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px; padding: 1px 6px; min-width: 26px; cursor: pointer; line-height: 1.4; }
+button:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+button:disabled { opacity: 0.4; cursor: default; }
+.play.on { background: var(--a2-accent, #e0a526); border-color: var(--a2-accent, #e0a526); color: #1b1b1b; }
+.fav, .close { background: none; border: 0; min-width: 0; padding: 0 2px; font-size: 15px; color: rgba(255, 255, 255, 0.5); }
+.fav.on { color: #f2c46b; }
+.close { font-size: 17px; }
+.row { display: flex; align-items: center; gap: 5px; }
+.volume { flex: 1; min-width: 40px; margin: 0 0 0 4px; accent-color: var(--a2-accent, #e0a526); }
+body.locked .close, body.locked .fav { display: none; }
+body.locked .head { cursor: default; }
