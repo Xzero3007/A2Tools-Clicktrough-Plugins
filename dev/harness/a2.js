@@ -21,10 +21,20 @@
   window.__notes = [];
   window.__opened = [];
   const ok = async () => {};
+  // As the meter: events wait until the page calls a2.ready().
+  let isReady = false;
+  const waiting = [];
   window.a2 = {
     on(ev, fn) { (handlers[ev] ||= []).push(fn); },
-    emit(ev, data, meta) { for (const fn of handlers[ev] || []) fn(data, meta); },
-    ready: ok,
+    emit(ev, data, meta) {
+      if (!isReady) return void waiting.push([ev, data, meta]);
+      for (const fn of handlers[ev] || []) fn(data, meta);
+    },
+    ready: async () => {
+      if (isReady) return;
+      isReady = true;
+      for (const [ev, data, meta] of waiting.splice(0)) window.a2.emit(ev, data, meta);
+    },
     notify: async (text) => { window.__notes.push(text); },
     storage: {
       get: async (k) => (k in store ? structuredClone(store[k]) : null),

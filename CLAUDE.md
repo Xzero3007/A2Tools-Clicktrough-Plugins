@@ -236,6 +236,10 @@ skips the 500 ms wait that lets the login's identity land first.
 
 ## Known pitfalls
 
+- **Call `a2.ready()`** once the page's handlers are set: the meter holds every
+  event (the character, decoded frames, items) until then. Shugo Cards 0.1.0
+  never called it and heard nothing in the game. The harness (`dev/harness/a2.js`)
+  holds events the same way.
 - WebKitGTK: a plugin's frame can't load its own files once its page has
   started (use `a2.file`), and a `<select>` is drawn in the desktop's light
   theme unless styled.

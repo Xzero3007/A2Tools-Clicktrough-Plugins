@@ -391,6 +391,9 @@
       const o = await a2.storage.get("odd");
       if (Array.isArray(o)) odd = o;
     } catch {}
+    // The meter holds every event (the character, the rounds of its run)
+    // until the page says it is ready.
+    a2.ready();
     render();
     await loadServers();
     await loadPrices();
