@@ -1,0 +1,78 @@
+/* The host window paints the panel; the page stays transparent. Neutral
+   colours as the meter's, gold for gold items and value; no blue anywhere
+   (the game's Legend grade, blue in the game, is purple here). */
+[hidden] { display: none !important; }
+:root {
+  --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
+  --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035);
+  --gold: var(--a2-accent, #e0a526); --gold-t: #f2c46b;
+  --g1: #c8ccd2; --g2: #7fdc9a; --g3: #c39bff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8;
+}
+html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+body { padding: 8px 10px 10px; box-sizing: border-box; }
+button { font: inherit; color: inherit; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 4px; padding: 2px 9px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.16); }
+button:disabled { opacity: .45; cursor: default; }
+.muted { color: var(--muted); font-size: 12px; }
+.note { color: var(--muted); font-size: 12px; margin: 8px 2px; }
+.grow { flex: 1; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+
+.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.count { font-weight: 600; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 5px 10px; color: var(--muted); }
+.tabs button:hover { color: var(--text); background: none; }
+.tabs button[aria-selected="true"] { color: #fff; border-bottom-color: var(--gold); }
+
+.nav { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.nav button { padding: 0 9px; font-size: 15px; }
+.cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.card { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 5px; min-width: 0; }
+.card.mine { border-color: rgba(255,255,255,.4); background: rgba(255,255,255,.07); }
+.card.hasGold { box-shadow: inset 0 0 0 1px rgba(242,196,107,.55); }
+.card .head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.card .you { font-size: 11px; padding: 0 5px; border-radius: 8px; background: var(--gold); color: #1b1b1b; font-weight: 600; }
+.card .other { font-size: 11px; color: var(--muted); }
+.card .worth { font-size: 15px; font-weight: 600; color: var(--text); margin: 2px 0 1px; font-variant-numeric: tabular-nums; }
+.card .worth.top { color: var(--gold-t); }
+.card .cur { font-size: 11px; line-height: 1.3; margin-bottom: 4px; }
+.its { list-style: none; margin: 0; padding: 0; }
+.its li.it { display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 4px; align-items: center; padding: 2px 0; border-top: 1px solid var(--line); font-size: 11px; }
+.its li.it .nm { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; color: var(--gc, var(--text)); }
+.its li.it .n, .its li.it .v { grid-column: 2; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.its li.it .n:empty { display: none; }
+.its li.it .v { color: var(--gold-t); }
+.its li.gold { background: linear-gradient(90deg, rgba(242,196,107,.18), transparent 80%); }
+.its li.it .icon { grid-row: span 3; width: 24px; height: 24px; font-size: 11px; }
+.its li.sep { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); padding: 3px 0 1px; }
+
+.icon { width: 30px; height: 30px; border-radius: 5px; background: rgba(255,255,255,.06); border: 1px solid var(--gc, rgba(255,255,255,.15));
+  display: grid; place-items: center; overflow: hidden; font-size: 12px; font-weight: 600; color: var(--gc, var(--muted)); box-sizing: border-box; }
+.icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.g1 { --gc: var(--g1); } .g2 { --gc: var(--g2); } .g3 { --gc: var(--g3); } .g4 { --gc: var(--g4); }
+.g5 { --gc: var(--g5); } .g6 { --gc: var(--g6); } .g7 { --gc: var(--g7); }
+
+.summary { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 6px 2px; }
+.summary b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary .worth b { color: var(--gold-t); }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li.row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+.rows li.row.head { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.rows li.row.gold { background: linear-gradient(90deg, rgba(242,196,107,.12), transparent 70%); }
+.rows .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rows .nm.g4, .rows .nm.g5, .rows .nm.g6 { color: var(--gc); }
+.rows .nm small { color: var(--muted); }
+.rows .c { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rows .c.you { color: var(--gold-t); }
+.rows .v { text-align: right; min-width: 56px; color: var(--gold-t); font-variant-numeric: tabular-nums; }
+
+.tip { display: grid; gap: 6px; margin-bottom: 10px; }
+.advice { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 7px 10px; font-size: 12px; color: var(--muted); }
+.advice.sure { border-color: var(--gold); color: var(--text); background: rgba(224,165,38,.1); }
+.advice.sure b { color: var(--gold-t); }
+table.places { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+table.places th { text-align: left; font-weight: 600; color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid rgba(255,255,255,.18); padding: 4px; }
+table.places td { padding: 5px 4px; border-bottom: 1px solid var(--line); }
+table.places tr.lead td { color: var(--gold-t); }
+.credit { margin-top: 12px; font-size: 11px; }

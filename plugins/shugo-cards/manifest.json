@@ -1,0 +1,35 @@
+{
+  "id": "shugo-cards",
+  "name": "Shugo Cards",
+  "version": "0.1.0",
+  "apiVersion": 2,
+  "author": "Clicktrough (items and icons: the game client via SkeeveAN's Aion-DPS-Meter, MIT, and Aion2Data; prices: aion2.exchange)",
+  "description": "The Shugo Festival's card rounds: after each round, what lay behind all five cards and which you picked, the gold items found with their pictures, what each card was worth in Kinah, and over the rounds where gold and the most valuable card lie, with a tip once the numbers show a place is better than chance.",
+  "permissions": [
+    "storage",
+    "events:character",
+    "decoder:round",
+    "web:raw.githubusercontent.com",
+    "web:aion2.exchange",
+    "web:assets.playnccdn.com"
+  ],
+  "decoders": [
+    {
+      "name": "round",
+      "opcode": "0A 57",
+      "immediate": true,
+      "fields": [
+        {
+          "name": "body",
+          "type": "rest"
+        }
+      ]
+    }
+  ],
+  "ui": {
+    "panel": {
+      "width": 620,
+      "height": 660
+    }
+  }
+}

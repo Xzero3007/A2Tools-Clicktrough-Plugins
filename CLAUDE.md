@@ -66,7 +66,7 @@ with its own CLAUDE.md: work on the meter happens there, not here.
 
 ## What this repo is
 
-The plugins of the Clicktrough build: five of its own and its changes to the
+The plugins of the Clicktrough build: six of its own and its changes to the
 original's. Nothing is installed from here directly: the app's release puts
 them into its package (`build/assemble.sh`), and every meter updates through
 the green button. The original's plugins are frozen at one commit and taken
@@ -74,7 +74,7 @@ on only when the person decides (see below).
 
 | Path | What |
 |---|---|
-| `plugins/<id>/` | Own plugins: `armory`, `inventory`, `map`, `market`, `pet-finder`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
+| `plugins/<id>/` | Own plugins: `armory`, `inventory`, `map`, `market`, `pet-finder`, `shugo-cards`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
 | `original/PIN` | The commit of `taengu/A2Tools-Plugins` the build takes the original's plugins at. |
 | `original/pins.txt` | Single plugins at another commit (`<id> <commit>`): a new plugin, or a new version of one, without moving PIN. |
 | `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link and with its Test shown while AION2 is closed; gold instead of blue in all four; no lock of their own in Event Timers, Enhanced Boss Telegraph, Cooldowns and Ping (the meter's lock is every widget's, meter patch 0036). A file `installed-only` there: the plugin still runs only where installed. |
@@ -218,7 +218,10 @@ Decoders: fixed layouts read from the start of a frame's body: `u8`, `u16`,
 `u32`, `u64`, `i32`, `varint`, `skip:N`, `list` (counted, nested two deep);
 at most 32 fields a level. No strings, floats or conditionals: a plugin reads
 alternatives with several decoders on one frame type, and long layouts in
-parts. `self: "<field>"` keeps only frames about the player; `immediate`
+parts. A frame no fixed layout fits: `rest` (the last top-level field, meter
+patch 0042) hands over the rest of the frame (≤ 4 KB) as hex, and the plugin
+reads it itself (Shugo Cards' round, which has names between its cards; keep
+no names). `self: "<field>"` keeps only frames about the player; `immediate`
 skips the 500 ms wait that lets the login's identity land first.
 
 ## Known pitfalls

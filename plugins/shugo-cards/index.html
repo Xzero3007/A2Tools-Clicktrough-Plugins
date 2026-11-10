@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <span class="count"></span>
+      <span class="grow"></span>
+      <span class="priceState muted"></span>
+      <button type="button" class="update" title="Read your server's market prices again">Update prices</button>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button type="button" data-tab="round" role="tab">Rounds</button>
+      <button type="button" data-tab="gold" role="tab">Gold</button>
+      <button type="button" data-tab="places" role="tab">Places</button>
+      <button type="button" data-tab="items" role="tab">Items</button>
+    </nav>
+    <section class="view" data-view="round">
+      <div class="nav">
+        <button type="button" class="prev" title="An earlier round">‹</button>
+        <span class="when"></span>
+        <button type="button" class="next" title="A later round">›</button>
+        <span class="grow"></span>
+        <span class="roundSum muted"></span>
+      </div>
+      <div class="cards"></div>
+      <p class="note empty" hidden>No round yet. Play a Shugo Festival: once its card round ends, the game shows what lay behind every card, and it appears here, picked or not.</p>
+    </section>
+    <section class="view" data-view="gold" hidden>
+      <div class="summary goldSum"></div>
+      <h3>By item</h3>
+      <ul class="rows goldByItem"></ul>
+      <h3>Every gold item</h3>
+      <ul class="rows goldList"></ul>
+    </section>
+    <section class="view" data-view="places" hidden>
+      <div class="tip"></div>
+      <table class="places">
+        <thead><tr><th>Card</th><th>Gold in it</th><th>Most valuable</th><th>Worth on average</th><th>Your picks</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="summary placeSum"></div>
+      <p class="note">The places are compared on each card's own items. A <b>bonus</b> layer has so far shown only on a card picked twice (the second pick on it), so it says what you chose, not where the game put things: it counts in Gold and in your Kinah, not here. The tip appears only when a test says the places really differ (chi-square, below 5 % by chance, at least 25 cases); until then every place is as good as any other.</p>
+    </section>
+    <section class="view" data-view="items" hidden>
+      <ul class="rows itemList"></ul>
+    </section>
+    <footer class="credit muted">
+      Items: AION 2's game data via SkeeveAN's Aion-DPS-Meter (MIT) and Aion2Data. Prices: aion2.exchange (players' collected market prices). A gold item is Unique or higher.
+    </footer>
+    <script src="/_sdk/a2.js"></script>
+    <script src="data.js"></script>
+    <script src="anomaly.js"></script>
+    <script src="calc.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>
