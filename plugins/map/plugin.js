@@ -165,9 +165,9 @@
   }
 
   // ---------- drawing ----------
-  // On the next frame, or after 200 ms at the latest: a hidden page (its
-  // dock tab closed, the dock hidden) gets no frames, and the overlay, which
-  // this window feeds, would stand still.
+  // On the next frame; with the overlay on, after 200 ms at the latest: a
+  // hidden page (its dock tab closed, the dock hidden) gets no frames, and
+  // the overlay, which this window feeds, would stand still.
   let frameQueued = false;
   function render() {
     if (frameQueued) return;
@@ -180,7 +180,7 @@
       draw();
     };
     requestAnimationFrame(run);
-    timer = setTimeout(run, 200);
+    if (settings.overlay) timer = setTimeout(run, 200);
   }
 
   function state(key) {
