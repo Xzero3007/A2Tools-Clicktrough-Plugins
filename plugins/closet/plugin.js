@@ -8,14 +8,15 @@
   const $ = (s) => document.querySelector(s);
   const ICONS = "https://assets.playnccdn.com/static-aion2-gamedata/resources/";
 
-  const settings = { tab: "merchant", popup: true, toast: true, popupMinutes: 3, kind: "all", grade: "all", order: "price", lucky: false };
-  let closet = null; // Set of closet ids
+  const settings = { tab: "merchant", popup: true, toast: true, popupMinutes: 3, status: false, sizes: {}, kind: "all", grade: "all", order: "price", lucky: false };
+  let closet = null; // Map closet id -> copies
   let closetAt = 0;
   let chars = {}; // key -> { name, serverId, stocks: { tab: stock } }
   let seen = []; // [{ at, char, tab, refresh, skins, fresh, paid }]
   let learned = {}; // item -> closet id, from purchases
   let character = null;
   const recent = []; // recent item changes [{ at, item }]
+  let bag = null; // the inventory as the meter last saw it: [[slot, item, count]]
 
   // ---------- storage ----------
   const saveLater = (() => {
@@ -27,12 +28,17 @@
   })();
   const saveSettings = () => saveLater("settings", settings);
   const saveCloset = () => saveLater("closet", { ids: closet ? [...closet] : [], at: closetAt });
+  const isSkinCount = (n) => n > 0 && n < 100; // larger values are not copies
   const saveChars = () => saveLater("chars", chars);
   const saveSeen = () => saveLater("seen", seen.slice(-1500), 1500);
   const saveLearned = () => saveLater("learned", learned);
 
   const charKey = (c) => `${c?.serverId ?? "?"}:${c?.name ?? "?"}`;
   const count = () => (closet ? closet.size : null);
+  const advise = () => {
+    const cb = L.combine(closet, ix, { lucky: settings.lucky });
+    return { combined: cb, extracted: L.extraction(closet, globalThis.CLOSET_DATA.gear, cb) };
+  };
 
   // ---------- the game ----------
   a2.on("character", (c) => {
@@ -51,16 +57,18 @@
     closetAt = meta?.at || Date.now();
     saveCloset();
     shareCount();
+    sendWidgets();
     dirty();
   });
 
   a2.on("decoded:closet-add", (data, meta) => {
-    const ids = L.addedFrom(data);
-    if (!ids || !closet) return;
+    const added = L.addedFrom(data);
+    if (!added || !closet) return;
     const at = meta?.at || Date.now();
-    for (const id of ids) {
-      if (closet.has(id)) continue;
-      closet.add(id);
+    for (const { id, count: n } of added) {
+      const had = closet.has(id);
+      closet.set(id, isSkinCount(n) ? n : (closet.get(id) || 0) + 1);
+      if (had) continue;
       // A look the data has no skin for: the skin item that just came or
       // went is the one (learnt for the next offers).
       if (!ix.looks.has(id)) {
@@ -74,11 +82,17 @@
     closetAt = at;
     saveCloset();
     shareCount();
-    sendPopup();
+    sendWidgets();
     dirty();
   });
 
   a2.on("items", (it) => {
+    const inv = it?.containers?.["1"];
+    if (Array.isArray(inv)) {
+      bag = inv;
+      sendWidgetsSoon();
+      if (settings.tab === "combine") dirty();
+    }
     for (const ch of Array.isArray(it?.changes) ? it.changes : []) {
       const [, at, , item] = ch;
       if (ix.items.has(item)) recent.push({ at, item });
@@ -126,7 +140,7 @@
       a2.notify(`Black Cloud: ${fresh.length === 1 ? "a skin you lack" : `${fresh.length} skins you lack`} on offer (${names.join(", ")})`).catch(() => {});
     }
     if (settings.popup) openPopup();
-    else sendPopup();
+    else sendWidgets();
     dirty();
   }
 
@@ -150,7 +164,7 @@
         pictures.set(icon, typeof data === "string" ? data : null);
         for (const img of waiting.get(icon) || []) if (data) img.src = data;
         waiting.delete(icon);
-        if (data) sendPopupSoon();
+        if (data) sendWidgetsSoon();
         pump();
       });
     }
@@ -174,9 +188,35 @@
     return box;
   }
 
-  // ---------- the pop-up at the shop ----------
-  let popupOpen = false;
+  // ---------- the pop-up at the shop and the status floater ----------
+  // Both are widget.html, drawn by their state's kind. The meter keeps where
+  // a widget is; its size is kept here (the widget posts it after a resize).
+  const SIZE = { shop: { width: 360, height: 460, min: [260, 160] }, status: { width: 290, height: 300, min: [200, 90] } };
+  const sizeOf = (name) => {
+    const s = settings.sizes?.[name] || {}, d = SIZE[name];
+    return { width: Math.max(d.min[0], Math.min(900, Math.round(s.width || d.width))), height: Math.max(d.min[1], Math.min(1000, Math.round(s.height || d.height))) };
+  };
+  const open = { shop: false, status: false };
   let popupTimer = 0;
+
+  function adviceState() {
+    const { combined, extracted } = advise();
+    const pieces = closet ? L.bagGear(bag, closet, globalThis.CLOSET_DATA, ix) : [];
+    return { advice: closet ? L.advice(combined, extracted) : [], bagNew: bag ? pieces.length : null,
+      bagBest: pieces.slice(0, 3).map((p) => p.name || "a new look") };
+  }
+  function charsState(now) {
+    const out = [];
+    for (const [key, c] of Object.entries(chars)) {
+      if (character && c.serverId !== character.serverId) continue;
+      const live = Object.values(c.stocks).filter((s) => s.refresh > now);
+      const fresh = live.reduce((n, s) => n + s.offers.filter((o) => L.statusOf(o.item, closet, ix, learned).status === "new").length, 0);
+      out.push({ name: c.name, looked: live.length > 0, fresh, playing: !!character && key === charKey(character) });
+    }
+    return out.sort((a, b) => Number(b.playing) - Number(a.playing) || a.name.localeCompare(b.name));
+  }
+  const nextHour = (now) => Math.ceil((now + 1) / 3600000) * 3600000;
+
   function popupState() {
     const now = Date.now();
     const key = character ? charKey(character) : null;
@@ -198,8 +238,13 @@
     }
     offers.sort((x, y) => (x.status === "new" ? 0 : x.status === "unknown" ? 1 : 2) - (y.status === "new" ? 0 : y.status === "unknown" ? 1 : 2) || y.price - x.price);
     const refresh = stocks.length ? Math.min(...stocks.map((s) => s.refresh)) : 0;
-    return { who: character?.name || "", count: count(), goal: L.GOAL, offers, refresh, tabs: stocks.map((s) => s.tabName), unchecked: unchecked(now) };
+    return { kind: "shop", who: character?.name || "", count: count(), goal: L.GOAL, offers, refresh, tabs: stocks.map((s) => s.tabName), unchecked: unchecked(now), ...adviceState() };
   }
+  function statusState() {
+    const now = Date.now();
+    return { kind: "status", who: character?.name || "", count: count(), goal: L.GOAL, next: nextHour(now), chars: charsState(now), ...adviceState() };
+  }
+  const stateOf = (name) => (name === "shop" ? popupState() : statusState());
   function unchecked(now) {
     const out = [];
     for (const [key, c] of Object.entries(chars)) {
@@ -209,40 +254,65 @@
     }
     return out.sort();
   }
-  async function openPopup() {
-    clearTimeout(popupTimer);
-    popupTimer = setTimeout(closePopup, Math.max(1, settings.popupMinutes) * 60 * 1000);
+  async function openWidget(name) {
     try {
-      const st = popupState();
-      await a2.widgets.open("shop", { width: 340, height: Math.min(560, 96 + Math.max(1, st.offers.length) * 34) });
+      await a2.widgets.open(name, sizeOf(name));
+      // No lock of its own: the meter's lock is every widget's.
       await a2.widgets.lock(false);
-      popupOpen = true;
-      a2.widgets.send("shop", st).catch(() => {});
+      open[name] = true;
+      a2.widgets.send(name, stateOf(name)).catch(() => {});
     } catch (e) {
       console.error(e);
     }
   }
-  function closePopup() {
+  function closeWidget(name) {
+    open[name] = false;
+    a2.widgets.close(name).catch(() => {});
+  }
+  function keepPopup() {
     clearTimeout(popupTimer);
-    popupOpen = false;
-    a2.widgets.close("shop").catch(() => {});
+    popupTimer = setTimeout(() => closeWidget("shop"), Math.max(1, settings.popupMinutes) * 60 * 1000);
   }
-  function sendPopup() {
-    if (popupOpen) a2.widgets.send("shop", popupState()).catch(() => {});
+  function openPopup() {
+    keepPopup();
+    openWidget("shop");
   }
-  let popupSoon = 0;
-  function sendPopupSoon() {
-    clearTimeout(popupSoon);
-    popupSoon = setTimeout(sendPopup, 300);
+  function applyStatus() {
+    if (settings.status) openWidget("status");
+    else closeWidget("status");
+  }
+  function sendWidgets() {
+    for (const name of ["shop", "status"]) if (open[name]) a2.widgets.send(name, stateOf(name)).catch(() => {});
+  }
+  let widgetsSoon = 0;
+  function sendWidgetsSoon() {
+    clearTimeout(widgetsSoon);
+    widgetsSoon = setTimeout(sendWidgets, 300);
   }
   a2.on("widget-message", ({ name, data }) => {
-    if (name !== "shop" || !data) return;
-    if (data.type === "ready") sendPopup();
-    else if (data.type === "close") closePopup();
-    else if (data.type === "keep") {
+    if (!SIZE[name] || !data) return;
+    if (data.type === "ready") {
+      if (open[name]) a2.widgets.send(name, stateOf(name)).catch(() => {});
+    } else if (data.type === "close") {
       clearTimeout(popupTimer);
-      popupTimer = setTimeout(closePopup, Math.max(1, settings.popupMinutes) * 60 * 1000);
+      closeWidget(name);
+      if (name === "status") {
+        settings.status = false;
+        saveSettings();
+        dirty();
+      }
+    } else if (data.type === "keep" && name === "shop") keepPopup();
+    else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
+      settings.sizes = { ...(settings.sizes || {}), [name]: { width: Math.round(data.width), height: Math.round(data.height) } };
+      saveSettings();
     }
+  });
+  // The meter's header button: the status floater on or off.
+  a2.on("overlay", (data) => {
+    settings.status = !!data?.show;
+    saveSettings();
+    applyStatus();
+    dirty();
   });
 
   // ---------- the page ----------
@@ -300,6 +370,7 @@
 
   function renderMerchant() {
     $(".popup").checked = !!settings.popup;
+    $(".statusBox").checked = !!settings.status;
     $(".toast").checked = !!settings.toast;
     const now = Date.now();
     const list = Object.entries(chars).filter(([, c]) => Object.values(c.stocks).some((s) => s.refresh > now));
@@ -391,18 +462,69 @@
     }));
   }
 
+  const VERDICT = { yes: ["Combine", "good"], ok: ["Worth it", "mid"], feed: ["Only to climb", "mid"], no: ["Stop", "bad"],
+    cheap: ["Only cheap pieces", "mid"] };
+  // The game's Extract Settings dialog, ticked as it pays: Auto Extract on
+  // or off, the four grades, and the options to leave as they are.
+  function renderSettings(box, set) {
+    if (!set) {
+      box.replaceChildren(el("p", "note", "Log in with the meter running: the settings follow from your closet."));
+      return;
+    }
+    const dlg = el("div", "dialog");
+    const onoff = el("div", "onoff");
+    onoff.append(el("span", set.on ? "sel" : "", "ON"), el("span", set.on ? "" : "sel", "OFF"));
+    dlg.append(onoff, el("div", "dlgHead", "Item Grade"));
+    const grid = el("div", "grades");
+    for (const g of set.grades) {
+      const row = el("div", `grade ${g.tick ? "on" : "off"}`);
+      const t = el("div");
+      t.append(el("b", `g${g.grade}`, g.name), el("small", null, g.why));
+      row.append(el("span", "tick", g.tick ? "✓" : ""), t);
+      grid.append(row);
+    }
+    dlg.append(grid,
+      el("div", "keep", "✓ Select gear that cannot be equipped and has a low base item level · ✓ Exclude Supply Request Gear · the level range as you have it"),
+      el("div", "keep", "Quick Select (extracting by hand): the same grades."));
+    box.replaceChildren(dlg);
+  }
+  function verdictCell(v, map) {
+    const [text, tone] = map[v] || ["–", ""];
+    return el("td", `verdict ${tone}`, text);
+  }
   function renderCombine() {
     $(".lucky").checked = !!settings.lucky;
-    const r = L.combine(closet, ix, { lucky: settings.lucky });
+    const { combined: r, extracted } = advise();
     $(".combine tbody").replaceChildren(...r.rows.map((x) => {
       const tr = el("tr");
-      tr.append(el("td", `g${x.grade}`, x.name), el("td", `g${x.grade + 1}`, `${x.next} (${Math.round(x.up * 100)}%)`),
-        el("td", null, closet ? `${x.lackNext} of ${x.totalNext}` : "–"),
-        el("td", null, closet ? pct(x.chance) : "–"),
-        el("td", null, closet && x.combines ? `≈ ${Math.round(x.combines * 10) / 10}` : "–"),
-        el("td", null, closet && x.kinah ? `≈ ${kinah(x.kinah)}` : "–"));
+      tr.append(el("td", `g${x.grade}`, x.name),
+        el("td", null, closet ? `${x.lackSame} / ${x.totalSame}` : "–"),
+        el("td", null, closet ? (x.assumed ? `${x.next || "next"} (${Math.round(x.up * 100)}%, assumed all new)` : `${x.lackNext} / ${x.totalNext} ${x.next} (${Math.round(x.up * 100)}%)`) : "–"),
+        el("td", null, closet ? pct(x.yieldNew) : "–"),
+        el("td", null, closet && x.kinah ? `≈ ${kinah(x.kinah)}` : "–"),
+        el("td", null, closet ? `${x.spares}${x.possible ? ` (${x.possible}×)` : ""}` : "–"),
+        closet ? verdictCell(x.verdict, VERDICT) : el("td", null, "–"));
       return tr;
     }));
+    renderSettings($(".xset"), closet ? L.extractSettings(extracted) : null);
+    const pieces = closet ? L.bagGear(bag, closet, globalThis.CLOSET_DATA, ix) : [];
+    const box = $(".bag");
+    if (!closet || !bag) box.replaceChildren(el("p", "note", "Gear in your bag that would give a new skin shows here once the meter has seen your inventory (at a world entry)."));
+    else if (!pieces.length) box.replaceChildren(el("p", "note", "No gear in your bag has a look you lack: sell or dismantle it."));
+    else {
+      const ul = el("ul", "offers");
+      ul.append(...pieces.slice(0, 60).map((p) => {
+        const li = el("li", "offer new");
+        li.append(picture(p.icon, p.name ? p.name[0] : "·"));
+        const t = el("div", "text");
+        t.append(el("div", "name", p.name || `Look ${p.look}`), el("div", "sub", `${grade(p.grade)} gear${p.slot ? ` · ${p.slot}` : ""}${p.count > 1 ? ` · ${p.count} pieces` : ""}`));
+        const c = el("div", "price");
+        c.append(el("b", null, pct(1 - Math.pow(1 - p.chance, p.count))), el("small", null, "skin chance"));
+        li.append(t, c);
+        return li;
+      }));
+      box.replaceChildren(el("p", "note", `${pieces.length} piece${pieces.length === 1 ? "" : "s"} in your bag with a look you lack: extract ${pieces.length === 1 ? "it" : "these"}, sell the rest.`), ul);
+    }
   }
 
   // ---------- controls ----------
@@ -413,14 +535,15 @@
       render();
     });
   }
-  $(".popup").addEventListener("change", (e) => { settings.popup = e.target.checked; saveSettings(); if (!settings.popup) closePopup(); });
+  $(".popup").addEventListener("change", (e) => { settings.popup = e.target.checked; saveSettings(); if (!settings.popup) closeWidget("shop"); });
+  $(".statusBox").addEventListener("change", (e) => { settings.status = e.target.checked; saveSettings(); applyStatus(); });
   $(".toast").addEventListener("change", (e) => { settings.toast = e.target.checked; saveSettings(); });
   $(".showPopup").addEventListener("click", () => openPopup());
   $(".search").addEventListener("input", () => renderMissing());
   for (const k of ["kind", "grade", "order"]) $(`.${k}`).addEventListener("change", (e) => { settings[k] = e.target.value; saveSettings(); renderMissing(); });
-  $(".lucky").addEventListener("change", (e) => { settings.lucky = e.target.checked; saveSettings(); renderCombine(); });
+  $(".lucky").addEventListener("change", (e) => { settings.lucky = e.target.checked; saveSettings(); renderCombine(); sendWidgets(); });
   // The hour changes: stocks run out.
-  setInterval(() => { if (settings.tab === "merchant") dirty(); }, 30 * 1000);
+  setInterval(() => { if (settings.tab === "merchant") dirty(); sendWidgets(); }, 30 * 1000);
 
   // ---------- start ----------
   (async () => {
@@ -429,7 +552,8 @@
       if (s && typeof s === "object") Object.assign(settings, s);
       const c = await a2.storage.get("closet");
       if (c && Array.isArray(c.ids) && c.ids.length && !closet) {
-        closet = new Set(c.ids);
+        // Kept as [id, copies] (0.2) or as bare ids (0.1).
+        closet = new Map(c.ids.map((e) => (Array.isArray(e) ? [e[0], e[1]] : [e, 1])));
         closetAt = c.at || 0;
       }
       const ch = await a2.storage.get("chars");
@@ -443,6 +567,7 @@
     }
     shareCount();
     render();
+    if (settings.status) applyStatus();
     a2.ready?.();
   })();
 })();

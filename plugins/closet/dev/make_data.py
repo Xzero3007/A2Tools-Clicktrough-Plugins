@@ -1,5 +1,6 @@
 """Builds the Closet plugin's data.js: every skin item with its name, grade,
-slot, icon and the closet entry it fills.
+slot, icon and the closet entry it fills, and the looks of the gear by
+grade and per piece (extracting gear gives its look).
 
   python3 -I dev/make_data.py
 
@@ -43,7 +44,18 @@ def main():
         if not m:
             continue
         skins[k] = [m.group(1), grade, m.group(2), icon or "", closet_id(icon or "")]
+    # Gear shows the same looks: extracting a piece gives its look as a skin.
+    gear, pieces = {}, {}
+    for k, (name, grade, icon) in sorted(items.items(), key=lambda kv: int(kv[0])):
+        if "(Skin:" in name or not icon:
+            continue
+        look = closet_id(icon)
+        if look:
+            gear.setdefault(str(grade), set()).add(look)
+            pieces[k] = [look, grade]
     out = {
+        "gear": {g: sorted(v) for g, v in sorted(gear.items())},
+        "pieces": pieces,
         "source": "Item names, grades and icons: the Inventory plugin's list (SkeeveAN's Aion-DPS-Meter, MIT, and Aion2Data)",
         "skins": skins,
     }

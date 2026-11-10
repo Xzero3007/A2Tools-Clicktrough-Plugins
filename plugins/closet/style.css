@@ -1,12 +1,12 @@
 /* The host window paints the panel; the page stays transparent. Neutral
    colours as the meter's, gold for what you lack; no blue anywhere (the
-   game's Legend grade is purple here, as in the Inventory and the Armory). */
+   grades in the game's colours: Epic blue, as the game's extract settings). */
 [hidden] { display: none !important; }
 :root {
   --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
   --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035);
   --gold: var(--a2-accent, #e0a526); --gold-t: #f2c46b;
-  --g1: #c8ccd2; --g2: #7fdc9a; --g3: #c39bff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8;
+  --g1: #c8ccd2; --g2: #4fd36b; --g3: #4fa8ff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8;
 }
 html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
 body { padding: 8px 10px 10px; box-sizing: border-box; }
@@ -73,8 +73,25 @@ table.refresh th { color: var(--muted); font-weight: 500; }
 .card.g1 { border-left-color: var(--g1); } .card.g2 { border-left-color: var(--g2); } .card.g3 { border-left-color: var(--g3); }
 .card.g4 { border-left-color: var(--g4); } .card.g5 { border-left-color: var(--g5); } .card.g7 { border-left-color: var(--g7); }
 
-table.combine { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-table.combine th { color: var(--muted); font-weight: 500; text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); }
-table.combine td { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,.05); font-variant-numeric: tabular-nums; }
+table.combine, table.extract { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.combine th, table.extract th { color: var(--muted); font-weight: 500; text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); }
+table.combine td, table.extract td { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,.05); font-variant-numeric: tabular-nums; }
 td.g1 { color: var(--g1); } td.g2 { color: var(--g2); } td.g3 { color: var(--g3); } td.g4 { color: var(--g4); } td.g5 { color: var(--g5); }
 .credit { margin-top: 12px; font-size: 11px; color: var(--faint); }
+td.verdict { font-weight: 600; white-space: nowrap; }
+td.verdict.good { color: #f2c46b; }
+td.verdict.mid { color: rgba(255, 255, 255, 0.75); }
+td.verdict.bad { color: #e06b5f; }
+.dialog { border: 1px solid var(--line); border-radius: 8px; background: rgba(0,0,0,.25); padding: 10px 12px; max-width: 520px; }
+.onoff { display: inline-flex; border-radius: 5px; overflow: hidden; border: 1px solid var(--line); margin-bottom: 8px; }
+.onoff span { padding: 3px 22px; color: var(--faint); font-weight: 600; }
+.onoff span.sel { background: rgba(255,255,255,.14); color: var(--text); }
+.dlgHead { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.grades { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.grade { display: grid; grid-template-columns: 18px 1fr; gap: 6px; align-items: start; }
+.grade .tick { width: 16px; height: 16px; border: 1px solid rgba(255,255,255,.35); border-radius: 3px; text-align: center; line-height: 16px; font-weight: 700; color: #f2e7c9; margin-top: 1px; }
+.grade.off .tick { opacity: .6; }
+.grade b { display: block; font-weight: 600; }
+.grade small { display: block; color: var(--muted); font-size: 11.5px; }
+.keep { margin-top: 8px; color: var(--muted); font-size: 11.5px; }
+.g1 { color: var(--g1); } .g2 { color: var(--g2); } .g3 { color: var(--g3); } .g4 { color: var(--g4); }

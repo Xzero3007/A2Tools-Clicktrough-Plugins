@@ -38,11 +38,13 @@ test("closet entries come from the skins' icons", () => {
 test("the closet at login: every entry", () => {
   const c = L.closetFrom(data("closet", "closet-list"));
   assert.equal(c.size, 200);
-  assert.ok(c.has(10015108));
+  assert.equal(c.get(10015108), 3); // two spare copies
+  assert.equal(c.get(10001101), 1);
+  assert.equal(L.spares(c, ix)[ix.looks.get(10015108).grade], 2);
 });
 
 test("an added entry", () => {
-  assert.deepEqual(L.addedFrom(data("added", "closet-add")), [30150106]);
+  assert.deepEqual(L.addedFrom(data("added", "closet-add")), [{ id: 30150106, count: 2 }]);
 });
 
 test("a Skins stock: ten offers, prices checked, marked against the closet", () => {
@@ -50,7 +52,7 @@ test("a Skins stock: ten offers, prices checked, marked against the closet", () 
   assert.equal(s.tabName, "Skins");
   assert.equal(s.offers.length, 10);
   assert.equal(s.refresh, WHEN + 3600 * 1000);
-  const closet = new Set([10015108]);
+  const closet = new Map([[10015108, 1]]);
   assert.equal(L.statusOf(535710120, closet, ix).status, "owned");
   assert.equal(L.statusOf(535810734, closet, ix).status, "new");
   assert.equal(L.statusOf(930100031, closet, ix).status, null);
@@ -72,16 +74,57 @@ test("list prices: Common, Rare 2.5 times, Legend 10 times", () => {
 });
 
 test("costs of what is left: cheapest <= average <= dearest", () => {
-  const c = L.costs(L.missing(new Set(), ix), 78);
+  const c = L.costs(L.missing(new Map(), ix), 78);
   assert.ok(c.cheapest > 0 && c.cheapest <= c.average && c.average <= c.dearest);
 });
 
-test("combine sums: a chance per combine and fees for one new skin", () => {
-  const r = L.combine(new Set(), ix);
+test("combine: 4 skins in, nothing owned: every result new, fees per new skin", () => {
+  const r = L.combine(new Map(), ix);
   const legend = r.rows.find((x) => x.grade === 3);
   assert.equal(legend.up, 0.15);
-  assert.ok(Math.abs(legend.chance - 1) < 1e-9); // nothing owned: every result is new
+  assert.ok(Math.abs(legend.chance - 1) < 1e-9);
+  assert.ok(Math.abs(legend.yieldNew - 1) < 1e-9); // one new skin per combine
   assert.equal(legend.kinah, 6000);
+  assert.equal(legend.verdict, "yes");
+});
+
+test("combine: a grade all owned is only worth it to climb, or not at all", () => {
+  const all = new Map([...ix.looks.keys()].map((l) => [l, 1]));
+  const r = L.combine(all, ix);
+  for (const x of r.rows.filter((x) => x.grade < 4)) {
+    assert.equal(x.chance, 0);
+    assert.equal(x.verdict, "no");
+  }
+  // Common all owned, Rare all lacking: no new Common, but the Rare it climbs to.
+  const common = new Map([...ix.looks].filter(([, s]) => s.grade === 1).map(([l]) => [l, 5]));
+  const c = L.combine(common, ix).rows.find((x) => x.grade === 1);
+  assert.ok(c.chance > 0.24 && c.chance <= 0.25);
+  assert.ok(c.yieldNew > c.chance); // the copies feed the next combines
+  assert.equal(c.possible, Math.floor(c.spares / 4));
+});
+
+test("extraction: a new skin as often as the share of the grade's looks you lack", () => {
+  const gear = { 3: [1, 2, 3, 4], 4: [5, 6], 2: [7, 8, 9, 10] };
+  const closet = new Map([[1, 1], [2, 1], [7, 1], [8, 1], [9, 1], [10, 1]]);
+  const rows = L.extraction(closet, gear, null);
+  const by = Object.fromEntries(rows.map((r) => [r.grade, r]));
+  assert.equal(by[3].chance, 0.125);
+  assert.equal(by[3].verdict, "yes");
+  assert.equal(by[4].chance, 0.1);
+  assert.equal(by[2].chance, 0);
+  assert.equal(by[2].verdict, "no");
+  const set = L.advice(null, rows).find((a) => a.settings).settings;
+  assert.equal(set.on, true);
+  assert.deepEqual(set.grades.map((g) => [g.name, g.tick, g.hand]), [["Rare", false, false], ["Epic", true, false], ["Unique", false, true]]);
+});
+
+test("gear in the bag with a look you lack", () => {
+  const [item, [look, grade]] = Object.entries(globalThis.CLOSET_DATA.pieces).find(([, p]) => p[1] === 3);
+  const got = L.bagGear([[0, Number(item), 1], [1, 930100031, 5]], new Map(), globalThis.CLOSET_DATA, ix);
+  assert.equal(got.length, 1);
+  assert.equal(got[0].look, look);
+  assert.equal(got[0].grade, grade);
+  assert.equal(L.bagGear([[0, Number(item), 1]], new Map([[look, 1]]), globalThis.CLOSET_DATA, ix).length, 0);
 });
 
 test("merchant stats: the share of new skins and a paid change's worth", () => {

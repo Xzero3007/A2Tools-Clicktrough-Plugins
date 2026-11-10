@@ -15,9 +15,9 @@ def frame(op, fam, body, name):
 
 # Closet at login: 200 entries (two-byte count), the last one 10015108.
 looks = [10001101 + i for i in range(199)] + [10015108]
-frame(0x5B, 0x8D, V(len(looks)) + b"".join(struct.pack("<II", i, 1) for i in looks) + bytes([2, 1]) + struct.pack("<I", 125), "closet")
+frame(0x5B, 0x8D, V(len(looks)) + b"".join(struct.pack("<II", i, 3 if i == 10015108 else 1) for i in looks) + bytes([2, 1]) + struct.pack("<I", 125), "closet")
 # One added: Duskpath (Skin: Boots) -> 30150106; then the category points.
-frame(0x5C, 0x8D, bytes([1]) + struct.pack("<II", 30150106, 1) + bytes([1, 6]) + struct.pack("<I", 137), "added")
+frame(0x5C, 0x8D, bytes([1]) + struct.pack("<II", 30150106, 2) + bytes([1, 6]) + struct.pack("<I", 137), "added")
 # A Skins tab stock (203): ten offers, refresh in an hour.
 WHEN = 1893481200000  # 2030-01-01 07:00 UTC
 items = [535810734, 535710120, 535810258, 535910151, 535710121, 535810729, 535710113, 535810253, 535910096, 535810731]

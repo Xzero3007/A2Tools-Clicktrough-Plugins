@@ -3,7 +3,7 @@
 // sums. Loaded by the page and by the tests (node).
 (() => {
   const GOAL = 700; // the title "Empty Closet"
-  const GRADES = { 1: "Common", 2: "Rare", 3: "Legend", 4: "Unique", 5: "Epic", 7: "Special" };
+  const GRADES = { 1: "Common", 2: "Rare", 3: "Epic", 4: "Unique", 5: "above Unique", 7: "Special" }; // as the game's English client names them
   const KINA = 0x5d;
   /** Discount codes in an offer: code -> percent paid. */
   const PAID = { 0: 90, 1: 80, 2: 70, 3: 50 };
@@ -46,29 +46,29 @@
     return { items, looks };
   }
 
-  /** The closet list at login (decoder closet-list): a Set of closet ids, or null when it does not look like one. */
+  /** The closet list at login (decoder closet-list): a Map closet id -> copies, or null when it does not look like one. */
   function closetFrom(data) {
     const list = data?.looks;
     if (!Array.isArray(list) || list.length < 1) return null;
-    const ids = new Set();
+    const ids = new Map();
     for (const e of list) {
       const id = e?.id;
       if (!Number.isInteger(id) || id < 10000000 || id > 99999999) return null;
-      ids.add(id);
+      ids.set(id, Number.isInteger(e.value) ? e.value : 1);
     }
     return ids;
   }
 
-  /** Closet entries added or changed (decoder closet-add): their ids, or null. */
+  /** Closet entries added or changed (decoder closet-add): [{ id, count }], or null. */
   function addedFrom(data) {
     const list = data?.looks;
     if (!Array.isArray(list) || list.length < 1 || list.length > 64) return null;
-    const ids = [];
+    const out = [];
     for (const e of list) {
       if (!Number.isInteger(e?.id) || e.id < 10000000 || e.id > 99999999) return null;
-      ids.push(e.id);
+      out.push({ id: e.id, count: Number.isInteger(e.value) ? e.value : 1 });
     }
-    return ids;
+    return out;
   }
 
   /**
@@ -176,11 +176,30 @@
       refreshCost: REFRESH.map((cost, i) => ({ n: i + 1, cost, perNew: perChange ? Math.round(cost / perChange) : null })) };
   }
 
+  /** Copies beyond the first, per grade (the closet's count of each look): what combining can use. */
+  function spares(closet, ix) {
+    const out = {};
+    if (!(closet instanceof Map)) return out;
+    for (const [look, n] of closet) {
+      const s = ix.looks.get(look);
+      if (!s || !(n > 1 && n < 100)) continue;
+      out[s.grade] = (out[s.grade] || 0) + n - 1;
+    }
+    return out;
+  }
+
+  const PER_COMBINE = 4; // skins put into one combine
+  /** Kinah per new skin below which a way is plainly worth it, and below which it still beats the merchant. */
+  const CHEAP = 50000, MERCHANT = 160000;
+
   /**
-   * Combining: per grade put in, how many of the next grade you lack, the
-   * chance a combine gives a skin you lack, and the expected combines and
-   * Kinah for one new skin. `lucky`: with a Lucky Aura. A failed combine is
-   * taken to give a random skin of the same grade (it may be new too).
+   * Combining: per grade put in, the chance a combine gives a skin you lack
+   * at once, and what it gives counting the copies it leaves (a copy goes
+   * into the next combine): new skins per combine and Kinah per new skin,
+   * with a verdict. A combine takes 4 skins of a grade and gives one: the
+   * next grade at the published chance, else a random skin of the same grade
+   * (sources differ on that). Every skin of a grade is equally likely.
+   * Unique's next grade is not in the data: taken as all lacking.
    */
   function combine(closet, ix, { lucky = false } = {}) {
     const byGrade = {};
@@ -189,27 +208,130 @@
       g.total++;
       if (closet?.has(look)) g.owned++;
     }
+    const spare = spares(closet, ix);
     const rows = [];
-    for (const [g, c] of Object.entries(COMBINE)) {
-      const grade = Number(g);
-      const same = byGrade[grade], next = byGrade[grade + 1];
-      if (!same || !next) continue;
+    let mNext = 0; // new skins a copy of the next grade brings in the end
+    for (const grade of [4, 3, 2, 1]) {
+      const c = COMBINE[grade], same = byGrade[grade], next = byGrade[grade + 1];
+      if (!same) continue;
       const up = lucky ? c.aura : c.up;
-      const missNext = (next.total - next.owned) / next.total;
+      const missNext = next ? (next.total - next.owned) / next.total : 1;
       const missSame = (same.total - same.owned) / same.total;
-      const chance = up * missNext + (1 - up) * missSame;
-      rows.push({ grade, name: GRADES[grade], next: GRADES[grade + 1], up, fee: c.fee,
-        lackNext: next.total - next.owned, totalNext: next.total, lackSame: same.total - same.owned, totalSame: same.total,
-        chance, combines: chance > 0 ? 1 / chance : null, kinah: chance > 0 ? Math.round(c.fee / chance) : null });
+      const direct = up * missNext + (1 - up) * missSame;
+      const m = (direct + up * (1 - missNext) * mNext) / (PER_COMBINE - (1 - up) * (1 - missSame));
+      const yieldNew = PER_COMBINE * m;
+      const kinah = yieldNew > 0 ? Math.round(c.fee / yieldNew) : null;
+      const verdict = kinah == null ? "no" : direct < 0.02 && yieldNew > direct * 1.5 ? (kinah <= MERCHANT ? "feed" : "no") : kinah <= CHEAP ? "yes" : kinah <= MERCHANT ? "ok" : "no";
+      rows.unshift({ grade, name: GRADES[grade], next: GRADES[grade + 1], up, fee: c.fee, assumed: !next,
+        lackNext: next ? next.total - next.owned : null, totalNext: next ? next.total : null,
+        lackSame: same.total - same.owned, totalSame: same.total,
+        chance: direct, yieldNew, combines: yieldNew > 0 ? 1 / yieldNew : null, kinah, verdict,
+        spares: spare[grade] || 0, possible: Math.floor((spare[grade] || 0) / PER_COMBINE), perMaterial: m });
+      mNext = m;
     }
-    return { rows, byGrade };
+    return { rows, byGrade, spares: spare };
+  }
+
+  /** Extracting gear gives its look as a skin: one time in four (Common, Rare, Epic), one in ten (Unique). */
+  const EXTRACT = { 1: 0.25, 2: 0.25, 3: 0.25, 4: 0.1 };
+  /**
+   * Per gear grade: the share of its looks you lack, the chance one
+   * extraction gives a new skin, what the copy is worth for combining, and
+   * a verdict: extract, only cheap pieces, or sell / dismantle instead.
+   */
+  function extraction(closet, gear, combined) {
+    const rows = [];
+    for (const [g, looks] of Object.entries(gear || {})) {
+      const grade = Number(g);
+      const p = EXTRACT[grade];
+      if (!p || !looks.length) continue;
+      const lack = closet ? looks.filter((l) => !closet.has(l)).length : looks.length;
+      const share = lack / looks.length;
+      const chance = p * share;
+      const m = combined?.rows.find((r) => r.grade === grade)?.perMaterial || 0;
+      const total = chance + p * (1 - share) * m;
+      const verdict = chance >= 0.05 ? "yes" : chance >= 0.02 ? "cheap" : "no";
+      rows.push({ grade, name: GRADES[grade], p, lack, looks: looks.length, share, chance, total, verdict });
+    }
+    return rows;
+  }
+
+  /**
+   * Gear in the bag whose look you lack (the items event's inventory,
+   * [[slot, item, count]]): what to extract rather than sell. Each piece
+   * once per look, best grade first.
+   */
+  function bagGear(rows, closet, data, ix) {
+    const pieces = data?.pieces || {};
+    const out = new Map();
+    for (const r of Array.isArray(rows) ? rows : []) {
+      const p = pieces[r?.[1]];
+      if (!p || closet?.has(p[0])) continue;
+      const [look, grade] = p;
+      const was = out.get(look);
+      if (was) { was.count += Number(r[2]) || 1; continue; }
+      const skin = ix?.looks.get(look);
+      out.set(look, { item: r[1], look, grade, count: Number(r[2]) || 1, chance: EXTRACT[grade] || 0, name: skin?.name || null, slot: skin?.slot || null, icon: skin?.icon || null });
+    }
+    return [...out.values()].sort((a, b) => b.chance - a.chance || b.grade - a.grade);
+  }
+
+  /**
+   * The game's Auto Extract settings to choose (its dialog: Item Grade
+   * Common, Rare, Epic, Unique): a grade is ticked when extracting it brings
+   * new skins (Epic), or its gear is worth little anyway (Common); Rare is
+   * left off to sell; Unique is left off too, its pieces are worth selling,
+   * and the few with a new look are extracted by hand (the bag list).
+   * Returns { on, grades: [{ grade, name, tick, hand, chance, why }] } or null.
+   */
+  function extractSettings(extracted) {
+    if (!extracted?.length) return null;
+    const grades = [];
+    for (const g of [1, 2, 3, 4]) {
+      const e = extracted.find((x) => x.grade === g);
+      if (!e) continue;
+      const pctOf = `${Math.round(e.chance * 1000) / 10}%`;
+      let tick, hand = false, why;
+      if (g === 4) {
+        tick = false;
+        hand = e.verdict !== "no";
+        why = hand ? `by hand: only pieces with a new look (${pctOf} a piece), sell the rest` : `sell: ${pctOf} new a piece`;
+      } else if (e.verdict === "yes") { tick = true; why = `${pctOf} new skin a piece`; }
+      else if (e.verdict === "cheap") { tick = true; why = `${pctOf} new; the gear sells for little`; }
+      else { tick = false; why = `sell instead: only ${pctOf} new a piece`; }
+      grades.push({ grade: g, name: GRADES[g], tick, hand, chance: e.chance, why });
+    }
+    return { on: grades.some((x) => x.tick), grades };
+  }
+
+  /**
+   * Short advice for the pop-up and the status floater: which grades to
+   * combine, which only to climb, which not; which gear grades to extract
+   * (auto-extract on) and which to sell. [{ kind, tone: good|mid|bad, text }]
+   */
+  function advice(combined, extracted) {
+    const out = [];
+    const pctOf = (x) => `${Math.round(x * 100)}%`;
+    const k = (n) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+    const order = { yes: 0, ok: 1, feed: 2, no: 3 };
+    const rows = (combined?.rows || []).slice().sort((a, b) => order[a.verdict] - order[b.verdict] || (a.kinah ?? Infinity) - (b.kinah ?? Infinity));
+    for (const r of rows) {
+      const left = r.possible ? ` · ${r.possible}× now` : "";
+      const base = { kind: "combine", grade: r.grade, name: r.name };
+      if (r.verdict === "yes" || r.verdict === "ok") out.push({ ...base, tone: r.verdict === "yes" ? "good" : "mid", tag: "Combine", text: `${pctOf(r.yieldNew)} new · ≈ ${k(r.kinah)} each${left}` });
+      else if (r.verdict === "feed") out.push({ ...base, tone: "mid", tag: "Only to climb", text: `1 new in ${Math.round(r.combines)}${left}` });
+      else out.push({ ...base, tone: "bad", tag: "Stop", text: "no longer pays" });
+    }
+    const set = extractSettings(extracted);
+    if (set) out.push({ kind: "extract", tone: "good", settings: set });
+    return out;
   }
 
   /** The start of the stock's hour, as a key: which characters have looked since the change. */
   const hourOf = (refresh) => refresh - 3600 * 1000;
 
   const api = { GOAL, GRADES, TABS, WEAPONS, ARMOUR, JEWELS, REFRESH, COMBINE, tabName, kindOf, listPrice, index, closetFrom, addedFrom,
-    StockFrames, stockFrom, statusOf, missing, costs, merchantStats, combine, hourOf };
+    StockFrames, stockFrom, statusOf, missing, costs, merchantStats, combine, spares, extraction, bagGear, EXTRACT, advice, extractSettings, PER_COMBINE, CHEAP, MERCHANT, hourOf };
   globalThis.ClosetLogic = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

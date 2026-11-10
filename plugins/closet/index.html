@@ -23,6 +23,7 @@
       <div class="tools">
         <label class="check" title="Opens a small window with the offers when you open the Black Cloud shop"><input type="checkbox" class="popup" /> Pop up at the shop</label>
         <label class="check" title="A note when a skin you lack is on offer"><input type="checkbox" class="toast" /> Note new skins</label>
+        <label class="check" title="A slim floater with your characters, the next change and what to combine and extract (also the meter's header button)"><input type="checkbox" class="statusBox" /> Status floater</label>
         <button type="button" class="showPopup" title="Open the pop-up now">Pop-up</button>
       </div>
       <p class="unchecked note"></p>
@@ -47,7 +48,7 @@
           <option value="shop">Sold by the merchant</option>
           <option value="1">Common</option>
           <option value="2">Rare</option>
-          <option value="3">Legend</option>
+          <option value="3">Epic</option>
           <option value="4">Unique</option>
           <option value="7">Special</option>
         </select>
@@ -66,11 +67,15 @@
         <label class="check"><input type="checkbox" class="lucky" /> With a Lucky Aura</label>
       </div>
       <table class="combine">
-        <thead><tr><th>Put in</th><th>Next grade</th><th>You lack</th><th>New skin per combine</th><th>Combines for one</th><th>Fees for one</th></tr></thead>
+        <thead><tr><th>Put in 4</th><th>You lack</th><th>Goes up to</th><th>New skins per combine</th><th>Kinah per new skin</th><th>Spares</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
-      <p class="note">Chances and fees are NCSOFT's published ones (Common 25%, Rare 20%, Legend 15%, Unique 10% to the next grade; 35/30/25/15% with a Lucky Aura). Every skin of the grade that comes out is equally likely, so the chance of a new one is the share of that grade you lack. A combine that does not go up is counted as a random skin of the same grade (sources differ on this). The skins you put in are not counted: use your spare copies.</p>
-      <p class="note">Extracting gear gives its skin too: Common, Rare and Legend gear one time in four, Unique one in ten.</p>
+      <p class="note">A combine takes 4 skins of one grade and gives one: the next grade at NCSOFT's published chance (Common 25%, Rare 20%, Epic 15%, Unique 10%; 35/30/25/15% with a Lucky Aura), else a skin of the same grade. Every skin of a grade is equally likely, so a new one comes as often as the share you lack. "New skins per combine" counts the copies it gives too, which go into the next combines. Fees 600 / 1,000 / 6,000 / 30,000 Kinah. Spares are the closet's extra copies (about: the closet counts them, the game decides which ones it takes).</p>
+      <h3>Extract settings (Auto Extract)</h3>
+      <div class="xset"></div>
+      <p class="note">Extracting gives the piece's look as a skin: Common, Rare and Epic gear one time in four, Unique one in ten, so a new skin comes as often as that times the share of the grade's looks you lack. A grade whose looks you nearly all have wastes the extraction: sell those pieces (or dismantle them for materials) instead.</p>
+      <h3>In your bag</h3>
+      <div class="bag"></div>
     </section>
 
     <footer class="credit muted">Skins: AION 2's game data via SkeeveAN's Aion-DPS-Meter (MIT) and Aion2Data. Prices: the merchant's own offers.</footer>
