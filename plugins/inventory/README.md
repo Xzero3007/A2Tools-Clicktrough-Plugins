@@ -10,7 +10,12 @@ pick.
   search, and **Sellable only**. **Sellable** (gold) is an item traded on your
   server's market and not bound: the lowest listing on your server (else the
   average sale of the last 28 days), times how many, and the sum of each list
-  (before the market's 10 % fee; after it in the sum's tip). Bound items and
+  (before the market's 10 % fee; after it in the sum's tip). An item whose
+  lowest listing is far above its **usual price** (5 × or more: a single
+  listing at a fantasy price, as Destruction Cloaks at 10,000,123 while they
+  usually go for about 65,000) counts at the usual price, marked **Usual
+  price** with the why on hover: `anomaly.js`, the same file as the Market
+  plugin's, with the course the hourly price copy keeps. Bound items and
   currencies are listed without a value; the inventory's Kinah stands in the
   line above the list.
 - **Drops**: what came into your inventory since **New session** (pressed, or

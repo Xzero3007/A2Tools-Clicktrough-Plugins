@@ -79,3 +79,4 @@ li.sellable .tot { color: var(--gold-t); font-weight: 600; }
 .credit { margin-top: 14px; font-size: 11px; color: var(--faint); }
 .limits li.empty, .tickets li.empty { display: block; }
 .items li.empty { display: block; }
+.tag.odd { border-color: rgba(255,138,122,.55); color: #ffb0a5; }

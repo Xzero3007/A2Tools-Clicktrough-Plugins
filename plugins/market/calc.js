@@ -3,9 +3,34 @@
 // No page here: the window (plugin.js) and the tests use it.
 (() => {
   const D = globalThis.MARKET_DATA;
+  const I = globalThis.MARKET_ITEMS?.items || {};
+  const A = globalThis.MarketAnomaly;
 
-  const name = (id) => D.items[String(id)]?.[0] || `Item ${id}`;
-  const grade = (id) => D.items[String(id)]?.[1] || 0;
+  // Names and grades: the recipes' data, else every item's (items.js).
+  const name = (id) => D.items[String(id)]?.[0] || I[String(id)]?.[0] || `Item ${id}`;
+  const grade = (id) => D.items[String(id)]?.[1] || I[String(id)]?.[1] || 0;
+  /** The game's icon name (assets.playnccdn.com), or null. */
+  const icon = (id) => (I[String(id)]?.[2] ? `Icon_${I[String(id)][2]}` : null);
+  const GRADES = ["", "Common", "Rare", "Legend", "Unique", "Epic", "Mythic", "Special"];
+
+  // What kind of item, for the listing's filter: by the game's id ranges
+  // (11... weapons, 21... armour, 31... accessories, 6... materials) and
+  // the looks by name.
+  const CATEGORIES = [["weapons", "Weapons"], ["armor", "Armor"], ["accessories", "Accessories"], ["looks", "Skins & wings"],
+    ["artwork", "Artwork"], ["consumables", "Consumables"], ["materials", "Materials"], ["other", "Other"]];
+  function category(id) {
+    const s = String(id);
+    const n = name(id);
+    if (/\(Skin:/.test(n) || /\bWings$/.test(n)) return "looks";
+    const p = s.slice(0, 3);
+    if (p === "110" || p === "115") return "weapons";
+    if (p === "210") return "armor";
+    if (p === "310") return "accessories";
+    if (p === "514") return "artwork";
+    if (p === "510" || p === "511" || p === "513") return "consumables";
+    if (s[0] === "6") return "materials";
+    return "other";
+  }
   const FACTION_RACE = { Elyos: "L", Asmodian: "D" };
 
   // The gathered materials Substance Morph makes: one Odyle of the same
@@ -243,11 +268,50 @@
     return [...ids];
   }
 
+  /**
+   * Everything on the market: [{ id, name, grade, category, p, usual, j }]
+   * (j: MarketAnomaly.judge), filtered by a search text, a category, a
+   * lowest grade and listed only; sorted by "name", "price", "listings",
+   * "change" or "ratio" (against the usual price).
+   */
+  function listing(prices, hist, { search = "", cat = "all", minGrade = 0, listedOnly = true, sort = "name" } = {}) {
+    const q = String(search || "").trim().toLowerCase();
+    const rows = [];
+    for (const [id, p] of prices) {
+      if (listedOnly && !(p.price > 0)) continue;
+      const n = name(id);
+      if (q && !n.toLowerCase().includes(q)) continue;
+      const c = category(id);
+      if (cat !== "all" && c !== cat) continue;
+      const g = grade(id);
+      if (g < minGrade) continue;
+      const usual = A ? A.usual(hist, id) : null;
+      rows.push({ id: Number(id), name: n, grade: g, category: c, p, usual, j: A ? A.judge(p, usual) : null });
+    }
+    const by = {
+      name: (a, b) => a.name.localeCompare(b.name),
+      price: (a, b) => (b.p.price ?? -1) - (a.p.price ?? -1),
+      listings: (a, b) => (b.p.listings ?? 0) - (a.p.listings ?? 0),
+      change: (a, b) => (b.p.change ?? -Infinity) - (a.p.change ?? -Infinity),
+      ratio: (a, b) => (b.j?.ratio ?? -Infinity) - (a.j?.ratio ?? -Infinity),
+    }[sort] || (() => 0);
+    rows.sort((a, b) => by(a, b) || a.name.localeCompare(b.name));
+    return rows;
+  }
+
+  /** The anomalies of a listing: { high: rows far above their usual price,
+   *  most first; low: far below, cheapest share first }. */
+  function anomalies(rows) {
+    const high = rows.filter((r) => r.j?.kind === "high").sort((a, b) => b.j.ratio - a.j.ratio);
+    const low = rows.filter((r) => r.j?.kind === "low").sort((a, b) => a.j.ratio - b.j.ratio);
+    return { high, low };
+  }
+
   /** "12,345" (or "—" for nothing). */
   const kina = (v) => (v == null || !Number.isFinite(v) ? "—" : Math.round(v).toLocaleString("en-US"));
 
   globalThis.MarketCalc = Object.freeze({
-    name, grade, readPrices, readCopy, readServers, serverOf, market, unitCost, morphFrom, recipesOf, recipeSums, usesOf, morphTable,
+    name, grade, icon, category, CATEGORIES, GRADES, listing, anomalies, readPrices, readCopy, readServers, serverOf, market, unitCost, morphFrom, recipesOf, recipeSums, usesOf, morphTable,
     energyMorphCost, neededItems, kina, kindOf: (id) => KIND.get(String(id)) || null, FACTION_RACE, ofFaction,
   });
 })();

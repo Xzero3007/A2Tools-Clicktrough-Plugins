@@ -14,4 +14,7 @@ trap 'rm -rf "$work"' EXIT
 mkdir "$work/plugin"
 cp "$plugin"/*.js "$work/plugin/"
 cp -r "$here/tests" "$work/tests"
+python3 -I "$here/tests/test_history.py"
 PLUGIN_DIR="$work/plugin" node --test "$work"/tests/*.test.cjs
+# anomaly.js is the same file in the Inventory plugin.
+cmp -s "$plugin/anomaly.js" "$plugin/../inventory/anomaly.js" || { echo "plugins/inventory/anomaly.js differs from plugins/market/anomaly.js" >&2; exit 1; }

@@ -5,6 +5,8 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const dir = process.env.PLUGIN_DIR || path.join(__dirname, "..", "..");
 require(path.join(dir, "data.js"));
+require(path.join(dir, "items.js"));
+require(path.join(dir, "anomaly.js"));
 require(path.join(dir, "calc.js"));
 const D = globalThis.MARKET_DATA;
 const C = globalThis.MarketCalc;
@@ -151,4 +153,58 @@ test("each faction's items: its recipes' materials and products; Odyle for both"
   const asmo = C.morphTable(new Map(), "Asmodian").map((r) => C.name(r.item));
   assert.ok(asmo.includes("Pure Asvata Log") && !asmo.some((n) => /Yggdrasil|^Aria$|Targena/.test(n)));
   assert.equal(C.morphTable(new Map()).length, 42);
+});
+
+test("anomalies: a fantasy price after the cheap ones sold, a bargain, coded prices", () => {
+  const A = globalThis.MarketAnomaly;
+  const C2 = C;
+  // The Destruction Cloak of 10 Nov: one listing at 10,000,123, +14,900 % on the hour before.
+  const cloak = { price: 10_000_123, listings: 1, change: 14900.33 };
+  let j = A.judge(cloak, null);
+  assert.equal(j.kind, "high");
+  assert.equal(j.refFrom, "change");
+  assert.ok(Math.abs(j.ref - 66_667) < 5 && j.coded && j.thin && j.fair === j.ref);
+  assert.match(A.reason(j), /150 × the lowest listing an hour before/);
+  // With a course: the usual price wins; days before hours.
+  const hist = A.readHistory({ v: 1, hours: ["a", "b"], days: ["d1", "d2", "d3", "d4"], items: {
+    1: { h: [70_000, 10_000_123], d: [60_000, 70_000, 80_000, 10_000_123] },
+    2: { h: [1, 2, 3, 4, 5, 6, 7], d: [] },
+    3: { h: [1, 2], d: [5, 0] },
+  } });
+  assert.deepEqual(A.usual(hist, 1), { price: 70_000, from: "days", n: 3 });
+  assert.deepEqual(A.usual(hist, 2), { price: 4, from: "hours", n: 6 });
+  assert.equal(A.usual(hist, 3), null);
+  assert.equal(A.usual(hist, 99), null);
+  j = A.judge(cloak, A.usual(hist, 1));
+  assert.equal(j.refFrom, "days");
+  assert.equal(j.kind, "high");
+  // Far below needs a course or sales, not the hour before.
+  assert.equal(A.judge({ price: 20_000, listings: 6, change: -97 }, null).kind, null);
+  assert.equal(A.judge({ price: 20_000, listings: 6 }, { price: 100_000, from: "days", n: 5 }).kind, "low");
+  assert.equal(A.judge({ price: 20_000, listings: 6, soldAvg: 100_000 }).kind, "low");
+  // Cheap items jump easily: no anomaly under 50,000 apart.
+  assert.equal(A.judge({ price: 3000, listings: 2, change: 900 }).kind, null);
+  assert.equal(A.judge({ price: 0 }), null);
+  // Coded: a round sum (multiple of 5 million) and a few odd digits.
+  assert.ok(A.coded(20_000_003) && A.coded(10_000_301) && A.coded(5_000_007));
+  assert.ok(!A.coded(100_000_000) && !A.coded(55_555_555) && !A.coded(28_999_999) && !A.coded(999_123));
+  assert.equal(A.median([3, 1, 0, 2]), 2);
+  // The listing: every item named, by category, with its judgement.
+  const prices = C2.readCopy({ items: { 210740008: [10000123, 1, null, null, 14900.33, 10000123], 110450009: [20000003, 3, null, null, 99915, 20000003],
+    514310073: [34999999, 2, null, null, 0, 34999999], 610740009: [10500, 9, null, null, 377, 10500], 210740004: [null, 0, null, null, null, null] } }).prices;
+  const rows = C2.listing(prices, null, { sort: "ratio" });
+  assert.equal(rows.length, 4);
+  assert.equal(C2.name(210740008), "Destruction Cloak");
+  assert.equal(rows[0].name, "Chaos Bow");
+  assert.equal(C2.category(110450009), "weapons");
+  assert.equal(C2.category(210740008), "armor");
+  assert.equal(C2.category(514310073), "artwork");
+  assert.equal(C2.category(610740009), "materials");
+  assert.ok(C2.icon(210740008).startsWith("Icon_"));
+  assert.equal(C2.listing(prices, null, { listedOnly: false }).length, 5);
+  assert.deepEqual(C2.listing(prices, null, { cat: "armor" }).map((r) => r.id), [210740008]);
+  assert.deepEqual(C2.listing(prices, null, { search: "cloak", minGrade: 3 }).map((r) => r.id), [210740008]);
+  const { high, low } = C2.anomalies(rows);
+  assert.deepEqual(high.map((r) => r.id), [110450009, 210740008]);
+  assert.equal(low.length, 0);
 });

@@ -25,6 +25,33 @@ goes.
   failures and combos are not counted. The bound tools the NPC shops sell
   (catalysts, solvents, inks ...) count at their NPC prices, which can be
   changed at the bottom.
+- **All listings**: everything listed on your server's market (about 580
+  items on Marchutan), each with its picture, name in its grade's colour,
+  grade and kind, the lowest listing, how many are listed, its **usual
+  price** and the change; a search, the kinds (weapons, armour,
+  accessories, skins and wings, artwork, consumables, materials, other), a
+  lowest grade, a sort (name, price, listed, change, × usual) and listed
+  now only. A click shows the item's course: its lowest listing over the
+  last 48 hours and the last 30 days, the usual price as a dashed line.
+- **Anomalies**: the lowest listings far from the usual price, each with
+  why in words. **Far above** (5 × or more, and at least 50,000 apart):
+  most often a single listing at a fantasy price left after the cheap ones
+  sold (the Destruction Cloak at 10,000,123 on 10 Nov, usually about
+  65,000). **Far below** (40 % or less): a bargain. **Coded** prices are
+  pointed out: a round sum with a few odd digits (10,000,123; 20,000,003),
+  as sellers use to mark a listing meant for one buyer (handing over Kinah
+  bought for real money is one reason; a placeholder or moving Kinah to
+  one's own other character are others; only the lowest listing is known,
+  not whether anyone buys at it). The sign (×153, 30 %) also stands beside
+  the item's name in the other tabs.
+- **Usual price**: the median of the item's lowest listing over its last
+  days (at least 3, today not counted), until then over its last hours (at
+  least 6), else the average sale, else the lowest listing an hour before
+  (aion2.exchange's change). The course comes with the hourly copy (below):
+  `history/<server>.json` keeps every item's lowest listing for 48 hours
+  and the median of each day for 30 days. `anomaly.js` decides; the
+  Inventory plugin has the same file and counts an item far above its usual
+  price at the usual price.
 - **Materials**: every material your faction's recipes use, with its price
   and in how many recipes; a click lists those recipes with how many each
   needs, what that many cost, and what the product sells for. Filter by
@@ -57,7 +84,8 @@ network):
    often briefly down ("database unavailable"), so the fork's workflow
    `market-prices.yml` asks it patiently once an hour (`dev/copy_prices.py`,
    the European servers) and publishes a small file per server on the
-   branch `market-data`, which the plugin reads in a moment;
+   branch `market-data`, which the plugin reads in a moment, and with it the
+   course of each item's lowest listing (`history/`);
 2. from aion2.exchange itself when the copy lacks your server or is older
    than 3 hours; and the old copy still when that fails.
 
@@ -66,6 +94,11 @@ and what went wrong ("could not connect: ...", "no answer in time", "the
 service is down right now"). The last prices are kept for the next start.
 
 ## Data
+
+`items.js` (every item's name, grade and icon, for All listings) is the
+Inventory plugin's item list: `python3 -I dev/make_items.py
+../inventory/data.js .`. The pictures come from the game's icon server
+through the meter (`a2.web.image`, assets.playnccdn.com).
 
 `data.js` is generated from SkeeveAN's
 [Aion-DPS-Meter](https://github.com/SkeeveAN/Aion-DPS-Meter) (MIT, see

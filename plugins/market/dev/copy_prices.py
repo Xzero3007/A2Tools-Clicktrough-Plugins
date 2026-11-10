@@ -19,6 +19,13 @@ itself only when the copy lacks its server or is old.
                             copied, source, items: { "<item id>": [price,
                             listings, units sold, average sold price,
                             change %, last price seen] } } (null: none)
+<folder>/history/<id>.json  the lowest listing's course, for the plugins'
+                            "usual price" and its anomalies: { v, server,
+                            hours: [snapshot, ...] (the last 48), days:
+                            ["YYYY-MM-DD", ...] (the last 30), items:
+                            { "<item id>": { h: [lowest listing per hour],
+                            d: [median of the day's lowest listings] } }
+                            } (0: none), kept from the copy before
 
 A server that fails keeps the file it had; when all fail, nothing is
 published. MARKET_REGIONS (comma list of
@@ -27,6 +34,7 @@ copy; MARKET_BUDGET_S how long to keep trying (default 1800 s).
 """
 import datetime
 import json
+import statistics
 import os
 import sys
 import time
@@ -39,6 +47,8 @@ REGIONS = [r.strip().upper() for r in os.environ.get("MARKET_REGIONS", "EU").spl
 START = time.time()
 BUDGET = float(os.environ.get("MARKET_BUDGET_S", "1800"))
 PAGE = 1000
+HOURS = 48  # hourly points the history keeps
+DAYS = 30  # daily medians it keeps
 
 
 def now_iso():
@@ -98,6 +108,60 @@ def compact(items):
     return out
 
 
+def day_of(iso):
+    return str(iso or "")[:10]
+
+
+def update_history(old, snapshot, items, server_id=None):
+    """The history (see the top) with one more snapshot's lowest listings.
+    A snapshot it has already (aion2.exchange took no new one) changes
+    nothing. The days still whole in the hourly window are worked out again;
+    the oldest one, cut by the window, keeps what it had."""
+    old = old if isinstance(old, dict) and old.get("v") == 1 else {}
+    hours = list(old.get("hours") or [])
+    days = list(old.get("days") or [])
+    its = old.get("items") or {}
+    snap = snapshot or now_iso()
+    if hours and hours[-1] >= snap:
+        return old
+    hours.append(snap)
+    width = len(hours)
+    h = {}
+    for key in set(its) | set(items):
+        prev = list((its.get(key) or {}).get("h") or [])
+        prev = (prev + [0] * width)[: width - 1]
+        row = items.get(key)
+        prev.append(int(row[0]) if row and row[0] else 0)
+        h[key] = prev
+    cut = max(0, len(hours) - HOURS)
+    hours = hours[cut:]
+    h = {k: v[cut:] for k, v in h.items()}
+    d = {k: list((its.get(k) or {}).get("d") or []) for k in h}
+    for k in d:
+        d[k] = (d[k] + [0] * len(days))[: len(days)]
+    first = day_of(hours[0])
+    for day in sorted({day_of(x) for x in hours}):
+        if day in days and day == first:
+            continue  # cut by the window: what it had stays
+        if day not in days:
+            days.append(day)
+            for k in d:
+                d[k].append(0)
+        at = days.index(day)
+        cols = [i for i, x in enumerate(hours) if day_of(x) == day]
+        for k, row in h.items():
+            vals = [row[i] for i in cols if row[i] > 0]
+            d[k][at] = int(statistics.median(vals)) if vals else 0
+    keep = max(0, len(days) - DAYS)
+    days = days[keep:]
+    out = {}
+    for k in sorted(h, key=lambda x: int(x) if x.isdigit() else 0):
+        dd = d[k][keep:]
+        if any(h[k]) or any(dd):
+            out[k] = {"h": h[k], "d": dd}
+    return {"v": 1, "server": server_id if server_id is not None else old.get("server"), "hours": hours, "days": days, "items": out}
+
+
 def items_of(server_id):
     """Every item row of a server, page by page."""
     rows = []
@@ -116,6 +180,7 @@ def items_of(server_id):
 
 def main(folder):
     os.makedirs(os.path.join(folder, "prices"), exist_ok=True)
+    os.makedirs(os.path.join(folder, "history"), exist_ok=True)
     res = get("/servers")
     servers = [s for s in res.get("servers") or [] if isinstance(s, dict) and s.get("server_id") is not None]
     wanted = [s for s in servers if s.get("has_data") is not False
@@ -142,6 +207,15 @@ def main(folder):
         }
         with open(os.path.join(folder, "prices", f"{sid}.json"), "w", encoding="utf8") as f:
             json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
+        hist_path = os.path.join(folder, "history", f"{sid}.json")
+        try:
+            with open(hist_path, encoding="utf8") as f:
+                old = json.load(f)
+        except (OSError, ValueError):
+            old = None
+        hist = update_history(old, snapshot, items, sid)
+        with open(hist_path, "w", encoding="utf8") as f:
+            json.dump(hist, f, ensure_ascii=False, separators=(",", ":"))
         listed = sum(1 for v in items.values() if v[0] is not None)
         print(f"{sid} {s.get('name')}: {len(items)} items, {listed} listed, snapshot {snapshot}", flush=True)
         time.sleep(1)

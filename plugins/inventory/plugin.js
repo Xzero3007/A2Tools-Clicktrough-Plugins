@@ -43,6 +43,7 @@
   let lastItems = null;
   let servers = [];
   let prices = new Map();
+  let hist = null; // the copy's price history of the server (anomaly.js)
   let fetchedAt = 0;
   let snapshot = null;
   let busy = false;
@@ -190,8 +191,17 @@
       prices = got.prices;
       snapshot = got.snapshot;
       fetchedAt = Date.now();
-      const keep = [...prices].map(([id, p]) => [id, p.price, p.listings, p.sold, p.soldAvg, p.last]);
+      const keep = [...prices].map(([id, p]) => [id, p.price, p.listings, p.sold, p.soldAvg, p.last, p.change]);
       a2.storage.set("prices", { server: s.id, at: fetchedAt, snapshot, rows: keep }).catch(() => {});
+      // The course of the lowest listings (the copy's history): an item far
+      // above its usual price counts at the usual one (anomaly.js).
+      try {
+        const h = globalThis.MarketAnomaly?.readHistory(await a2.web.get(`${COPY}/history/${s.id}.json`));
+        if (h) {
+          hist = h;
+          a2.storage.set("history", { server: s.id, doc: { v: 1, ...h } }).catch(() => {});
+        }
+      } catch {}
     } catch (e) {
       priceError = `Prices: ${e?.message || e}${prices.size ? " (showing the earlier ones)" : ""}`;
     } finally {
@@ -201,7 +211,7 @@
   }
   function restorePrices(c) {
     if (c?.server !== settings.server || !Array.isArray(c.rows)) return;
-    prices = new Map(c.rows.map(([id, price, listings, sold, soldAvg, last]) => [String(id), { price, listings, sold, soldAvg, last }]));
+    prices = new Map(c.rows.map(([id, price, listings, sold, soldAvg, last, change]) => [String(id), { price, listings, sold, soldAvg, last, change: change ?? null }]));
     fetchedAt = c.at || 0;
     snapshot = c.snapshot || null;
   }
@@ -303,7 +313,7 @@
     if ($(".search").value !== search && document.activeElement !== $(".search")) $(".search").value = search;
     $(".sellableOnly").checked = !!settings.sellableOnly;
     $(".sort").value = settings.sort;
-    const { rows, sum } = C.list(counts(), prices, { fee: settings.fee, sort: settings.sort, search, sellableOnly: settings.sellableOnly });
+    const { rows, sum } = C.list(counts(), prices, { fee: settings.fee, sort: settings.sort, search, sellableOnly: settings.sellableOnly, hist });
     // The session line on Drops.
     $(".sessionBar").hidden = tab !== "drops";
     if (tab === "drops") {
@@ -317,7 +327,7 @@
     const parts = [el("span", {}, el("b", { text: String(rows.filter((r) => !r.currency).length) }), " items")];
     if (prices.size) {
       parts.push(el("span", {}, el("b", { text: String(sum.sellable) }), " sellable"));
-      parts.push(el("span", { class: "worth", title: `The lowest listing on your server for each, times how many; after the market's ${settings.fee} % fee: ${C.kina(sum.net)}` },
+      parts.push(el("span", { class: "worth", title: `The lowest listing on your server for each (the usual price where that listing is far above it), times how many; after the market's ${settings.fee} % fee: ${C.kina(sum.net)}` },
         "worth ", el("b", { text: C.kina(sum.total) }), " Kina"));
     }
     if (tab === "inv") {
@@ -351,6 +361,7 @@
       if (C.GRADES[r.grade]) tags.append(el("span", { text: C.GRADES[r.grade] }));
       if (r.sellable) tags.append(el("span", { class: "tag sell", title: `On the market: ${r.listings} listed${r.sold != null ? `, ${r.sold} sold in 28 days` : ""}`, text: "Sellable" }));
       else if (r.bound) tags.append(el("span", { class: "tag", text: "Bound" }));
+      if (r.odd) tags.append(el("span", { class: "tag odd", title: `The lowest listing, ${C.kina(r.listed)}, is far above the usual price: ${globalThis.MarketAnomaly.reason(r.odd, C.kina)}. Counted at ${C.kina(r.unit)} each.`, text: "Usual price" }));
       if (tab === "drops" && session.loot?.[r.item]) tags.append(el("span", { class: "tag loot", title: "Picked up from the ground", text: `Loot ${C.kina(session.loot[r.item])}` }));
       out.push(
         el("li", { class: `g${r.grade}${r.sellable ? " sellable" : ""}`, title: `${r.name} (${r.item})` },
@@ -607,6 +618,8 @@
     } catch {}
     try {
       restorePrices(await a2.storage.get("prices"));
+      const h = await a2.storage.get("history");
+      if (h?.server === settings.server) hist = globalThis.MarketAnomaly?.readHistory(h.doc) || null;
     } catch {}
     await loadStock(viewKey());
     render();

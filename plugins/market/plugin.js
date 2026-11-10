@@ -8,12 +8,14 @@
 (() => {
   const D = globalThis.MARKET_DATA;
   const C = globalThis.MarketCalc;
+  const A = globalThis.MarketAnomaly;
   const $ = (s) => document.querySelector(s);
   const API = "https://aion2.exchange/api";
   const COPY = "https://raw.githubusercontent.com/Xzero3007/A2Tools-DPS-Meter_Clicktrough/market-data";
   const STALE_MS = 20 * 60_000; // prices older than this are fetched again on opening
   const AUTO_MS = 30 * 60_000; // and while the window stays open
   const COPY_OLD_MS = 3 * 3600_000; // a copy older than this: aion2.exchange itself first
+  const ICONS = "https://assets.playnccdn.com/static-aion2-gamedata/resources/";
 
   let settings = {
     server: null, // aion2.exchange's server id
@@ -28,6 +30,10 @@
     faction: null, // "Asmodian" or "Elyos": whose items; the server's until picked
     fav: [], // favourite item ids (a star in every tab)
     favFirst: false, // favourites listed first
+    cat: "all", // All listings: the category
+    minGrade: 0, // and the lowest grade
+    allSort: "name",
+    listedOnly: true,
   };
   let servers = []; // [{ id, game, name, region, faction, hasData }] (calc.js readServers)
   let prices = new Map();
@@ -37,8 +43,9 @@
   let character = null;
   let busy = false;
   let error = "";
+  let hist = null; // the copy's price history of the server (anomaly.js readHistory)
   const open = new Set(); // rows shown open: "r:<recipe>", "m:<material>"
-  let shown = { recipes: 80, materials: 80 };
+  let shown = { recipes: 80, materials: 80, listings: 80 };
 
   const el = (tag, props = {}, ...kids) => {
     const n = Object.assign(document.createElement(tag), props);
@@ -140,6 +147,13 @@
       source = got.source;
       fetchedAt = Date.now();
       if (failure) error = `aion2.exchange: ${failure.message || failure} · showing the copy of ${when(snapshot)}`;
+      try {
+        const h = A.readHistory(await a2.web.get(`${COPY}/history/${s.id}.json`));
+        if (h) {
+          hist = h;
+          a2.storage.set("history", { server: s.id, doc: { v: 1, ...h } }).catch(() => {});
+        }
+      } catch {}
       const keep = [...prices].map(([id, p]) => [id, p.price, p.listings, p.sold, p.soldAvg, p.change]);
       a2.storage.set("prices", { server: s.id, at: fetchedAt, snapshot, source, rows: keep }).catch(() => {});
     } catch (e) {
@@ -206,12 +220,14 @@
     if (settings.tab === "gather") renderGather();
     else if (settings.tab === "odyle") renderOdyle();
     else if (settings.tab === "recipes") renderRecipes();
-    else renderMaterials();
+    else if (settings.tab === "materials") renderMaterials();
+    else if (settings.tab === "listings") renderListings();
+    else renderAnomalies();
   }
 
   const priceCell = (v) => el("td", { className: v == null ? "none" : "" }, kina(v));
   const changeCell = (v) => el("td", { className: v == null ? "none" : v > 0 ? "gain" : v < 0 ? "loss" : "" },
-    v == null ? "—" : `${v > 0 ? "+" : ""}${Math.round(v)}%`);
+    v == null ? "—" : v >= 900 ? `×${kina(1 + v / 100)}` : `${v > 0 ? "+" : ""}${Math.round(v)}%`);
 
   // ---------- favourites, map links, the lists that open ----------
   const isFav = (id) => settings.fav.includes(Number(id));
@@ -267,7 +283,103 @@
   }
 
   /** The first cell of an item's row: star, name, what follows, map link. */
-  const nameCell = (id, ...after) => el("td", { className: "name" }, star(id), el("span", { className: "label" }, C.name(id)), ...after, mapButton(id));
+  const nameCell = (id, ...after) => el("td", { className: "name" }, star(id), el("span", { className: "label" }, C.name(id)), ...after, flag(id), mapButton(id));
+
+  // ---------- anomalies ----------
+  const judged = (id) => A.judge(prices.get(String(id)), A.usual(hist, id));
+  /** A small sign beside a name whose lowest listing is far from its usual price. */
+  function flag(id, j = judged(id)) {
+    if (!j?.kind) return null;
+    const t = j.kind === "high" ? `×${j.ratio >= 100 ? kina(j.ratio) : j.ratio.toFixed(j.ratio >= 10 ? 0 : 1)}` : `${Math.round(j.ratio * 100)} %`;
+    return el("span", { className: `tag ${j.kind}`, title: `${j.kind === "high" ? "Far above" : "Far below"} the usual price: ${A.reason(j, kina)}` }, t);
+  }
+
+  // ---------- pictures (the game's icon server, through the meter) ----------
+  const pictures = new Map(); // icon name -> data URL | null
+  const asked = new Map(); // icon name -> the boxes waiting for it
+  const queue = [];
+  let loading = 0;
+  function pump() {
+    while (loading < 4 && queue.length) {
+      const name = queue.shift();
+      loading++;
+      const get = a2.web && typeof a2.web.image === "function" ? a2.web.image(`${ICONS}${name}.png`) : Promise.resolve(null);
+      Promise.resolve(get)
+        .catch(() => null)
+        .then((data) => {
+          pictures.set(name, data || null);
+          for (const box of asked.get(name) || []) if (data && box.isConnected) box.replaceChildren(el("img", { src: data, alt: "" }));
+          asked.delete(name);
+        })
+        .finally(() => {
+          loading--;
+          pump();
+        });
+    }
+  }
+  function iconBox(id) {
+    const box = el("span", { className: `icon g${C.grade(id)}` }, C.name(id).slice(0, 1));
+    const name = C.icon(id);
+    if (!name) return box;
+    if (pictures.has(name)) {
+      const data = pictures.get(name);
+      if (data) box.replaceChildren(el("img", { src: data, alt: "" }));
+    } else if (asked.has(name)) asked.get(name).push(box);
+    else {
+      asked.set(name, [box]);
+      queue.push(name);
+      pump();
+    }
+    return box;
+  }
+
+  /** An item's lowest listing over the copy's hours and days, as two small lines. */
+  function course(id, usual) {
+    const it = hist?.items?.[String(id)];
+    if (!it) return el("p", { className: "sub" }, "No course yet: the hourly copy keeps one from 10 Nov 2026 on.");
+    const spark = (vals, labels, title) => {
+      const pts = vals.map((v, i) => [i, v]).filter(([, v]) => v > 0);
+      const W = 260, H = 46;
+      const svg = document.createElementNS(SVG, "svg");
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      svg.setAttribute("class", "spark");
+      if (!pts.length) return el("div", { className: "sparkBox" }, el("span", { className: "sub" }, `${title}: not listed`));
+      const all = pts.map(([, v]) => v).concat(usual ? [usual] : []);
+      const lo = Math.min(...all), hi = Math.max(...all);
+      // Log scale: a fantasy price would flatten everything else.
+      const y = (v) => (hi === lo ? H / 2 : H - 4 - ((Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo))) * (H - 8));
+      const x = (i) => (vals.length <= 1 ? W / 2 : 2 + (i / (vals.length - 1)) * (W - 4));
+      if (usual) {
+        const u = document.createElementNS(SVG, "line");
+        for (const [k, v] of [["x1", 0], ["x2", W], ["y1", y(usual)], ["y2", y(usual)]]) u.setAttribute(k, v);
+        u.setAttribute("class", "usual");
+        svg.append(u);
+      }
+      const line = document.createElementNS(SVG, "polyline");
+      line.setAttribute("points", pts.map(([i, v]) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" "));
+      svg.append(line);
+      const tip = document.createElementNS(SVG, "title");
+      tip.textContent = pts.map(([i, v]) => `${labels[i]}: ${kina(v)}`).join("\n");
+      svg.append(tip);
+      return el("div", { className: "sparkBox" }, el("div", { className: "sub" }, `${title} · ${kina(lo)} to ${kina(hi)}`), svg);
+    };
+    const hours = (hist.hours || []).map((h) => when(h));
+    return el("div", { className: "course" },
+      spark(it.h || [], hours, `Last ${(it.h || []).length} hours`),
+      spark(it.d || [], hist.days || [], `Last ${(it.d || []).length} days (median of each)`));
+  }
+
+  /** What an item's open row shows: why it stands out, and its course. */
+  function itemDetail(id) {
+    const p = prices.get(String(id)) || {};
+    const usual = A.usual(hist, id);
+    const j = A.judge(p, usual);
+    const lines = [];
+    if (usual) lines.push(`Usual price ${kina(usual.price)} (median of ${usual.n} ${usual.from}).`);
+    if (j?.kind || j?.coded || j?.thin) lines.push(`${j.kind === "high" ? "Far above it: " : j.kind === "low" ? "Far below it: " : ""}${A.reason(j, kina)}.`);
+    if (j?.kind === "high") lines.push("Only the lowest listing is known: whether anyone buys at that price, the copy can't tell. The Inventory plugin counts such items at the usual price.");
+    return el("div", {}, ...lines.map((t) => el("p", { className: "sub why" }, t)), course(id, usual?.price));
+  }
 
   /** A row that opens what it holds under it ("<kind>:<id>" in `open`). */
   function opener(row, key, again) {
@@ -540,6 +652,94 @@
     box.replaceChildren(...kids);
   }
 
+  // ---------- everything on the market ----------
+  /** A row of the listing or the anomalies: picture, name, price, listed,
+   *  usual, change; a click opens the course. */
+  function itemRow(r, key, again, span) {
+    const p = r.p;
+    const name = el("td", { className: "name item" }, el("div", { className: "cell" }, iconBox(r.id),
+      el("span", { className: "nm" }, star(r.id), el("span", { className: `label g${r.grade}` }, r.name), flag(r.id, r.j), mapButton(r.id),
+        el("span", { className: "sub line" }, [C.GRADES[r.grade], CAT[r.category]].filter(Boolean).join(" · ")))));
+    const row = opener(el("tr", {}, name, priceCell(p.price), el("td", {}, p.listings ? kina(p.listings) : "—"),
+      el("td", { className: r.usual ? "" : "none", title: r.usual ? `Median of ${r.usual.n} ${r.usual.from}` : "Not enough course yet" }, r.usual ? kina(r.usual.price) : "—"),
+      changeCell(p.change)), key, again);
+    const out = [row];
+    if (open.has(key)) out.push(el("tr", { className: "detail" }, el("td", { colSpan: span }, itemDetail(r.id))));
+    return out;
+  }
+  const CAT = Object.fromEntries(C.CATEGORIES);
+  const itemHead = () => [el("th", {}, "Item"), el("th", {}, "Lowest"), el("th", {}, "Listed"),
+    el("th", { title: "The median of its lowest listing over the last days (or hours)" }, "Usual"), el("th", { title: "Against the snapshot before (aion2.exchange)" }, "Change")];
+  const ITEM_WIDTHS = ["46%", "16%", "10%", "16%", "12%"];
+
+  function renderListings() {
+    $(".cats").replaceChildren(...[["all", "All"], ...C.CATEGORIES].map(([k, label]) => {
+      const b = el("button", { type: "button", className: "chip", textContent: label });
+      b.setAttribute("aria-pressed", String(settings.cat === k));
+      b.addEventListener("click", () => {
+        settings.cat = k;
+        shown.listings = 80;
+        saveLater();
+        renderListings();
+      });
+      return b;
+    }));
+    const g = $(".minGrade");
+    if (!g.childElementCount) {
+      g.append(el("option", { value: "0", textContent: "Any" }));
+      for (let i = 1; i <= 6; i++) g.append(el("option", { value: String(i), textContent: `${C.GRADES[i]}+` }));
+    }
+    g.value = String(settings.minGrade || 0);
+    $(".allSort").value = settings.allSort;
+    $(".listedOnly").checked = !!settings.listedOnly;
+    const box = $(".allList");
+    if (!prices.size) {
+      $(".listNote").textContent = "";
+      box.replaceChildren(el("p", { className: "empty", textContent: server() ? "No prices yet." : "Pick your server above." }));
+      return;
+    }
+    let rows = C.listing(prices, hist, { search: settings.search.listings, cat: settings.cat, minGrade: settings.minGrade, listedOnly: settings.listedOnly, sort: settings.allSort });
+    rows = favFirst(rows, (r) => r.id);
+    const odd = rows.filter((r) => r.j?.kind).length;
+    $(".listNote").textContent = `${kina(rows.length)} items${odd ? ` · ${odd} far from their usual price (see Anomalies)` : ""} · what aion2.exchange saw on your server's market`;
+    const body = el("tbody");
+    for (const r of rows.slice(0, shown.listings)) body.append(...itemRow(r, `l:${r.id}`, renderListings, 5));
+    const kids = [table(ITEM_WIDTHS, itemHead(), body)];
+    if (!rows.length) kids.push(el("p", { className: "empty", textContent: "Nothing matches." }));
+    if (rows.length > shown.listings) {
+      const more = el("button", { type: "button", className: "more", textContent: `Show more (${rows.length - shown.listings})` });
+      more.addEventListener("click", () => {
+        shown.listings += 80;
+        renderListings();
+      });
+      kids.push(more);
+    }
+    box.replaceChildren(...kids);
+  }
+
+  function renderAnomalies() {
+    const box = $(".anomList");
+    if (!prices.size) {
+      box.replaceChildren(el("p", { className: "empty", textContent: server() ? "No prices yet." : "Pick your server above." }));
+      return;
+    }
+    const { high, low } = C.anomalies(C.listing(prices, hist, {}));
+    const body = el("tbody");
+    const groups = [
+      [`Far above the usual price (${high.length})`, high, "Nothing far above its usual price right now."],
+      [`Far below the usual price: bargains (${low.length})`, low, hist ? "Nothing far below its usual price right now." : "Bargains need the course of a few hours first."],
+    ];
+    for (const [title, rows, none] of groups) {
+      body.append(groupRow(title, 5));
+      if (!rows.length) body.append(el("tr", {}, el("td", { colSpan: 5, className: "none" }, none)));
+      for (const r of rows) {
+        body.append(...itemRow(r, `a:${r.id}`, renderAnomalies, 5));
+        if (!open.has(`a:${r.id}`)) body.append(el("tr", { className: "why" }, el("td", { colSpan: 5 }, A.reason(r.j, kina))));
+      }
+    }
+    box.replaceChildren(table(ITEM_WIDTHS, itemHead(), body));
+  }
+
   // ---------- the controls ----------
   for (const t of document.querySelectorAll(".tab")) {
     t.addEventListener("click", () => {
@@ -551,7 +751,7 @@
   for (const s of document.querySelectorAll(".search")) {
     s.addEventListener("input", () => {
       settings.search[s.dataset.for] = s.value;
-      shown = { recipes: 80, materials: 80 };
+      shown = { recipes: 80, materials: 80, listings: 80 };
       saveLater();
       render();
     });
@@ -559,6 +759,7 @@
   $(".server").addEventListener("change", () => {
     settings.server = $(".server").value ? Number($(".server").value) : null;
     prices = new Map();
+    hist = null;
     fetchedAt = 0;
     open.clear();
     saveLater();
@@ -591,6 +792,23 @@
     settings.sort = $(".sort").value;
     saveLater();
     renderRecipes();
+  });
+  $(".minGrade").addEventListener("change", () => {
+    settings.minGrade = Number($(".minGrade").value) || 0;
+    shown.listings = 80;
+    saveLater();
+    renderListings();
+  });
+  $(".allSort").addEventListener("change", () => {
+    settings.allSort = $(".allSort").value;
+    saveLater();
+    renderListings();
+  });
+  $(".listedOnly").addEventListener("change", () => {
+    settings.listedOnly = $(".listedOnly").checked;
+    shown.listings = 80;
+    saveLater();
+    renderListings();
   });
   $(".fee").addEventListener("input", () => {
     const v = Number($(".fee").value);
@@ -625,6 +843,10 @@
     try {
       const p = await a2.storage.get("prices");
       if (p) restoreCache(p);
+    } catch {}
+    try {
+      const h = await a2.storage.get("history");
+      if (h?.server === settings.server) hist = A.readHistory(h.doc);
     } catch {}
     render();
     a2.ready();

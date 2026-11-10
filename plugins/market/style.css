@@ -102,3 +102,26 @@ tr:hover .mapBtn, .mapBtn:focus-visible { opacity: 1; }
 .npcList { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; font-size: 12px; }
 .npcList input { width: 80px; text-align: right; }
 .credit { margin-top: 14px; }
+
+/* All listings and Anomalies: the item's picture and grade colour (as the
+   Inventory plugin's), the anomaly signs, the course. */
+:root { --g1: #c8ccd2; --g2: #7fdc9a; --g3: #c39bff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8; }
+.g1 { --gc: var(--g1); } .g2 { --gc: var(--g2); } .g3 { --gc: var(--g3); } .g4 { --gc: var(--g4); }
+.g5 { --gc: var(--g5); } .g6 { --gc: var(--g6); } .g7 { --gc: var(--g7); }
+td.item > .cell { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-width: 0; }
+td.item .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+td.item .label { color: var(--gc, inherit); }
+td.item .line { display: block; margin-left: 16px; }
+.icon { flex: none; width: 30px; height: 30px; border-radius: 5px; background: rgba(255,255,255,.06); border: 1px solid var(--gc, rgba(255,255,255,.15));
+  display: grid; place-items: center; overflow: hidden; font-size: 12px; font-weight: 600; color: var(--gc, rgba(255,255,255,.55)); }
+.icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.tag.high { border-color: rgba(255,138,122,.6); color: #ffb0a5; }
+.tag.low { border-color: rgba(127,220,154,.55); color: #a9ebbd; }
+tr.why > td { text-align: left; white-space: normal; font-size: 11px; color: rgba(255,255,255,.5); padding: 0 6px 6px 46px; }
+.detail .why { margin: 6px 0 2px; white-space: normal; }
+.course { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 2px; }
+.sparkBox { min-width: 220px; flex: 1; }
+.spark { width: 100%; height: 46px; display: block; }
+.spark polyline { fill: none; stroke: var(--a2-accent, #e0a526); stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.spark line.usual { stroke: rgba(255,255,255,.35); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.listNote { margin-top: 0; }

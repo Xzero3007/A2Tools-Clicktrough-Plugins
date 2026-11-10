@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const dir = process.env.PLUGIN_DIR || path.join(__dirname, "..", "..");
 require(path.join(dir, "data.js"));
+require(path.join(dir, "anomaly.js"));
 require(path.join(dir, "calc.js"));
 const D = globalThis.INVENTORY_DATA;
 const C = globalThis.InventoryCalc;
@@ -50,7 +51,7 @@ test("worth: sellable when traded and not bound, the lowest listing first", () =
     [String(SPIRITSTONE), { price: null, listings: 0, sold: 30, soldAvg: 1400, last: 1400 }],
     [String(SCROLL), { price: 50, listings: 1 }],
   ]);
-  assert.deepEqual(C.worth(MEAT, 2, prices, 10), { sellable: true, unit: 972, total: 1944, net: 1749, listings: 40, sold: 500 });
+  assert.deepEqual(C.worth(MEAT, 2, prices, 10), { sellable: true, unit: 972, total: 1944, net: 1749, listings: 40, sold: 500, odd: null, listed: 972 });
   assert.equal(C.worth(SPIRITSTONE, 3, prices).unit, 1400, "no listing now: the average sale");
   assert.equal(C.worth(SCROLL, 1, prices).sellable, false, "bound");
   assert.equal(C.worth(C.KINA, 9, prices).sellable, false);
@@ -102,4 +103,18 @@ test("numbers and keys", () => {
   assert.equal(C.short(740_000), "740K");
   assert.match(C.charKey(1301, "Serasツ"), /^c-1301-[a-z0-9]+$/);
   assert.notEqual(C.charKey(1301, "A"), C.charKey(1301, "B"));
+});
+
+test("a lowest listing far above the usual price counts at the usual price", () => {
+  const CLOAK = 210740008; // Destruction Cloak, 10 Nov: one listing at 10,000,123
+  const prices = C.readCopy({ items: { [CLOAK]: [10000123, 1, null, null, 14900.33, 10000123] } }).prices;
+  let w = C.worth(CLOAK, 7, prices);
+  assert.equal(w.listed, 10000123);
+  assert.equal(w.odd.kind, "high");
+  assert.ok(Math.abs(w.unit - 66667) < 5 && w.total === w.unit * 7);
+  // With the copy's course: its usual price.
+  const hist = globalThis.MarketAnomaly.readHistory({ v: 1, hours: [], days: ["a", "b", "c", "d"], items: { [CLOAK]: { h: [], d: [60000, 65000, 70000, 10000123] } } });
+  w = C.worth(CLOAK, 7, prices, 10, hist);
+  assert.equal(w.unit, 65000);
+  assert.equal(C.list({ [CLOAK]: 7 }, prices, { hist }).rows[0].total, 455000);
 });

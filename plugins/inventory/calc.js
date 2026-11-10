@@ -90,7 +90,7 @@
     for (const [id, r] of Object.entries(doc.items)) {
       if (!Array.isArray(r)) continue;
       const price = n(r[0]) > 0 ? n(r[0]) : null;
-      prices.set(String(id), { price, listings: price == null ? 0 : n(r[1]) ?? 0, sold: n(r[2]), soldAvg: n(r[3]), last: n(r[5]) });
+      prices.set(String(id), { price, listings: price == null ? 0 : n(r[1]) ?? 0, sold: n(r[2]), soldAvg: n(r[3]), change: n(r[4]), last: n(r[5]) });
     }
     return prices.size ? { prices, snapshot: doc.snapshot || null, copied: doc.copied || null } : null;
   }
@@ -102,31 +102,39 @@
       const id = r?.item_key ?? r?.id ?? r?.item_id;
       if (id == null) continue;
       const listed = r.listed !== false && num(r.price) > 0;
-      prices.set(String(id), { price: listed ? num(r.price) : null, listings: listed ? num(r.listings) ?? 0 : 0, sold: num(r.units_sold), soldAvg: num(r.sold_avg_price), last: num(r.last_price) });
+      prices.set(String(id), { price: listed ? num(r.price) : null, listings: listed ? num(r.listings) ?? 0 : 0, sold: num(r.units_sold), soldAvg: num(r.sold_avg_price), change: num(r.change_pct), last: num(r.last_price) });
     }
     return prices;
   }
 
   /** What one item is worth: sellable (traded on the market and not bound),
    *  the unit price (the lowest listing, else the average sale, else the last
-   *  seen), the total, and the total after the market's fee (in %). */
-  function worth(item, count, prices, fee = 10) {
+   *  seen), the total, and the total after the market's fee (in %). A lowest
+   *  listing far above the item's usual price (anomaly.js, with the copy's
+   *  price history `hist`) counts at the usual price: `odd` then holds the
+   *  judgement, and the listing is `listed`. */
+  function worth(item, count, prices, fee = 10, hist = null) {
     const p = prices?.get(String(item)) || null;
     const sellable = !!p && !bound(item) && !currency(item);
-    const unit = sellable ? p.price ?? p.soldAvg ?? p.last ?? null : null;
+    let unit = sellable ? p.price ?? p.soldAvg ?? p.last ?? null : null;
+    const A = globalThis.MarketAnomaly;
+    const j = sellable && A ? A.judge(p, A.usual(hist, item)) : null;
+    const odd = j?.kind === "high" ? j : null;
+    if (odd) unit = odd.ref;
     const total = unit == null ? null : unit * count;
-    return { sellable, unit, total, net: total == null ? null : Math.floor(total * (1 - fee / 100)), listings: p?.listings ?? 0, sold: p?.sold ?? null };
+    return { sellable, unit, total, net: total == null ? null : Math.floor(total * (1 - fee / 100)), listings: p?.listings ?? 0, sold: p?.sold ?? null,
+      odd, listed: p?.price ?? null };
   }
 
   /** A list's rows, each with its worth; sorted ("value", "name", "count",
    *  "grade"), filtered by a search text and sellable only. */
-  function list(counts, prices, { fee = 10, sort = "value", search = "", sellableOnly = false } = {}) {
+  function list(counts, prices, { fee = 10, sort = "value", search = "", sellableOnly = false, hist = null } = {}) {
     const q = String(search || "").trim().toLowerCase();
     const rows = [];
     for (const [id, count] of Object.entries(counts || {})) {
       const item = Number(id);
       if (q && !name(item).toLowerCase().includes(q)) continue;
-      const w = worth(item, count, prices, fee);
+      const w = worth(item, count, prices, fee, hist);
       if (sellableOnly && !w.sellable) continue;
       rows.push({ item, count, name: name(item), grade: grade(item), currency: currency(item), bound: bound(item), ...w });
     }

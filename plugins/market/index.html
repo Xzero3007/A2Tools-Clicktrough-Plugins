@@ -19,6 +19,8 @@
       <button type="button" class="tab" data-tab="odyle">Odyle morph</button>
       <button type="button" class="tab" data-tab="recipes">Recipes</button>
       <button type="button" class="tab" data-tab="materials">Materials</button>
+      <button type="button" class="tab" data-tab="listings">All listings</button>
+      <button type="button" class="tab" data-tab="anomalies">Anomalies</button>
     </nav>
 
     <section class="pane" data-pane="gather">
@@ -64,9 +66,34 @@
       <div class="materialList"></div>
     </section>
 
-    <footer class="credit muted">Prices: aion2.exchange (players' collected market prices) · recipes and names: the game client, via SkeeveAN's Aion-DPS-Meter</footer>
+    <section class="pane" data-pane="listings">
+      <div class="controls">
+        <input type="search" class="search" data-for="listings" placeholder="Search anything on the market …" autocomplete="off" spellcheck="false" />
+        <label>Grade <select class="minGrade"></select></label>
+        <label>Sort <select class="allSort">
+          <option value="name">Name</option>
+          <option value="price">Price</option>
+          <option value="listings">Listed</option>
+          <option value="change">Change</option>
+          <option value="ratio">× usual</option>
+        </select></label>
+        <label class="check"><input type="checkbox" class="listedOnly" /> Listed now</label>
+      </div>
+      <div class="controls"><span class="chips cats"></span></div>
+      <p class="note listNote"></p>
+      <div class="allList"></div>
+    </section>
+
+    <section class="pane" data-pane="anomalies">
+      <p class="note">Lowest listings far from the item's <strong>usual price</strong>: the median of its lowest listing over the last days (the hourly copy keeps 30 days and the last 48 hours), until there are enough days the last hours, then the average sale, then the lowest listing an hour before. Far above: <span class="tag high">×5</span> or more; far below: <span class="tag low">40 %</span> or less. A click shows the course.</p>
+      <div class="anomList"></div>
+    </section>
+
+    <footer class="credit muted">Prices: aion2.exchange (players' collected market prices) · recipes, names and pictures: the game client, via SkeeveAN's Aion-DPS-Meter and Aion2Data</footer>
     <script src="/_sdk/a2.js"></script>
     <script src="data.js"></script>
+    <script src="items.js"></script>
+    <script src="anomaly.js"></script>
     <script src="calc.js"></script>
     <script src="plugin.js"></script>
   </body>
