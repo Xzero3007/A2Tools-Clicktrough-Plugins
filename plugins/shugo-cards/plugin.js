@@ -171,6 +171,7 @@
     const i = shown == null ? rounds.length - 1 : rounds.findIndex((r) => r.key === shown);
     const r = rounds[i] || null;
     $(".empty").hidden = !!r;
+    $(".nav").hidden = !r;
     $(".prev").disabled = i <= 0;
     $(".next").disabled = !r || i >= rounds.length - 1;
     $(".when").textContent = r ? `${when(r.at)} · round ${i + 1} of ${rounds.length}` : "";
