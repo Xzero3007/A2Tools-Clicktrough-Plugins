@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Clicktrough build: the Streams plugin's tests (its lists and words).
 # Playing, Twitch's queries and FreeTube's file are the meter's
-# (plugins/video.rs, meter patch 0045), tested with the meter.
+# (plugins/video.rs, meter patch 0047), tested with the meter.
 #
 #   dev/ci.sh [<meter source folder>]
 set -euo pipefail

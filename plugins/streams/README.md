@@ -31,4 +31,4 @@ its newest videos (www.youtube.com/feeds/videos.xml) and the pictures from
 YouTube's and Twitch's picture servers; YouTube's search and the videos
 themselves go through yt-dlp and mpv, as your own mpv would play them. Only
 search words, channel names and video ids are sent; no account, no sign-in,
-no links to any website (meter patch 0045).
+no links to any website (meter patch 0047).

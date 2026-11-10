@@ -39,7 +39,7 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   Radio plugin's station streams (permission `radio`: the page's `media-src`
   holds the meter's `RADIO_HOSTS`, patch 0043; listening only; the person's
   decision, 2026-11-10). A new station's server needs a meter patch. The
-  Streams plugin's `a2.video` (permission `video`, meter patch 0045; the
+  Streams plugin's `a2.video` (permission `video`, meter patch 0047; the
   person's decision, 2026-11-10): Twitch's public API (fixed queries),
   YouTube's channel feeds and search (yt-dlp), FreeTube's subscriptions file,
   the pictures of i.ytimg.com, yt3.ggpht.com, static-cdn.jtvnw.net, and
