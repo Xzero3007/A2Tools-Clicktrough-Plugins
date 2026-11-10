@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="widget.css" />
+  </head>
+  <body>
+    <!-- The video is drawn under this page by the meter; the page is
+         see-through but for its bar (unlocked, under the pointer) and its
+         words while nothing plays. -->
+    <div class="idle">
+      <strong class="idleTitle">Nothing playing</strong>
+      <span class="idleText">Pick a stream or video in the Streams window.</span>
+    </div>
+    <header class="bar">
+      <div class="text"><strong class="title"></strong><span class="sub"></span></div>
+      <button type="button" class="pause" title="Pause or play" aria-label="Pause or play">❚❚</button>
+      <button type="button" class="close" title="Stop and close" aria-label="Stop and close">×</button>
+    </header>
+    <div class="corner nw" data-edge="nw"></div>
+    <div class="corner ne" data-edge="ne"></div>
+    <div class="corner sw" data-edge="sw"></div>
+    <div class="corner se" data-edge="se"></div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

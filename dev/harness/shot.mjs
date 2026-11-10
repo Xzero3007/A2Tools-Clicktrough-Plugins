@@ -8,6 +8,7 @@
 // events.json: [["character", {...}, {meta}], ["decoded:pet-list", {...}], ...]
 // WEB_FIXTURES=<json> answers a2.web.get ({ "<url or its start>": answer }),
 // STORE=<json> fills the plugin's storage first; pictures are grey squares.
+// VIDEO_FIXTURES=<json> answers a2.video (the Streams plugin; see a2.js).
 // WAIT=<ms> after the events (default 500), FULL=1 the whole page, PAGE=<file>
 // another page of the plugin (widget.html: emit "widget" with what it shows).
 // The page gets the meter's dark ground; external requests are listed (there
@@ -48,6 +49,7 @@ server.listen(0, async () => {
   const preset = {};
   if (process.env.WEB_FIXTURES) preset.web = JSON.parse(fs.readFileSync(process.env.WEB_FIXTURES, "utf8"));
   if (process.env.STORE) preset.store = JSON.parse(fs.readFileSync(process.env.STORE, "utf8"));
+  if (process.env.VIDEO_FIXTURES) preset.video = JSON.parse(fs.readFileSync(process.env.VIDEO_FIXTURES, "utf8"));
   if (Object.keys(preset).length) await page.addInitScript((p) => { window.__preset = p; }, preset);
   await page.goto(`http://localhost:${port}/`);
   await page.addStyleTag({ content: "html,body{background:#0b0f17;color:#e8e8e8}" });

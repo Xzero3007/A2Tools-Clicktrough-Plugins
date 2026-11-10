@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab" data-tab="twitch" role="tab">Twitch</button>
+      <button type="button" class="tab" data-tab="youtube" role="tab">YouTube</button>
+    </nav>
+
+    <section class="pane" data-pane="twitch">
+      <div class="controls">
+        <span class="seg views" role="group" aria-label="What to show">
+          <button type="button" data-view="favs">Favourites</button><button type="button" data-view="aion">AION 2</button><button type="button" data-view="all">All live</button><button type="button" data-view="search" hidden>Search</button>
+        </span>
+        <form class="searchForm" data-for="twitch">
+          <input type="search" class="search" placeholder="Search a channel, or its name to play" autocomplete="off" spellcheck="false" />
+        </form>
+        <button type="button" class="refresh" title="Get the list again">Update</button>
+      </div>
+      <div class="status muted"></div>
+      <div class="list"></div>
+    </section>
+
+    <section class="pane" data-pane="youtube">
+      <div class="controls">
+        <span class="seg views" role="group" aria-label="What to show">
+          <button type="button" data-view="subs">Subscriptions</button><button type="button" data-view="channels">Channels</button><button type="button" data-view="search" hidden>Search</button>
+        </span>
+        <form class="searchForm" data-for="youtube">
+          <input type="search" class="search" placeholder="Search YouTube, or paste a video link" autocomplete="off" spellcheck="false" />
+        </form>
+        <button type="button" class="refresh" title="Get the list again">Update</button>
+      </div>
+      <div class="status muted"></div>
+      <div class="list"></div>
+    </section>
+
+    <footer class="player" hidden>
+      <div class="now">
+        <span class="dot" aria-hidden="true"></span>
+        <div class="nowText"><strong class="nowTitle"></strong><span class="nowState muted"></span></div>
+      </div>
+      <button type="button" class="pause" title="Pause or play" aria-label="Pause or play">❚❚</button>
+      <button type="button" class="mute" title="Mute" aria-label="Mute">🔊</button>
+      <input type="range" class="volume" min="0" max="100" step="1" title="Volume" aria-label="Volume" />
+      <select class="quality" title="Quality (a change starts the video again)">
+        <option value="1080">1080p</option>
+        <option value="720">720p</option>
+        <option value="480">480p</option>
+        <option value="360">360p</option>
+        <option value="audio">Sound only</option>
+      </select>
+      <span class="seg sizes" role="group" aria-label="Overlay size" title="The overlay's size (or drag a corner of it while the meter is unlocked)">
+        <button type="button" data-size="s">S</button><button type="button" data-size="m">M</button><button type="button" data-size="l">L</button><button type="button" data-size="xl">XL</button>
+      </span>
+      <button type="button" class="stop" title="Stop and close the overlay">Stop</button>
+    </footer>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="lists.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

@@ -52,6 +52,17 @@
     // A widget page's own calls (PAGE=widget.html): what it posts is kept in window.__posts.
     widget: { resize: ok, area: ok, drag: ok, post: async (m) => { (window.__posts ||= []).push(m); } },
     watchFps: ok,
+    // The Streams plugin's calls: answers from window.__preset.video
+    // ({ twitch: { <kind>: data }, search: [...], feed: { <channel>: xml }, freetube: [...] });
+    // what it played is kept in window.__played.
+    video: {
+      play: async (widget, what) => { (window.__played ||= []).push({ widget, ...what }); },
+      control: ok,
+      twitch: async (kind) => structuredClone(preset.video?.twitch?.[kind] ?? null),
+      search: async () => structuredClone(preset.video?.search ?? []),
+      feed: async (channel) => preset.video?.feed?.[channel] ?? "",
+      freetube: async () => structuredClone(preset.video?.freetube ?? null),
+    },
   };
   window.open = (u) => { window.__opened.push(u); };
 })();
