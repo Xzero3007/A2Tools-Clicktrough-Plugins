@@ -182,7 +182,8 @@ it moves and its buttons work. **1 2 3** in its title are three places of your o
 on a number keeps where the overlay is and its size there, a click goes back
 to it (a kept place's number is gold). With Clicktrough's meter (patch 0035)
 a **map button in the meter's title** shows or hides the overlay without the
-plugin window; the puzzle button leaves it as it is.
+plugin window; the puzzle button leaves it as it is. The overlay keeps
+following you while the Map's tab is closed or the dock hidden (0.12.2).
 
 Maps: Verteron, Altgard, the Abyss (its lower, middle and upper layers),
 Eltnen, Morheim, Poeta and Ishalgen, whole, as the game draws its world map
