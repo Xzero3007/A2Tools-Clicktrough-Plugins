@@ -43,7 +43,7 @@
       loading++;
       const got = pictures.get(url) || a2.web.image(url);
       pictures.set(url, got);
-      got.then((data) => { img.src = data; img.hidden = false; })
+      got.then((data) => { img.src = data; img.classList.remove("wait"); })
         .catch(() => pictures.delete(url))
         .finally(() => { loading--; pump(); });
     }
@@ -59,8 +59,9 @@
   function picture(url, cls = "") {
     const img = document.createElement("img");
     img.alt = "";
-    img.hidden = true;
-    if (cls) img.className = cls;
+    // Not hidden: a picture with display:none is never seen on screen, so
+    // it would never be asked for. Invisible and tiny until it has come.
+    img.className = cls ? `${cls} wait` : "wait";
     if (L.pictureOk(url)) {
       img.dataset.src = url;
       seen.observe(img);

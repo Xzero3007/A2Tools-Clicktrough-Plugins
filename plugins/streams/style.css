@@ -46,9 +46,10 @@ input[type=range] { accent-color: var(--a2-accent, #e0a526); }
 .badge.left { left: 5px; } .badge.right { right: 5px; }
 .badge.live { top: 5px; bottom: auto; left: 5px; background: #9146ff; font-weight: 700; letter-spacing: .03em; }
 .meta { display: flex; gap: 8px; margin-top: 6px; align-items: flex-start; }
-.avatar { width: 30px; height: 30px; border-radius: 50%; flex: none; background: rgba(255,255,255,.1); object-fit: cover;
+.avatar { position: relative; width: 30px; height: 30px; border-radius: 50%; flex: none; background: rgba(255,255,255,.1); object-fit: cover;
   display: grid; place-items: center; font-weight: 700; font-size: 13px; color: rgba(255,255,255,.7); overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
+img.wait { visibility: hidden; position: absolute; left: 0; top: 0; width: 1px; height: 1px; }
 .words { min-width: 0; flex: 1; }
 .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; font-size: 13px; }
 .sub { color: rgba(255,255,255,.6); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
