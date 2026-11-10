@@ -32,6 +32,9 @@ body.locked .head { cursor: default; }
 .rows .bar > i { display: block; height: 100%; background: #e0a526; }
 .rows li.full .bar > i { background: #7fdc9a; }
 .rows li.full .val { color: #a8ecbd; }
+/* A kept value (the game hasn't said it again since the meter started). */
+.rows li.old .val, .rows li.old .lbl { opacity: 0.55; }
+.rows li.old .bar > i { opacity: 0.5; }
 .rows .empty { color: rgba(255, 255, 255, 0.5); }
 .corner { position: absolute; top: 0; bottom: 0; width: 8px; z-index: 6; cursor: ew-resize; }
 .corner.e { right: 0; }

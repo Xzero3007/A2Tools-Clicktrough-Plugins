@@ -192,3 +192,53 @@ test("the gathering decoder reads the game's layout (with the meter's decoder.rs
     { great: 0, kind: 58, node: 5, item: ODYLE, amount: 1, bonus: 1 },
   ]);
 });
+
+test("the limits kept per character: shown until the game says them again", () => {
+  const login = Date.UTC(2026, 10, 10, 18, 0); // Tuesday 18:00 UTC
+  const counts = { 1: [9, 0], 4: [12, 0], 7: [20, 0], 8: [5, 0], 101: [10, 0], 3: [0, 0] };
+  const seen = { contentCounts: Object.fromEntries(Object.keys(counts).map((id) => [id, login])), kinahToday: login, abyssPoints: login };
+  const full = { name: "Main", kinahToday: 400_000, abyssPoints: [1200, 6000], contentCounts: counts, contentTimes: { 10000001: [3_600_000, login] }, seenAt: seen };
+  let k = C.keep(null, full, login + 500);
+  assert.deepEqual(k.kinah, [400_000, login]);
+  assert.deepEqual(k.abyss, [1200, 6000, login]);
+  assert.equal(Object.keys(k.counts).length, 6);
+  assert.ok(k.times["10000001"]);
+
+  // The meter started again an hour later: only one count changed since.
+  const later = login + 3_600_000;
+  const partial = { name: "Main", kinahToday: null, abyssPoints: null, contentCounts: { 4: [11, 0] }, seenAt: { contentCounts: { 4: later } } };
+  k = C.keep(k, partial, later);
+  const { character: ch, old } = C.withKept(partial, k, later + 1000);
+  assert.equal(ch.kinahToday, 400_000);
+  assert.deepEqual(ch.abyssPoints, [1200, 6000]);
+  assert.deepEqual(ch.contentCounts["4"], [11, 0], "the live one wins");
+  assert.deepEqual(ch.contentCounts["1"], [9, 0], "the kept one fills in");
+  assert.ok(old.kinah && !old.kinah.reset && old.t1 && !old.t4);
+  assert.equal(C.tickets(ch).length, 6, "five counts and a passage's time");
+
+  // Abyss Points gained since: added to the kept, up to the limit.
+  k = C.keepAbyssGain(k, 300, later + 2000);
+  assert.deepEqual(k.abyss.slice(0, 2), [1500, 6000]);
+  assert.deepEqual(C.keepAbyssGain(k, 99_999, later + 3000).abyss.slice(0, 2), [6000, 6000]);
+
+  // The next day after 07:00 UTC: Kina 0, and Wednesday's weekly reset: Abyss Points 0 too.
+  const nextDay = Date.UTC(2026, 10, 11, 8, 0); // Wednesday 08:00 UTC
+  const after = C.withKept({ name: "Main" }, k, nextDay);
+  assert.equal(after.character.kinahToday, 0);
+  assert.ok(after.old.kinah.reset);
+  assert.equal(after.character.abyssPoints[0], 0, "Wednesday's reset");
+  assert.ok(after.old.t1.reset, "a daily key before the reset is marked");
+  assert.ok(!after.old.t3.reset, "a ticket without a reset is not");
+
+  // A new login's whole list replaces the kept counts (a used passage's time is gone).
+  const relog = nextDay + 60_000;
+  const list = Object.fromEntries(Object.keys(counts).map((id) => [id, relog]));
+  k = C.keep(k, { name: "Main", kinahToday: 0, abyssPoints: [0, 6000], contentCounts: counts, seenAt: { contentCounts: list, kinahToday: relog, abyssPoints: relog } }, relog + 500);
+  assert.ok(!k.times["10000001"]);
+  assert.deepEqual(k.kinah, [0, relog]);
+
+  // Nothing kept, nothing live: nothing.
+  assert.deepEqual(C.withKept(null, null, later).old, {});
+  // Values that weren't theirs (null) keep what was kept.
+  assert.deepEqual(C.keep(k, { name: "Main" }, relog + 9000).kinah, [0, relog]);
+});

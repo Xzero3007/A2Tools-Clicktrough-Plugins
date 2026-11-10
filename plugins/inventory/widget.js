@@ -22,6 +22,8 @@
       const li = el("li");
       const full = r.max && r.value >= r.max;
       if (full) li.classList.add("full");
+      // A value kept from an earlier login, not yet said again by the game.
+      if (r.old) li.classList.add("old");
       li.title = r.title || r.label;
       li.append(el("span", "lbl", r.label), el("span", "val", r.text));
       if (r.max) {

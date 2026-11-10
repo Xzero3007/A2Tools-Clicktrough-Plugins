@@ -90,6 +90,7 @@ li.sellable .tot { color: var(--gold-t); font-weight: 600; }
 .val { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .val .x { color: var(--muted); font-size: 11.5px; }
 .credit { margin-top: 14px; font-size: 11px; color: var(--faint); }
+.limits li.old .val, .tickets li.old .val, .limits li.old .lbl, .tickets li.old .lbl, .limits li.old .bar, .tickets li.old .bar { opacity: 0.55; }
 .limits li.empty, .tickets li.empty { display: block; }
 .items li.empty { display: block; }
 .tag.odd { border-color: rgba(255,138,122,.55); color: #ffb0a5; }

@@ -1,7 +1,7 @@
 {
   "id": "inventory",
   "name": "Inventory",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "apiVersion": 2,
   "author": "Clicktrough (items and tickets: the game client via SkeeveAN's Aion-DPS-Meter, MIT, and Aion2Data; prices: aion2.exchange)",
   "description": "Your inventory, character storage and server storage with each item's picture and name, what the sellable ones are worth on your server's market (a fantasy-priced listing at its usual price), the drops of each session by where they came from (gathered, loot, rewards) with your gathering's numbers and the gear broken down, earlier sessions, and a floater with today's Kinah, the week's Abyss Points and your keys and entry counts.",

@@ -54,6 +54,14 @@ pick.
   to it (a kept place's number is gold). The **gauge button in the meter's
   title** (meter patch 0035) shows or hides the floater without the plugin
   window; the puzzle button leaves it as it is.
+  **Complete at once** (0.4.1): the game sends the whole list only at a
+  login, so a meter started later (after logging in, or again after an
+  update) knew only what changed since, until the next character switch.
+  The plugin keeps each character's last values and shows them until the
+  game sends new ones, dimmed, with when the game said them on hover. Past
+  a reset (daily 07:00 UTC, weekly Wednesday 07:00 UTC) Kinah today and the
+  Abyss Points show 0, a key or count stays marked "before the reset"; Abyss
+  Points gained meanwhile are added to the kept ones.
 - **Another character**: the menu at the top shows the items of every
   character seen before, as they were last.
 

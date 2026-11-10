@@ -36,6 +36,7 @@
     tickets: null, // ids shown in the floater; null: FIRST_TICKETS
     breakMin: 180, // a new session after this long off (minutes; 0: only by hand)
     source: "all", // Drops: all, gathered, loot, reward, other
+    lastLimits: null, // the key of the character whose limits were kept last
   };
   const HISTORY = 40; // earlier sessions kept
   const SOURCE_NAMES = { all: "All", gathered: "Gathered", loot: "Loot", reward: "Rewards", other: "Other" };
@@ -93,6 +94,66 @@
     }
   }, 1200);
 
+  // ---------- each character's limits, kept ----------
+  // The game sends the whole list only at a login: a meter started after it
+  // (or again after an update) shows the kept values until the game says
+  // new ones (calc.js keep, withKept).
+  const kept = new Map(); // limits key -> calc.js keep()
+  const keptKey = (charKey) => `l${charKey}`;
+  const saveKept = saver(async () => {
+    for (const [key, rec] of kept) if (rec.dirty) {
+      rec.dirty = false;
+      const { dirty: _, ...doc } = rec;
+      await a2.storage.set(keptKey(key), doc).catch(() => {});
+    }
+  }, 1000);
+  async function loadKept(key) {
+    if (!key || kept.has(key)) return;
+    let doc = null;
+    try {
+      doc = await a2.storage.get(keptKey(key));
+    } catch {}
+    if (!kept.has(key)) kept.set(key, C.keep(doc, null, Date.now()));
+  }
+  // Whose limits show: the one playing; before the meter knows who (just
+  // started), the one whose were kept last.
+  const limitsKey = () => currentKey() || (character?.name ? null : settings.lastLimits) || null;
+  function noteLimits() {
+    const key = currentKey();
+    if (!key || !kept.has(key)) return;
+    const before = kept.get(key);
+    const next = C.keep(before, character, Date.now());
+    next.name = character.name;
+    const { dirty: _, ...was } = before;
+    const { at: _a, ...a } = was;
+    const { at: _b, ...b } = next;
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      kept.set(key, { ...next, dirty: true });
+      saveKept();
+    }
+    if (settings.lastLimits !== key) {
+      settings.lastLimits = key;
+      saveSettings();
+    }
+  }
+  // Abyss Points gained while the meter has no week's points of its own.
+  function noteAbyssGain(it) {
+    const key = currentKey();
+    if (!key || !kept.has(key) || (Array.isArray(character?.abyssPoints) && Number.isFinite(character.abyssPoints[0]))) return;
+    let rec = kept.get(key);
+    let gained = false;
+    for (const c of Array.isArray(it?.changes) ? it.changes : []) {
+      if (c?.[3] === C.ABYSS_POINTS && c[4] > 0) {
+        rec = { ...C.keepAbyssGain(rec, c[4], Number(c[1]) || Date.now()), name: rec.name };
+        gained = true;
+      }
+    }
+    if (gained) {
+      kept.set(key, { ...rec, dirty: true });
+      saveKept();
+    }
+  }
+
   // ---------- whose items ----------
   const currentKey = () => (character?.name ? C.charKey(character.serverId, character.name) : null);
   const viewKey = () => settings.view || currentKey() || chars[0]?.key || null;
@@ -132,6 +193,7 @@
 
   function noteItems(it) {
     lastItems = it;
+    noteAbyssGain(it);
     // The drops of the session: the changes of whoever plays.
     if ((it.changes && it.changes.length) || (it.pickups && it.pickups.length)) {
       const first = Math.min(...(it.changes || []).map((c) => c[1]).filter(Number.isFinite));
@@ -500,18 +562,34 @@
   };
   /** Every limit and ticket as a row: { key, label, value, max, text, shown }. */
   function limitRows() {
-    const rows = C.limits(character).map((l) => ({
+    const { character: ch, old } = C.withKept(character, kept.get(limitsKey()), Date.now());
+    const rows = C.limits(ch).map((l) => ({
       key: l.key, label: l.label, value: l.value, max: l.max, shown: settings.shown[l.key] !== false,
       text: `${C.kina(l.value)}${l.max ? ` / ${C.short(l.max)}` : ""}`,
     }));
     const shown = ticketsShown();
-    for (const t of C.tickets(character)) {
+    for (const t of C.tickets(ch)) {
       rows.push(t.time
         ? { key: `t${t.id}`, id: t.id, label: t.name, short: t.short, value: null, max: null, text: `${clock(t.left)} left`, shown: shown.has(t.id) }
         : { key: `t${t.id}`, id: t.id, label: t.name, short: t.short, value: t.left, max: t.max || null, text: `${t.left}${t.max ? ` / ${t.max}` : ""}${t.extra ? ` +${t.extra}` : ""}`, shown: shown.has(t.id) });
     }
+    // A kept value: dimmed, with when the game said it.
+    for (const r of rows) {
+      const o = old[r.key];
+      if (!o) continue;
+      r.old = true;
+      r.note = o.reset
+        ? (r.key === "kinah" || r.key === "abyss" ? `0 since the reset (${asOf(o.at)} it was more); the game sends the exact value at login` : `As of ${asOf(o.at)}, before the reset: log in again for the new count`)
+        : `As of ${asOf(o.at)}: the game sends this again at login or when it changes`;
+    }
     return rows;
   }
+  const asOf = (at) => {
+    if (!at) return "earlier";
+    const d = new Date(at);
+    const t = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date().toDateString() === d.toDateString() ? t : `${d.toLocaleDateString([], { day: "numeric", month: "short" })} ${t}`;
+  };
   function renderLimits() {
     $(".floater").checked = !!settings.floater;
     const rows = limitRows();
@@ -530,7 +608,7 @@
         sendFloater();
       });
       const bar = r.max ? el("span", { class: `bar${r.value >= r.max ? " full" : ""}` }, el("i", { style: `width:${pct(r.value, r.max)}%` })) : el("span");
-      return el("li", {}, box, el("span", { class: "lbl", title: r.label, text: r.label }), bar, el("span", { class: "val", text: r.text }));
+      return el("li", { class: r.old ? "old" : "" }, box, el("span", { class: "lbl", title: r.label, text: r.label }), bar, el("span", { class: "val", text: r.text, title: r.note || "" }));
     };
     const limits = rows.filter((r) => !r.id);
     const gatherKnown = limits.some((r) => r.key === "gathering");
@@ -547,10 +625,11 @@
   let lastFloater = "";
   function floaterState() {
     const all = limitRows();
-    const rows = all.filter((r) => r.shown).map((r) => ({ label: r.short || r.label, title: r.label, value: r.value, max: r.max, text: r.text }));
+    const rows = all.filter((r) => r.shown).map((r) => ({ label: r.short || r.label, title: r.note ? `${r.label}\n${r.note}` : r.label, value: r.value, max: r.max, text: r.text, old: !!r.old }));
     const empty = all.length ? "Nothing ticked: pick in the window's Limits" : "Waiting for the game's values (log in)";
     const slots = (Array.isArray(settings.floaterSlots) ? settings.floaterSlots : []).map(Boolean);
-    return { rows, empty, slots, opacity: settings.floaterOpacity, locked: false, who: character?.name || "" };
+    const who = character?.name || (kept.get(limitsKey())?.name ? `${kept.get(limitsKey()).name} (last played)` : "");
+    return { rows, empty, slots, opacity: settings.floaterOpacity, locked: false, who };
   }
   const floaterSize = (n) => ({ width: Math.max(180, Math.min(600, settings.floaterWidth || 260)), height: Math.max(80, Math.min(700, 40 + Math.max(1, n) * 24)) });
   async function applyFloater() {
@@ -703,7 +782,11 @@
   a2.on("character", async (c) => {
     const before = character?.serverId;
     character = c || null;
-    if (character?.name) await loadStock(currentKey());
+    if (character?.name) {
+      await loadStock(currentKey());
+      await loadKept(currentKey());
+      noteLimits();
+    }
     if (character?.serverId != null && character.serverId !== before) {
       pickServer();
       if (lastItems && !lastItems.snapshotAt) noteItems(lastItems);
@@ -756,6 +839,7 @@
       if (h?.server === settings.server) hist = globalThis.MarketAnomaly?.readHistory(h.doc) || null;
     } catch {}
     await loadStock(viewKey());
+    await loadKept(limitsKey());
     render();
     a2.ready();
     // One lock for everything: the meter's. A lock of the overlay's own,

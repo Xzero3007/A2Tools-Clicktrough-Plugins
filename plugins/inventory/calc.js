@@ -373,6 +373,129 @@
     return out;
   }
 
+
+  // ---------- the limits kept per character ----------
+  // The game sends the whole list (Kina today, Abyss Points, every key and
+  // entry count) only at a login. A meter started later (after the login, or
+  // again after an update) has only what changed since, so the plugin keeps
+  // each character's last values and shows them until the game sends new
+  // ones. The resets as the meter has them: daily 07:00 UTC, weekly
+  // Wednesday 07:00 UTC.
+  const DAY_MS = 86_400_000;
+  const WEEK_MS = 7 * DAY_MS;
+  const DAILY_RESET_MS = 7 * 3_600_000;
+  const WEEKLY_RESET_MS = 6 * DAY_MS + DAILY_RESET_MS;
+  const lastReset = (now, period, offset) => Math.floor((now - offset) / period) * period + offset;
+  /** Whether a reset ("d" daily, "w" weekly) has passed between `at` and `now`. */
+  function resetSince(kind, at, now) {
+    if (kind === "d") return lastReset(now, DAY_MS, DAILY_RESET_MS) > at;
+    if (kind === "w") return lastReset(now, WEEK_MS, WEEKLY_RESET_MS) > at;
+    return false;
+  }
+  const num = (v) => (Number.isFinite(Number(v)) && v !== null && v !== "" ? Number(v) : null);
+  function readKept(k) {
+    const out = { kinah: null, abyss: null, counts: {}, times: {}, at: 0 };
+    if (!k || typeof k !== "object") return out;
+    if (Array.isArray(k.kinah) && num(k.kinah[0]) != null) out.kinah = [num(k.kinah[0]), num(k.kinah[1]) || 0];
+    if (Array.isArray(k.abyss) && num(k.abyss[0]) != null) out.abyss = [num(k.abyss[0]), num(k.abyss[1]), num(k.abyss[2]) || 0];
+    for (const [id, v] of Object.entries(k.counts || {})) if (Array.isArray(v) && num(v[0]) != null) out.counts[id] = [num(v[0]), num(v[1]) || 0, num(v[2]) || 0];
+    for (const [id, v] of Object.entries(k.times || {})) if (Array.isArray(v) && num(v[0]) != null) out.times[id] = [num(v[0]), num(v[1]) || 0, num(v[2]) || 0];
+    out.at = num(k.at) || 0;
+    if (typeof k.name === "string") out.name = k.name;
+    return out;
+  }
+
+  /** A character's kept limits with what the meter says now ({ kinah: [value,
+   *  at], abyss: [points, limit, at], counts: { id: [left, extra, at] },
+   *  times: { id: [time, seen at, at] }, at }). A whole list (a login's: five
+   *  counts or more, all reported within ten seconds) replaces the kept
+   *  counts and times; single changes replace theirs only. */
+  function keep(kept, character, now) {
+    const k = readKept(kept);
+    if (!character) return k;
+    const seen = character.seenAt || {};
+    let changed = false;
+    const kn = num(character.kinahToday);
+    if (kn != null) {
+      k.kinah = [kn, num(seen.kinahToday) || now];
+      changed = true;
+    }
+    const ap = character.abyssPoints;
+    if (Array.isArray(ap) && num(ap[0]) != null) {
+      k.abyss = [num(ap[0]), num(ap[1]), num(seen.abyssPoints) || now];
+      changed = true;
+    }
+    const counts = character.contentCounts && typeof character.contentCounts === "object" ? character.contentCounts : {};
+    const times = character.contentTimes && typeof character.contentTimes === "object" ? character.contentTimes : {};
+    const ids = Object.keys(counts).filter((id) => Array.isArray(counts[id]));
+    const ats = ids.map((id) => num(seen.contentCounts?.[id]) || now);
+    if (ids.length >= 5 && Math.max(...ats) - Math.min(...ats) <= 10_000 && Math.min(...ats) > k.at) {
+      k.counts = {};
+      k.times = {};
+    }
+    ids.forEach((id, i) => {
+      k.counts[id] = [num(counts[id][0]) || 0, num(counts[id][1]) || 0, ats[i]];
+      delete k.times[id];
+      changed = true;
+    });
+    for (const [id, v] of Object.entries(times)) {
+      if (!Array.isArray(v)) continue;
+      k.times[id] = [num(v[0]) || 0, num(v[1]) || now, num(v[1]) || now];
+      delete k.counts[id];
+      changed = true;
+    }
+    if (changed) k.at = now;
+    return k;
+  }
+
+  /** Abyss Points gained (the inventory's Abyss Points going up) while the
+   *  meter has no week's points of its own: added to the kept, up to the
+   *  limit, so the row goes on after a meter started mid-game. */
+  function keepAbyssGain(kept, delta, at) {
+    const k = readKept(kept);
+    if (!k.abyss || !(delta > 0)) return k;
+    const [points, limit, when] = k.abyss;
+    const base = resetSince("w", when, at) ? 0 : points;
+    k.abyss = [limit ? Math.min(limit, base + delta) : base + delta, limit, at];
+    return k;
+  }
+
+  /** The character as the limits show it: what the meter says, and for what
+   *  it hasn't said the kept values. `old` names each row taken from the
+   *  kept ones ("kinah", "abyss", "t<id>") with when the game said it and
+   *  whether a reset has passed since (Kina and Abyss Points are 0 then;
+   *  a key or count stays as it was, marked). */
+  function withKept(character, kept, now) {
+    const k = readKept(kept);
+    const c = { ...(character || {}) };
+    const old = {};
+    if (num(c.kinahToday) == null && k.kinah) {
+      const reset = resetSince("d", k.kinah[1], now);
+      c.kinahToday = reset ? 0 : k.kinah[0];
+      old.kinah = { at: k.kinah[1], reset };
+    }
+    if (!(Array.isArray(c.abyssPoints) && num(c.abyssPoints[0]) != null) && k.abyss) {
+      const reset = resetSince("w", k.abyss[2], now);
+      c.abyssPoints = [reset ? 0 : k.abyss[0], k.abyss[1]];
+      old.abyss = { at: k.abyss[2], reset };
+    }
+    const counts = { ...(c.contentCounts || {}) };
+    const times = { ...(c.contentTimes || {}) };
+    for (const [id, v] of Object.entries(k.counts)) {
+      if (counts[id] || times[id]) continue;
+      counts[id] = [v[0], v[1]];
+      old[`t${id}`] = { at: v[2], reset: resetSince(D.tickets?.[id]?.[6], v[2], now) };
+    }
+    for (const [id, v] of Object.entries(k.times)) {
+      if (counts[id] || times[id]) continue;
+      times[id] = [v[0], v[1]];
+      old[`t${id}`] = { at: v[2], reset: resetSince(D.tickets?.[id]?.[6], v[2], now) };
+    }
+    c.contentCounts = counts;
+    c.contentTimes = times;
+    return { character: c, old };
+  }
+
   const kina = (n) => (n == null || !Number.isFinite(n) ? "—" : Math.round(n).toLocaleString("en-US"));
   const short = (n) => {
     if (n == null || !Number.isFinite(n)) return "—";
@@ -394,5 +517,6 @@
     name, grade, icon, bound, currency, totals, apply, readServers, serverOf, readCopy, readRows, worth, list,
     addDrops, addGather, newSession, normalize, isEmpty, isBreak, summary, bySource,
     tickets, limits, kina, short, charKey, ENHANCE_STONE, KINA_BOUND,
+    keep, keepAbyssGain, withKept, resetSince,
   });
 })();
