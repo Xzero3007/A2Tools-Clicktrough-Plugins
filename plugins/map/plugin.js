@@ -166,21 +166,33 @@
 
   // ---------- drawing ----------
   // On the next frame; with the overlay on, after 200 ms at the latest: a
-  // hidden page (its dock tab closed, the dock hidden) gets no frames, and
-  // the overlay, which this window feeds, would stand still.
-  let frameQueued = false;
+  // hidden page (its dock tab closed, the dock hidden, the dock never shown
+  // since the meter started) gets no frames, and the overlay, which this
+  // window feeds, would stand still. A frame asked for while hidden stays
+  // asked for: it draws when the page shows.
+  let dirty = false;
+  let frameAsked = false;
+  let drawTimer = 0;
   function render() {
-    if (frameQueued) return;
-    frameQueued = true;
-    let timer = 0;
-    const run = () => {
-      if (!frameQueued) return;
-      frameQueued = false;
-      clearTimeout(timer);
-      draw();
-    };
-    requestAnimationFrame(run);
-    if (settings.overlay) timer = setTimeout(run, 200);
+    dirty = true;
+    if (!frameAsked) {
+      frameAsked = true;
+      requestAnimationFrame(() => {
+        frameAsked = false;
+        flush();
+      });
+    }
+    if (settings.overlay && !drawTimer) {
+      drawTimer = setTimeout(() => {
+        drawTimer = 0;
+        flush();
+      }, 200);
+    }
+  }
+  function flush() {
+    if (!dirty) return;
+    dirty = false;
+    draw();
   }
 
   function state(key) {
