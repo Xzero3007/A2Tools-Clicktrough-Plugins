@@ -84,11 +84,11 @@ body[data-kind="status"] .advice { flex: 1; }
 .advice li { padding: 1px 0 1px 10px; position: relative; color: rgba(255, 255, 255, 0.75); }
 .advice li.bad { color: rgba(255, 255, 255, 0.55); }
 .edge { position: absolute; z-index: 6; }
-.edge.e { top: 0; bottom: 8px; right: 0; width: 6px; cursor: ew-resize; }
-.edge.w { top: 0; bottom: 8px; left: 0; width: 6px; cursor: ew-resize; }
-.edge.s { left: 8px; right: 8px; bottom: 0; height: 6px; cursor: ns-resize; }
-.edge.se { right: 0; bottom: 0; width: 12px; height: 12px; cursor: nwse-resize; }
-.edge.sw { left: 0; bottom: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.edge.e { top: 0; bottom: 14px; right: 0; width: 9px; cursor: ew-resize; }
+.edge.w { top: 0; bottom: 14px; left: 0; width: 9px; cursor: ew-resize; }
+.edge.s { left: 14px; right: 14px; bottom: 0; height: 9px; cursor: ns-resize; }
+.edge.se { right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; }
+.edge.sw { left: 0; bottom: 0; width: 18px; height: 18px; cursor: nesw-resize; }
 .edge:hover { background: rgba(255, 255, 255, 0.08); }
 .edge.se::after { content: ""; position: absolute; right: 3px; bottom: 3px; width: 6px; height: 6px; border-right: 2px solid rgba(255, 255, 255, 0.3); border-bottom: 2px solid rgba(255, 255, 255, 0.3); }
 .advice li.xset { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; align-items: center; padding: 4px 0; }

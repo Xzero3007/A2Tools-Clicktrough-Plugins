@@ -18,8 +18,9 @@ and extract and what no longer pays.
   window over the game with that character's skin offers, new ones first,
   your count, who has not looked yet, and what to combine and extract; it
   closes after 3 minutes (the game sends nothing when the shop closes) or
-  with its ×. Drag it by its head, size it at its edges and corner: the
-  meter keeps where it is, the plugin its size. **Note new skins**: a note
+  with its ×. Drag it by its head, size it at its edges and corner or
+  with the sizes on the Merchant tab: the meter keeps where it is, the
+  plugin its size (while the meter's lock is on, the edges are hidden). **Note new skins**: a note
   when a skin you lack is on offer.
 - **Status floater** (the tick, or the shirt button in the meter's title):
   a slim window that stays: your count, when the merchant changes, each
@@ -42,8 +43,8 @@ and extract and what no longer pays.
   dye is removed. Per grade: the share you lack of it and of the next, new skins per
   combine (counting the copies it gives, which go into the next combines),
   Kinah per new skin, your spare copies and the combines they allow, and a
-  verdict: **Combine**, **Only to climb** (rarely new itself, but it feeds
-  the next grade) or **Stop**.
+  verdict: **Combine**, **Only for <next grade>** (rarely new itself, but it
+  feeds the next grade) or **Stop**.
 - **Extract settings**: gear gives its look as a skin when extracted
   (Common, Rare, Epic one time in four, Unique one in ten). The game's
   Extract Settings dialog drawn again, ticked as it pays for your closet:

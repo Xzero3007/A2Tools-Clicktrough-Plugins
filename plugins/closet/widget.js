@@ -26,17 +26,19 @@
       if (a.settings) {
         // The game's Auto Extract grades, ticked as they pay.
         const li = el("li", "xset");
+        li.title = "The game's Extract Settings, Auto Extract: tick these grades. 1 in N: how many pieces it takes for one skin you lack. Hover a grade for why.";
         li.append(el("span", "tag good", `Auto Extract ${a.settings.on ? "ON" : "OFF"}`));
         for (const g of a.settings.grades) {
           const c = el("span", `box ${g.tick ? "on" : "off"}`);
           c.title = g.why;
-          c.append(el("i", null, g.tick ? "✓" : ""), el("b", `g${g.grade}`, g.name + (g.hand ? " (by hand)" : "")));
+          c.append(el("i", null, g.tick ? "✓" : ""), el("b", `g${g.grade}`, g.name), el("span", "num", g.hand ? "by hand" : g.every ? `1 in ${g.every}` : "–"));
           li.append(c);
         }
         return li;
       }
       // The grade in its colour, the verdict as a tag, then the numbers.
       const li = el("li", a.tone);
+      li.title = a.why || "";
       li.append(el("b", `g${a.grade || 0}`, a.name || ""), el("span", `tag ${a.tone}`, a.tag || ""), el("span", "num", a.text));
       return li;
     });

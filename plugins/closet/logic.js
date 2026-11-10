@@ -290,16 +290,17 @@
     for (const g of [1, 2, 3, 4]) {
       const e = extracted.find((x) => x.grade === g);
       if (!e) continue;
-      const pctOf = `${Math.round(e.chance * 1000) / 10}%`;
+      const every = e.chance > 0 ? Math.round(1 / e.chance) : null;
+      const odds = every ? `1 piece in ${every} gives a new skin` : "no new skins left";
       let tick, hand = false, why;
       if (g === 4) {
         tick = false;
         hand = e.verdict !== "no";
-        why = hand ? `by hand: only pieces with a new look (${pctOf} a piece), sell the rest` : `sell: ${pctOf} new a piece`;
-      } else if (e.verdict === "yes") { tick = true; why = `${pctOf} new skin a piece`; }
-      else if (e.verdict === "cheap") { tick = true; why = `${pctOf} new; the gear sells for little`; }
-      else { tick = false; why = `sell instead: only ${pctOf} new a piece`; }
-      grades.push({ grade: g, name: GRADES[g], tick, hand, chance: e.chance, why });
+        why = hand ? `extract by hand only the pieces with a new look (the bag list), sell the rest: Unique sells well` : `sell: ${odds}`;
+      } else if (e.verdict === "yes") { tick = true; why = `${odds}: you lack ${e.lack} of its ${e.looks} looks`; }
+      else if (e.verdict === "cheap") { tick = true; why = `${odds} (you lack ${e.lack} of ${e.looks} looks), and the pieces sell for little`; }
+      else { tick = false; why = `sell instead: only ${odds}, you lack just ${e.lack} of ${e.looks} looks`; }
+      grades.push({ grade: g, name: GRADES[g], tick, hand, chance: e.chance, every, why });
     }
     return { on: grades.some((x) => x.tick), grades };
   }
@@ -316,11 +317,14 @@
     const order = { yes: 0, ok: 1, feed: 2, no: 3 };
     const rows = (combined?.rows || []).slice().sort((a, b) => order[a.verdict] - order[b.verdict] || (a.kinah ?? Infinity) - (b.kinah ?? Infinity));
     for (const r of rows) {
-      const left = r.possible ? ` · ${r.possible}× now` : "";
+      const left = r.possible ? ` · your spares: ${r.possible}×` : "";
+      const every = r.yieldNew > 0 ? Math.max(1, Math.round(1 / r.yieldNew)) : null;
       const base = { kind: "combine", grade: r.grade, name: r.name };
-      if (r.verdict === "yes" || r.verdict === "ok") out.push({ ...base, tone: r.verdict === "yes" ? "good" : "mid", tag: "Combine", text: `${pctOf(r.yieldNew)} new · ≈ ${k(r.kinah)} each${left}` });
-      else if (r.verdict === "feed") out.push({ ...base, tone: "mid", tag: "Only to climb", text: `1 new in ${Math.round(r.combines)}${left}` });
-      else out.push({ ...base, tone: "bad", tag: "Stop", text: "no longer pays" });
+      if (r.verdict === "yes" || r.verdict === "ok") out.push({ ...base, tone: r.verdict === "yes" ? "good" : "mid", tag: "Combine", text: `new skin every ${every} combine${every === 1 ? "" : "s"} · ≈ ${k(r.kinah)} Kinah each${left}`,
+        why: `Combining 4 ${r.name} skins gives a skin you lack about ${pctOf(r.yieldNew)} of the time (counting the copies that go into the next combines): one new skin every ${every} combines, about ${k(r.kinah)} Kinah in fees for each. ${r.possible ? `Your spare copies are enough for ${r.possible} combine${r.possible === 1 ? "" : "s"} now.` : "You have no 4 spare copies of this grade now."}` });
+      else if (r.verdict === "feed") out.push({ ...base, tone: "mid", tag: `Only for ${r.next}`, text: `new skin only every ${Math.round(r.combines)} combines${left}`,
+        why: `You have nearly every ${r.name} skin, so a failed combine almost never gives a new one. It pays only through the ${r.next} skins it gives one time in four, which feed the ${r.next} combines.` });
+      else out.push({ ...base, tone: "bad", tag: "Stop", text: "no longer pays", why: `Combining ${r.name} almost never gives a skin you lack any more.` });
     }
     const set = extractSettings(extracted);
     if (set) out.push({ kind: "extract", tone: "good", settings: set });

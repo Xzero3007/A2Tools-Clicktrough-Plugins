@@ -359,6 +359,7 @@
     else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
       settings.sizes = { ...(settings.sizes || {}), [name]: { width: Math.round(data.width), height: Math.round(data.height) } };
       saveSettings();
+      showSizes();
     }
   });
   // The meter's header button: the status floater on or off.
@@ -427,6 +428,7 @@
     $(".popup").checked = !!settings.popup;
     $(".statusBox").checked = !!settings.status;
     $(".statusAlways").checked = !!settings.statusAlways;
+    showSizes();
     $(".toast").checked = !!settings.toast;
     const now = Date.now();
     const list = Object.entries(chars).filter(([, c]) => Object.values(c.stocks).some((s) => s.refresh > now));
@@ -518,7 +520,7 @@
     }));
   }
 
-  const VERDICT = { yes: ["Combine", "good"], ok: ["Worth it", "mid"], feed: ["Only to climb", "mid"], no: ["Stop", "bad"],
+  const VERDICT = { yes: ["Combine", "good"], ok: ["Worth it", "mid"], feed: ["Only to climb a grade", "mid"], no: ["Stop", "bad"],
     cheap: ["Only cheap pieces", "mid"] };
   // The game's Extract Settings dialog, ticked as it pays: Auto Extract on
   // or off, the four grades, and the options to leave as they are.
@@ -593,6 +595,20 @@
   }
   $(".popup").addEventListener("change", (e) => { settings.popup = e.target.checked; saveSettings(); if (!settings.popup) closeWidget("shop"); });
   $(".statusBox").addEventListener("change", (e) => { settings.status = e.target.checked; saveSettings(); applyStatus(); });
+  function showSizes() {
+    for (const i of document.querySelectorAll(".size")) if (document.activeElement !== i) i.value = String(sizeOf(i.dataset.w)[i.dataset.k]);
+  }
+  for (const i of document.querySelectorAll(".size")) {
+    i.addEventListener("change", () => {
+      const name = i.dataset.w;
+      const v = Number(i.value);
+      if (!Number.isFinite(v)) return;
+      settings.sizes = { ...(settings.sizes || {}), [name]: { ...sizeOf(name), [i.dataset.k]: v } };
+      saveSettings();
+      showSizes();
+      if (open[name]) a2.widgets.open(name, sizeOf(name)).catch(() => {});
+    });
+  }
   $(".statusAlways").addEventListener("change", (e) => { settings.statusAlways = e.target.checked; saveSettings(); applyStatus(); });
   $(".toast").addEventListener("change", (e) => { settings.toast = e.target.checked; saveSettings(); });
   $(".showPopup").addEventListener("click", () => openPopup());
