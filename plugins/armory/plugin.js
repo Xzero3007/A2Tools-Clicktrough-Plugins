@@ -1697,6 +1697,8 @@
     if (!snap || Date.now() - (snap.at || 0) > AUTO_EVERY) loadCharacter(settings.chars[key]);
   });
 
+  // The meter holds every event (the character too) until the page says it
+  // is ready: once its saved settings and references are loaded.
   (async () => {
     try {
       const s = await a2.storage.get("settings");
@@ -1713,7 +1715,11 @@
       }
     }
     setActiveReference();
-    if (settings.current) await openCharacter(settings.current);
-    else render();
+    try {
+      if (settings.current) await openCharacter(settings.current);
+      else render();
+    } finally {
+      a2.ready();
+    }
   })();
 })();
