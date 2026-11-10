@@ -250,8 +250,13 @@
       const chance = p * share;
       const m = combined?.rows.find((r) => r.grade === grade)?.perMaterial || 0;
       const total = chance + p * (1 - share) * m;
-      const verdict = chance >= 0.05 ? "yes" : chance >= 0.02 ? "cheap" : "no";
-      rows.push({ grade, name: GRADES[grade], p, lack, looks: looks.length, share, chance, total, verdict });
+      // Counting the copies too: a skin you have goes into a combine, which
+      // can climb to a grade you lack (Rare to Epic).
+      const verdict = total >= 0.05 ? "yes" : total >= 0.015 ? "cheap" : "no";
+      // A piece's sale price up to which extracting it beats selling it
+      // (a new skin worth about what the merchant asks for a cheap one).
+      const breakEven = Math.round((total * MERCHANT) / 100) * 100;
+      rows.push({ grade, name: GRADES[grade], p, lack, looks: looks.length, share, chance, total, breakEven, verdict });
     }
     return rows;
   }
@@ -290,19 +295,36 @@
     for (const g of [1, 2, 3, 4]) {
       const e = extracted.find((x) => x.grade === g);
       if (!e) continue;
-      const every = e.chance > 0 ? Math.round(1 / e.chance) : null;
-      const odds = every ? `1 piece in ${every} gives a new skin` : "no new skins left";
+      const every = e.total > 0 ? Math.round(1 / e.total) : null;
+      const direct = e.chance > 0 ? Math.round(1 / e.chance) : null;
+      const odds = every ? `1 piece in ${every} brings a new skin${direct && direct !== every ? ` (${direct} at once, the rest through combining its copies)` : ""}` : "no new skins left";
+      const k = `${Math.round(e.breakEven / 100) / 10}k`;
       let tick, hand = false, why;
       if (g === 4) {
         tick = false;
         hand = e.verdict !== "no";
         why = hand ? `extract by hand only the pieces with a new look (the bag list), sell the rest: Unique sells well` : `sell: ${odds}`;
       } else if (e.verdict === "yes") { tick = true; why = `${odds}: you lack ${e.lack} of its ${e.looks} looks`; }
-      else if (e.verdict === "cheap") { tick = true; why = `${odds} (you lack ${e.lack} of ${e.looks} looks), and the pieces sell for little`; }
-      else { tick = false; why = `sell instead: only ${odds}, you lack just ${e.lack} of ${e.looks} looks`; }
-      grades.push({ grade: g, name: GRADES[g], tick, hand, chance: e.chance, every, why });
+      else if (e.verdict === "cheap") { tick = true; why = `${odds}. Worth it while a piece sells for less than about ${k} Kinah; sell dearer ones`; }
+      else { tick = false; why = `sell instead: only ${odds}`; }
+      grades.push({ grade: g, name: GRADES[g], tick, hand, chance: e.total, every, breakEven: e.breakEven, why });
     }
     return { on: grades.some((x) => x.tick), grades };
+  }
+
+  /**
+   * When to combine: now, with every 4 spare copies of a grade that pays,
+   * lowest grade first (what climbs goes into the next grade's combines);
+   * else how many more copies to collect. Waiting gains nothing: the chance
+   * a combine is new depends only on what you lack (a Lucky Aura aside).
+   */
+  function combinePlan(combined) {
+    const rows = (combined?.rows || []).filter((r) => r.verdict !== "no").sort((a, b) => a.grade - b.grade);
+    if (!rows.length) return null;
+    const now = rows.filter((r) => r.possible > 0).map((r) => ({ grade: r.grade, name: r.name, times: r.possible }));
+    const collect = rows.filter((r) => r.verdict !== "feed" && r.possible === 0).map((r) => ({ grade: r.grade, name: r.name, more: PER_COMBINE - (r.spares % PER_COMBINE) }));
+    return { kind: "plan", tone: now.length ? "good" : "mid", now, collect,
+      why: "Combine whenever you have 4 spare copies of a grade, lowest grade first: what climbs goes straight into the next grade's combines. Waiting gains nothing, the chance of a new skin depends only on what you lack (except with a Lucky Aura)." };
   }
 
   /**
@@ -326,6 +348,8 @@
         why: `You have nearly every ${r.name} skin, so a failed combine almost never gives a new one. It pays only through the ${r.next} skins it gives one time in four, which feed the ${r.next} combines.` });
       else out.push({ ...base, tone: "bad", tag: "Stop", text: "no longer pays", why: `Combining ${r.name} almost never gives a skin you lack any more.` });
     }
+    const plan = combinePlan(combined);
+    if (plan) out.unshift(plan);
     const set = extractSettings(extracted);
     if (set) out.push({ kind: "extract", tone: "good", settings: set });
     return out;
@@ -335,7 +359,7 @@
   const hourOf = (refresh) => refresh - 3600 * 1000;
 
   const api = { GOAL, GRADES, TABS, WEAPONS, ARMOUR, JEWELS, REFRESH, COMBINE, tabName, kindOf, listPrice, index, closetFrom, addedFrom,
-    StockFrames, stockFrom, statusOf, missing, costs, merchantStats, combine, spares, extraction, bagGear, EXTRACT, advice, extractSettings, PER_COMBINE, CHEAP, MERCHANT, hourOf };
+    StockFrames, stockFrom, statusOf, missing, costs, merchantStats, combine, spares, extraction, bagGear, EXTRACT, advice, extractSettings, combinePlan, PER_COMBINE, CHEAP, MERCHANT, hourOf };
   globalThis.ClosetLogic = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

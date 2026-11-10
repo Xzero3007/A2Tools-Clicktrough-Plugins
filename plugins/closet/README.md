@@ -49,9 +49,14 @@ and extract and what no longer pays.
   (Common, Rare, Epic one time in four, Unique one in ten). The game's
   Extract Settings dialog drawn again, ticked as it pays for your closet:
   Auto Extract on, a grade ticked when its pieces bring new skins (Epic) or
-  are worth little anyway (Common), Rare off to sell, Unique off to extract
+  do while they sell for little (Common, Rare), Unique off to extract
   by hand only the pieces with a new look; each with its chance of a new
-  skin a piece. The floater shows the same ticks. Grades in the game's
+  skin a piece, counting the copies that go into combines (a Rare copy can
+  climb to Epic), and the sale price up to which extracting beats selling.
+  The floater shows the same ticks.
+- **Combine now**: in the floater and the pop-up, how many combines your
+  spare copies allow per grade, lowest grade first (what climbs feeds the
+  next grade), or how many more copies to collect. Waiting gains nothing. Grades in the game's
   colours and names (Epic blue).
   **In your bag**: the gear the meter saw in your inventory whose look you
   lack, with the chance to get it.

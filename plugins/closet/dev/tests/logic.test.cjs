@@ -112,7 +112,7 @@ test("extraction: a new skin as often as the share of the grade's looks you lack
   assert.equal(by[3].verdict, "yes");
   assert.equal(by[4].chance, 0.1);
   assert.equal(by[2].chance, 0);
-  assert.equal(by[2].verdict, "no");
+  assert.equal(by[2].verdict, "no"); // nothing lacking, no combines counted (null)
   const set = L.advice(null, rows).find((a) => a.settings).settings;
   assert.equal(set.on, true);
   assert.deepEqual(set.grades.map((g) => [g.name, g.tick, g.hand]), [["Rare", false, false], ["Epic", true, false], ["Unique", false, true]]);
@@ -132,4 +132,15 @@ test("merchant stats: the share of new skins and a paid change's worth", () => {
   assert.equal(st.rate, 0.05);
   assert.ok(st.perChange > 0.4 && st.perChange < 0.41);
   assert.equal(st.refreshCost[0].cost, 500);
+});
+
+test("combine plan: lowest grade first, and what to collect", () => {
+  const plan = L.combinePlan({ rows: [
+    { grade: 3, name: "Epic", verdict: "yes", possible: 1, spares: 5 },
+    { grade: 1, name: "Common", verdict: "feed", possible: 2, spares: 9 },
+    { grade: 2, name: "Rare", verdict: "yes", possible: 0, spares: 1 },
+    { grade: 4, name: "Unique", verdict: "no", possible: 3, spares: 12 },
+  ] });
+  assert.deepEqual(plan.now.map((n) => [n.name, n.times]), [["Common", 2], ["Epic", 1]]);
+  assert.deepEqual(plan.collect, [{ grade: 2, name: "Rare", more: 3 }]);
 });

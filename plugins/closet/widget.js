@@ -23,6 +23,20 @@
   function adviceRows(st, all) {
     const list = Array.isArray(st?.advice) ? st.advice : [];
     const rows = list.filter((a) => all || a.tone !== "bad" || a.kind === "extract").map((a) => {
+      if (a.kind === "plan") {
+        // Combine now (in order), or what to collect first.
+        const li = el("li", `plan ${a.tone}`);
+        li.title = a.why || "";
+        if (a.now.length) {
+          li.append(el("span", "tag good", "Combine now"));
+          a.now.forEach((n, i) => {
+            if (i) li.append(el("span", "num", "→"));
+            li.append(el("b", `g${n.grade}`, `${n.name} ${n.times}×`));
+          });
+        } else li.append(el("span", "tag mid", "Nothing to combine: keep collecting"));
+        for (const c of a.collect) li.append(el("span", "num", `· ${c.name}: collect ${c.more} more`));
+        return li;
+      }
       if (a.settings) {
         // The game's Auto Extract grades, ticked as they pay.
         const li = el("li", "xset");
