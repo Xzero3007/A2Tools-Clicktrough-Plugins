@@ -64,9 +64,11 @@ In every tab:
   Asmodian; Yggdrasil, Aria ... Elyos; Odyle and ore both).
 - **One column layout** for a whole list, its header kept at the top while
   the list scrolls; the sales columns only while aion2.exchange has sales.
-- **A star** before a name makes the item a favourite, in every tab;
-  **Favorites** in the bar lists them first (in Gatherables as a group of
-  their own), off again the usual order.
+- **A star** before a name makes the item a favourite, in every tab. The
+  favourites are **pinned at the top** of every tab (0.4.1): a copy of
+  their rows that stays while the list under it scrolls, with the column
+  heads, whatever the search or filter; the item also stays in its place
+  in the list. **Favorites** in the bar hides or shows the pinned block.
 - **A click** on a material (Gatherables, Odyle morph, Materials) lists the
   recipes that need it, how many and what that many cost.
 - **A map button** beside a gathered material (also in a recipe's materials)

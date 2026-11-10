@@ -29,7 +29,7 @@
     search: {},
     faction: null, // "Asmodian" or "Elyos": whose items; the server's until picked
     fav: [], // favourite item ids (a star in every tab)
-    favFirst: false, // favourites listed first
+    pins: true, // the favourites pinned at the top of every tab (a copy; the item stays in its place too)
     cat: "all", // All listings: the category
     minGrade: 0, // and the lowest grade
     allSort: "name",
@@ -213,7 +213,7 @@
   function render() {
     renderBar();
     for (const b of document.querySelectorAll(".faction button")) b.setAttribute("aria-pressed", String(b.dataset.faction === faction()));
-    $(".favFirst").setAttribute("aria-pressed", String(!!settings.favFirst));
+    $(".favFirst").setAttribute("aria-pressed", String(settings.pins !== false));
     for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.tab === settings.tab));
     for (const p of document.querySelectorAll(".pane")) p.hidden = p.dataset.pane !== settings.tab;
     for (const s of document.querySelectorAll(".search")) if (document.activeElement !== s) s.value = settings.search[s.dataset.for] || "";
@@ -231,12 +231,24 @@
 
   // ---------- favourites, map links, the lists that open ----------
   const isFav = (id) => settings.fav.includes(Number(id));
-  /** Favourites first while the button in the bar is on; else as they are. */
-  const favFirst = (list, idOf) => {
-    if (!settings.favFirst) return list;
-    const fav = list.filter((x) => isFav(idOf(x)));
-    return fav.length ? [...fav, ...list.filter((x) => !isFav(idOf(x)))] : list;
-  };
+  /** The favourites among a tab's items, for the pinned block (none while
+   *  the Favorites button is off). */
+  const favsOf = (list, idOf) => (settings.pins === false ? [] : list.filter((x) => isFav(idOf(x))));
+
+  /**
+   * A tab's list with its favourites pinned: `pinRows` (copies of the
+   * favourites' rows, opened on their own) in a block that stays at the top
+   * while the list scrolls, with the column heads; then the whole list as
+   * before. Without favourites, the list alone with its heads kept at the top.
+   */
+  function pinned(widths, head, body, pinRows) {
+    if (!pinRows.length) return [table(widths, head, body)];
+    const pinBody = el("tbody", {}, groupRow(`★ Favorites (${pinRows.filter((r) => !r.classList.contains("detail")).length})`, widths.length), ...pinRows);
+    const pins = el("div", { className: "pins" }, table(widths, head, pinBody));
+    const rest = table(widths, [], body);
+    rest.classList.add("rest");
+    return [pins, rest];
+  }
   const SVG = "http://www.w3.org/2000/svg";
   const icon = (d, cls) => {
     const svg = document.createElementNS(SVG, "svg");
@@ -430,10 +442,9 @@
     const titles = { Odyle: "Odyle", Ore: "Ore", Gemstone: "Gemstones", Log: "Logs", Herb: "Herbs", Cooking: "Cooking ingredients" };
     const wanted = (id) => C.ofFaction(id, fac) && (!q || fold(C.name(id)).includes(q));
     const sections = [];
-    const favs = settings.favFirst ? groups.flatMap(([, lists]) => lists.flat()).filter((id) => wanted(id) && isFav(id)) : [];
-    if (favs.length) sections.push(["Favorites", favs]);
+    const favs = favsOf(groups.flatMap(([, lists]) => lists.flat()).filter((id) => C.ofFaction(id, fac)), (id) => id);
     for (const [kind, lists] of groups) {
-      const ids = lists.flat().filter((id) => wanted(id) && !favs.includes(id));
+      const ids = lists.flat().filter((id) => wanted(id));
       if (ids.length) sections.push([titles[kind] || kind, ids]);
     }
     const all = sections.flatMap(([, ids]) => ids);
@@ -443,23 +454,26 @@
     const head = [el("th", {}, "Material"), el("th", {}, "Lowest"), el("th", {}, "Listed")];
     if (sales) head.push(el("th", { title: "Sold in the last 28 days" }, "Sold 28 d"), el("th", {}, "Avg sold"));
     head.push(el("th", {}, "Change"));
+    const rowsOf = (id, pre) => {
+      const p = prices.get(String(id)) || {};
+      const key = `${pre}g:${id}`;
+      const cells = [nameCell(id), priceCell(p.price), el("td", {}, p.listings ? kina(p.listings) : "—")];
+      if (sales) cells.push(el("td", {}, p.sold != null ? kina(p.sold) : "—"), priceCell(p.soldAvg));
+      cells.push(changeCell(p.change));
+      const out = [opener(el("tr", {}, ...cells), key, renderGather)];
+      if (open.has(key)) out.push(el("tr", { className: "detail" }, el("td", { colSpan: span }, usesTable(id))));
+      return out;
+    };
     const body = el("tbody");
     for (const [title, ids] of sections) {
       body.append(groupRow(title, span));
-      for (const id of ids) {
-        const p = prices.get(String(id)) || {};
-        const key = `g:${id}`;
-        const cells = [nameCell(id), priceCell(p.price), el("td", {}, p.listings ? kina(p.listings) : "—")];
-        if (sales) cells.push(el("td", {}, p.sold != null ? kina(p.sold) : "—"), priceCell(p.soldAvg));
-        cells.push(changeCell(p.change));
-        body.append(opener(el("tr", {}, ...cells), key, renderGather));
-        if (open.has(key)) body.append(el("tr", { className: "detail" }, el("td", { colSpan: span }, usesTable(id))));
-      }
+      for (const id of ids) body.append(...rowsOf(id, ""));
     }
     const widths = sales ? ["34%", "14%", "11%", "13%", "14%", "14%"] : ["46%", "20%", "16%", "18%"];
     const box = $(".gatherList");
-    if (!all.length) box.replaceChildren(el("p", { className: "empty", textContent: "Nothing matches." }));
-    else box.replaceChildren(table(widths, head, body));
+    const pins = favs.flatMap((id) => rowsOf(id, "p"));
+    if (!all.length && !pins.length) box.replaceChildren(el("p", { className: "empty", textContent: "Nothing matches." }));
+    else box.replaceChildren(...pinned(widths, head, body, pins), ...(all.length ? [] : [el("p", { className: "empty", textContent: "Nothing else matches." })]));
   }
 
   function renderOdyle() {
@@ -472,17 +486,20 @@
     );
     const head = [el("th", {}, "Material"), el("th", {}, "Market"), el("th", {}, "Odyle used"),
       el("th", {}, "Odyle price"), el("th", { title: "What one morphed instead of bought saves" }, "Morph saves")];
-    const body = el("tbody");
-    for (const r of favFirst(C.morphTable(prices, faction()), (x) => x.item)) {
-      const key = `o:${r.item}`;
+    const rowsOf = (r, pre) => {
+      const key = `${pre}o:${r.item}`;
       const save = r.saving == null ? el("td", { className: "none" }, "—")
         : el("td", { className: r.saving > 0 ? "gain" : "loss" },
           r.saving > 0 ? `${kina(r.saving)} (${Math.round(r.savingPct * 100)}%)` : `buy (${kina(-r.saving)} cheaper)`);
-      body.append(opener(el("tr", {}, nameCell(r.item), priceCell(r.market), el("td", { className: "sub" }, C.name(r.odyle)),
-        priceCell(r.odylePrice), save), key, renderOdyle));
-      if (open.has(key)) body.append(el("tr", { className: "detail" }, el("td", { colSpan: 5 }, usesTable(r.item))));
-    }
-    $(".odyleList").replaceChildren(table(["34%", "14%", "16%", "14%", "22%"], head, body));
+      const out = [opener(el("tr", {}, nameCell(r.item), priceCell(r.market), el("td", { className: "sub" }, C.name(r.odyle)),
+        priceCell(r.odylePrice), save), key, renderOdyle)];
+      if (open.has(key)) out.push(el("tr", { className: "detail" }, el("td", { colSpan: 5 }, usesTable(r.item))));
+      return out;
+    };
+    const list = C.morphTable(prices, faction());
+    const body = el("tbody", {}, ...list.flatMap((r) => rowsOf(r, "")));
+    const pins = favsOf(list, (x) => x.item).flatMap((r) => rowsOf(r, "p"));
+    $(".odyleList").replaceChildren(...pinned(["34%", "14%", "16%", "14%", "22%"], head, body, pins));
   }
 
   const PROFS = ["all", "Alchemy", "Blacksmithing", "Jewelcrafting", "Tailoring", "Cooking"];
@@ -549,23 +566,26 @@
       name: (a, b) => C.name(a.r[6]).localeCompare(C.name(b.r[6])),
     }[settings.sort] || (() => 0);
     list.sort((a, b) => by(a, b) || C.name(a.r[6]).localeCompare(C.name(b.r[6])));
-    list = favFirst(list, (x) => x.r[6]);
+    // Pinned: every favourite product's recipe of the faction, whatever the search and profession.
+    const favs = favsOf(C.recipesOf(faction()), (r) => r[6]).map((r) => ({ r, s: C.recipeSums(r, prices, n, { fee }) }))
+      .sort((a, b) => by(a, b) || C.name(a.r[6]).localeCompare(C.name(b.r[6])));
     const head = [el("th", {}, "Product"), el("th", { title: "Lowest listing × how many, less the fee" }, "Sells for"),
       el("th", { title: "Every material bought" }, "Cost: market"), el("th", { title: "Odyle morphed where cheaper" }, "Cost: morph"),
       el("th", { title: "Sells for − cost with morph" }, "Profit")];
-    const body = el("tbody");
-    for (const { r, s } of list.slice(0, shown.recipes)) {
-      const key = `r:${r[0]}`;
+    const rowsOf = ({ r, s }, pre) => {
+      const key = `${pre}r:${r[0]}`;
       const profit = s.profit == null ? el("td", { className: "none" }, s.complete ? "—" : "prices missing")
         : el("td", { className: s.profit >= 0 ? "gain" : "loss" }, `${s.profit >= 0 ? "+" : ""}${kina(s.profit)}`,
           s.margin != null ? el("span", { className: "sub" }, ` ${Math.round(s.margin * 100)}%`) : null);
       const row = el("tr", {},
         nameCell(r[6], r[7] > 1 ? el("span", { className: "sub" }, ` × ${r[7]}`) : null, el("span", { className: "sub" }, ` · ${r[2]}`)),
         priceCell(s.net), priceCell(s.complete ? s.costBuy : null), priceCell(s.complete ? s.costBest : null), profit);
-      body.append(opener(row, key, renderRecipes));
-      if (open.has(key)) body.append(el("tr", { className: "detail" }, el("td", { colSpan: 5 }, recipeDetail(s, r))));
-    }
-    const kids = [table(["34%", "15%", "15%", "15%", "21%"], head, body)];
+      const out = [opener(row, key, renderRecipes)];
+      if (open.has(key)) out.push(el("tr", { className: "detail" }, el("td", { colSpan: 5 }, recipeDetail(s, r))));
+      return out;
+    };
+    const body = el("tbody", {}, ...list.slice(0, shown.recipes).flatMap((x) => rowsOf(x, "")));
+    const kids = pinned(["34%", "15%", "15%", "15%", "21%"], head, body, favs.flatMap((x) => rowsOf(x, "p")));
     if (!list.length) kids.push(el("p", { className: "empty", textContent: prices.size ? "Nothing matches." : "No prices yet." }));
     if (list.length > shown.recipes) {
       const more = el("button", { type: "button", className: "more", textContent: `Show more (${list.length - shown.recipes})` });
@@ -628,18 +648,19 @@
       .filter(([id]) => settings.kind === "all" || materialKind(id) === settings.kind)
       .filter(([id, us]) => !q || fold(C.name(id)).includes(q) || us.some((u) => fold(C.name(u.recipe[6])).includes(q)))
       .sort((a, b) => b[1].length - a[1].length || C.name(a[0]).localeCompare(C.name(b[0])));
-    list = favFirst(list, (x) => x[0]);
     const head = [el("th", {}, "Material"), el("th", {}, "Market"), el("th", {}, "Best"), el("th", {}, "Recipes")];
-    const body = el("tbody");
-    for (const [id, us] of list.slice(0, shown.materials)) {
-      const key = `m:${id}`;
+    const rowsOf = ([id, us], pre) => {
+      const key = `${pre}m:${id}`;
       const best = C.unitCost(prices, n, id);
-      body.append(opener(el("tr", {},
+      const out = [opener(el("tr", {},
         nameCell(id, sourceTag(best)), priceCell(best.source === "npc" ? best.unit : C.market(prices, id)), priceCell(best.unit),
-        el("td", {}, String(us.length))), key, renderMaterials));
-      if (open.has(key)) body.append(el("tr", { className: "detail" }, el("td", { colSpan: 4 }, usesTable(id))));
-    }
-    const kids = [table(["52%", "17%", "17%", "14%"], head, body)];
+        el("td", {}, String(us.length))), key, renderMaterials)];
+      if (open.has(key)) out.push(el("tr", { className: "detail" }, el("td", { colSpan: 4 }, usesTable(id))));
+      return out;
+    };
+    const favs = favsOf([...uses.entries()], (x) => x[0]).sort((a, b) => C.name(a[0]).localeCompare(C.name(b[0])));
+    const body = el("tbody", {}, ...list.slice(0, shown.materials).flatMap((x) => rowsOf(x, "")));
+    const kids = pinned(["52%", "17%", "17%", "14%"], head, body, favs.flatMap((x) => rowsOf(x, "p")));
     if (!list.length) kids.push(el("p", { className: "empty", textContent: "Nothing matches." }));
     if (list.length > shown.materials) {
       const more = el("button", { type: "button", className: "more", textContent: `Show more (${list.length - shown.materials})` });
@@ -698,13 +719,12 @@
       box.replaceChildren(el("p", { className: "empty", textContent: server() ? "No prices yet." : "Pick your server above." }));
       return;
     }
-    let rows = C.listing(prices, hist, { search: settings.search.listings, cat: settings.cat, minGrade: settings.minGrade, listedOnly: settings.listedOnly, sort: settings.allSort });
-    rows = favFirst(rows, (r) => r.id);
+    const rows = C.listing(prices, hist, { search: settings.search.listings, cat: settings.cat, minGrade: settings.minGrade, listedOnly: settings.listedOnly, sort: settings.allSort });
+    const favs = favsOf(C.listing(prices, hist, { listedOnly: false }), (r) => r.id);
     const odd = rows.filter((r) => r.j?.kind).length;
     $(".listNote").textContent = `${kina(rows.length)} items${odd ? ` · ${odd} far from their usual price (see Anomalies)` : ""} · what aion2.exchange saw on your server's market`;
-    const body = el("tbody");
-    for (const r of rows.slice(0, shown.listings)) body.append(...itemRow(r, `l:${r.id}`, renderListings, 5));
-    const kids = [table(ITEM_WIDTHS, itemHead(), body)];
+    const body = el("tbody", {}, ...rows.slice(0, shown.listings).flatMap((r) => itemRow(r, `l:${r.id}`, renderListings, 5)));
+    const kids = pinned(ITEM_WIDTHS, itemHead(), body, favs.flatMap((r) => itemRow(r, `pl:${r.id}`, renderListings, 5)));
     if (!rows.length) kids.push(el("p", { className: "empty", textContent: "Nothing matches." }));
     if (rows.length > shown.listings) {
       const more = el("button", { type: "button", className: "more", textContent: `Show more (${rows.length - shown.listings})` });
@@ -723,7 +743,9 @@
       box.replaceChildren(el("p", { className: "empty", textContent: server() ? "No prices yet." : "Pick your server above." }));
       return;
     }
-    const { high, low } = C.anomalies(C.listing(prices, hist, {}));
+    const everything = C.listing(prices, hist, { listedOnly: false });
+    const { high, low } = C.anomalies(everything.filter((r) => r.p.price > 0));
+    const favs = favsOf(everything, (r) => r.id);
     const body = el("tbody");
     const groups = [
       [`Far above the usual price (${high.length})`, high, "Nothing far above its usual price right now."],
@@ -737,7 +759,7 @@
         if (!open.has(`a:${r.id}`)) body.append(el("tr", { className: "why" }, el("td", { colSpan: 5 }, A.reason(r.j, kina))));
       }
     }
-    box.replaceChildren(table(ITEM_WIDTHS, itemHead(), body));
+    box.replaceChildren(...pinned(ITEM_WIDTHS, itemHead(), body, favs.flatMap((r) => itemRow(r, `pa:${r.id}`, renderAnomalies, 5))));
   }
 
   // ---------- the controls ----------
@@ -779,7 +801,7 @@
     });
   }
   $(".favFirst").addEventListener("click", () => {
-    settings.favFirst = !settings.favFirst;
+    settings.pins = settings.pins === false;
     saveLater();
     render();
   });

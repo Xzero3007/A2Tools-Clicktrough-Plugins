@@ -125,3 +125,10 @@ tr.why > td { text-align: left; white-space: normal; font-size: 11px; color: rgb
 .spark polyline { fill: none; stroke: var(--a2-accent, #e0a526); stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .spark line.usual { stroke: rgba(255,255,255,.35); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .listNote { margin-top: 0; }
+
+/* The favourites pinned at the top of a tab: a copy of their rows that
+   stays while the list under it scrolls (its own scroll when long). */
+.pins { position: sticky; top: 0; z-index: 5; background: var(--a2-panel, #0e1420); max-height: 45vh; overflow-y: auto;
+  border-bottom: 1px solid var(--a2-accent, #e0a526); box-shadow: 0 6px 8px -6px rgba(0,0,0,.6); }
+.pins tr.group th { color: var(--a2-accent, #e0a526); }
+table.rest > thead { display: none; }
