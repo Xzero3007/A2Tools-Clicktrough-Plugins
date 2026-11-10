@@ -2,11 +2,12 @@
 
 Internet radio while you play, from a fixed list of stations.
 
-- **Countries** as tabs: ★ Favourites, All, Türkiye, USA, Germany, World;
+- **Countries** as tabs: ★ Favourites, All, Türkiye, USA, Germany, Japan, World;
   under them the **genres** found there (Pop, Hits, Rap & Hip-Hop, R&B, Old
-  school, Slow, Rock, Türkü & Halk, Sanat, Electronic, Chill, Alternative)
+  school, Slow, Rock, Türkü & Halk, Sanat, Electronic, Chill, Alternative,
+  Anime, City pop, Retro, Jazz, Vocaloid, Game music, News & talk, Local radio)
   and a search (Turkish letters fold: "turku" finds Türkü).
-- **79 stations**: Best FM first, Best Rap, Kral FM, Kral Pop, Power Türk,
+- **109 stations**: Best FM first, Best Rap, Kral FM, Kral Pop, Power Türk,
   PowerTürk Rap, Power FM, Süper FM, Joy Türk, JoyTürk Rock, Metro FM,
   Number1 Türk (and Türk Rap), Radyo Fenomen (Türk, Rap, Türkçe Rap), Slow
   Türk, Radyo Viva, Alem FM, TRT FM; türkü and halk müziği (TRT Türkü,
@@ -19,6 +20,14 @@ Internet radio while you play, from a fixed list of stations.
   South Radio). Germany: 1LIVE, bigFM (and its US Rap, Oldschool Rap,
   Hip-Hop and Deep & Tech House channels), ENERGY Berlin, FluxFM (and
   ElektroFlux), DASDING, N-JOY, sunshine live (and Techno, House, EDM).
+  Japan (0.3.0): LISTEN.moe, R/a/dio, J1 HITS, XTRA and GOLD, asia DREAM
+  radio's Japan Hits, J-Pop Powerplay (and Kawaii), J-Pop Sakura, J-Rock
+  Powerplay, J-Club Hip Hop, Jazz Sakura and Club Bandstand, BOX Japan City
+  Pop, Retro-Ko, Yumi Co. Radio, Nightwave Plaza, Miku Radio, Gensokyo
+  Radio, Nonstop Casiopea, Moon Mission Recordings, Otaku Music Radio, Big B
+  Radio J-Pop, Anison.FM, Eden Radio, Patchwork Archive, NHK World Radio
+  Japan, and the community stations FM Setagaya, FM わぃわぃ and Radio
+  Hayama (radiko and NHK's own radio play only inside Japan).
   World: SomaFM (Groove Salad, Beat Blender, DEF CON Radio, The Trip, Fluid,
   Space Station Soma), Ibiza Global Radio (and Classics), Radio Record,
   Intergalactic FM.
@@ -44,6 +53,10 @@ On Arch, stations that send AAC need `gst-libav`, and stations that send
 HLS (most Turkish ones: Kral, Power, TRT Türkü, TRT Nağme ...) need
 `gst-plugins-bad` (`sudo pacman -S gst-libav gst-plugins-bad`); MP3 plays
 with what the meter needs anyway.
+
+0.3.0: **30 Japanese stations** (J-Pop, anime, city pop, J-Rock, Japanese hip
+hop, jazz, Vocaloid, NHK World, local radio). HLS streams play: the meter
+turned WebKit's HLS on (meter patch 0043); before, every HLS station showed ✕.
 
 0.2.0: stations that didn't play are **hidden** (a tick at the bottom shows
 them again; the list says how many are hidden), and **Check stations** tries

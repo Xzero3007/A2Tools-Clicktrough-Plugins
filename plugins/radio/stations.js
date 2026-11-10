@@ -11,6 +11,7 @@ globalThis.RADIO_COUNTRIES = [
   ["TR", "Türkiye"],
   ["US", "USA"],
   ["DE", "Germany"],
+  ["JP", "Japan"],
   ["INT", "World"],
 ];
 
@@ -27,6 +28,14 @@ globalThis.RADIO_GENRES = {
   electronic: "Electronic",
   chill: "Chill",
   alternative: "Alternative",
+  anime: "Anime",
+  citypop: "City pop",
+  retro: "Retro",
+  jazz: "Jazz",
+  vocaloid: "Vocaloid",
+  games: "Game music",
+  news: "News & talk",
+  local: "Local radio",
 };
 
 const STW = "https://playerservices.streamtheworld.com/api/livestream-redirect/";
@@ -204,6 +213,45 @@ globalThis.RADIO_STATIONS = [
   { id: "fluxfm-elektro", name: "FluxFM ElektroFlux", country: "DE", genres: ["electronic"], streams: [
     "https://streams.fluxfm.de/elektro/mp3-320/streams.fluxfm.de/",
   ] },
+
+  // ---- Japan ----
+  { id: "listen-moe", name: "LISTEN.moe", country: "JP", info: "Internet radio", genres: ["pop", "anime"], streams: [
+    "https://listen.moe/fallback", "https://listen.moe/stream",
+  ] },
+  { id: "r-a-dio", name: "R/a/dio", country: "JP", info: "Internet radio, live DJs", genres: ["anime", "pop"], streams: ["https://relay0.r-a-d.io/main.mp3"] },
+  { id: "j1-hits", name: "J1 HITS", country: "JP", info: "Tokyo, internet radio", genres: ["pop"], streams: ["https://jenny.torontocast.com:2000/stream/J1HITS"] },
+  { id: "j1-xtra", name: "J1 XTRA", country: "JP", info: "Idol, anime", genres: ["pop", "anime"], streams: ["https://jenny.torontocast.com:2000/stream/J1XTRA"] },
+  { id: "j1-gold", name: "J1 GOLD", country: "JP", info: "70s to 00s", genres: ["retro", "citypop"], streams: ["https://jenny.torontocast.com:2000/stream/J1GOLD"] },
+  { id: "japan-hits", name: "Japan Hits", country: "JP", info: "asia DREAM radio", genres: ["pop"], streams: ["https://quincy.torontocast.com:2020/stream"] },
+  { id: "jpop-powerplay", name: "J-Pop Powerplay", country: "JP", info: "asia DREAM radio, new J-Pop", genres: ["pop"], streams: ["https://kathy.torontocast.com:3560/stream"] },
+  { id: "jpop-kawaii", name: "J-Pop Powerplay Kawaii", country: "JP", info: "asia DREAM radio, idol", genres: ["pop"], streams: ["https://kathy.torontocast.com:3060/stream"] },
+  { id: "jpop-sakura", name: "J-Pop Sakura", country: "JP", info: "asia DREAM radio, 60s to 00s, kayōkyoku", genres: ["retro", "citypop"], streams: ["https://quincy.torontocast.com:2070/stream"] },
+  { id: "jrock-powerplay", name: "J-Rock Powerplay", country: "JP", info: "asia DREAM radio", genres: ["rock"], streams: ["https://kathy.torontocast.com:3340/stream"] },
+  { id: "jclub-hiphop", name: "J-Club Hip Hop", country: "JP", info: "asia DREAM radio, Japanese hip hop", genres: ["rap"], streams: ["https://kathy.torontocast.com:3350/stream"] },
+  { id: "jazz-sakura", name: "Jazz Sakura", country: "JP", info: "asia DREAM radio", genres: ["jazz"], streams: ["https://kathy.torontocast.com:3330/stream"] },
+  { id: "jclub-bandstand", name: "J-Club Club Bandstand", country: "JP", info: "Chigasaki, swing and big band", genres: ["jazz", "retro"], streams: ["https://cast1.torontocast.com:2060/;.mp3"] },
+  { id: "box-city-pop", name: "BOX : Japan City Pop", country: "JP", info: "City pop, chill", genres: ["citypop", "chill"], streams: ["https://boxradio-edge-00.streamafrica.net/jpopchill"] },
+  { id: "retroko", name: "Retro-Ko", country: "JP", info: "Tokyo, city pop, J-Rock, Sega", genres: ["citypop", "retro"], streams: ["https://radio.retroko.com/listen/retroko/radio.mp3"] },
+  { id: "yumi-co", name: "Yumi Co. Radio", country: "JP", info: "Future funk, city pop", genres: ["citypop", "electronic"], streams: [
+    "http://s1.yumicoradio.net:8000/stream", "http://s1.yumicoradio.net:8000/stream_128",
+  ] },
+  { id: "nightwave-plaza", name: "Nightwave Plaza", country: "JP", info: "Vaporwave, future funk", genres: ["citypop", "electronic", "chill"], streams: ["https://radio.plaza.one/ogg"] },
+  { id: "miku-fm", name: "Miku Radio", country: "JP", info: "Vocaloid", genres: ["vocaloid"], streams: ["https://miku.fm/listen/miku/aac-128"] },
+  { id: "gensokyo", name: "Gensokyo Radio", country: "JP", info: "Touhou, doujin music", genres: ["games", "anime"], streams: ["https://stream.gensokyoradio.net/3/"] },
+  { id: "casiopea", name: "Nonstop Casiopea", country: "JP", info: "Japanese fusion jazz", genres: ["jazz"], streams: ["https://nonstopcasiopea.radioca.st/;"] },
+  { id: "moon-mission", name: "Moon Mission Recordings", country: "JP", info: "Tokyo, deep house", genres: ["electronic"], streams: ["https://uk5.internet-radio.com/proxy/mmr?mp=/stream;"] },
+  { id: "otaku-music", name: "Otaku Music Radio", country: "JP", info: "Anime, J-Pop", genres: ["anime", "pop"], streams: ["https://kathy.torontocast.com:2880/;"] },
+  { id: "big-b-jpop", name: "Big B Radio J-Pop", country: "JP", genres: ["pop"], streams: ["https://antares.dribbcast.com/proxy/jpop/;?mp=/s"] },
+  { id: "anison-fm", name: "Anison.FM", country: "JP", info: "Anime songs", genres: ["anime"], streams: ["https://pool.anison.fm/AniSonFM(128)"] },
+  { id: "eden-radio", name: "Eden Radio", country: "JP", info: "Anime, J-Pop", genres: ["anime", "pop"], streams: ["https://edenofthewest.com/listen/eden-radio/radio.mp3"] },
+  { id: "patchwork-archive", name: "Patchwork Archive", country: "JP", info: "VTuber songs and covers", genres: ["vocaloid", "anime"], streams: ["https://a4.asurahosting.com:6930/radio.mp3"] },
+  { id: "nhk-world", name: "NHK World Radio Japan", country: "JP", info: "News", genres: ["news"], streams: [
+    "https://master.nhkworld.jp/nhkworld-radio/playlist/gs2/live.m3u8",
+    "https://masterpl.hls.nhkworld.jp/hls/r1/live/master.m3u8",
+  ] },
+  { id: "fm-setagaya", name: "FM Setagaya 83.4", country: "JP", info: "Tokyo community radio", genres: ["local"], streams: ["https://fmsetagaya834.out.airtime.pro/fmsetagaya834_a"] },
+  { id: "fm-yy", name: "FM わぃわぃ", country: "JP", info: "Kobe community radio", genres: ["local"], streams: ["https://tcc117.jp/fmyy/asx/simulbroadcast.mp3"] },
+  { id: "radio-hayama", name: "Radio Hayama", country: "JP", info: "Shōnan local radio", genres: ["local"], streams: ["https://server10.reliastream.com/proxy/radiohayama"] },
 
   // ---- World ----
   { id: "soma-groove-salad", name: "SomaFM Groove Salad", country: "INT", info: "San Francisco, internet radio", genres: ["electronic", "chill"], streams: [
