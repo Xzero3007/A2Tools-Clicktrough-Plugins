@@ -34,5 +34,7 @@ assert len(body) == 357, len(body)
 frame(0x91, 0x56, bytes(body), "stock")
 # Longer than a stock: not one.
 frame(0x91, 0x56, bytes(body) + b"\x00", "longer")
+# The Shop opening (it answers each time, two zero bytes).
+frame(0x61, 0xE2, bytes(2), "shop-open")
 open("frames.txt", "w").write("\n".join(lines) + "\n")
 json.dump(names, open("cases.json", "w"))

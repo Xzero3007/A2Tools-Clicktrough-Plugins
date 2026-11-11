@@ -17,6 +17,14 @@
   let seen = []; // [{ at, char, tab, refresh, skins, fresh, paid }]
   let learned = {}; // item -> closet id, from purchases
   let character = null;
+  let metaChar = null; // the character the meter stamped on the last game frame
+  // Who plays: the character event (not sent again when the meter restarts
+  // mid-game), else the meter's stamp on a frame, else the last one known.
+  const playing = () => character || metaChar || settings.lastChar || null;
+  const noteMeta = (meta) => {
+    const c = meta?.character;
+    if (c?.name) metaChar = { name: c.name, serverId: c.serverId };
+  };
   const recent = []; // recent item changes [{ at, item }]
   let bag = null; // the inventory as the meter last saw it: [[slot, item, count]]
 
@@ -46,6 +54,10 @@
   a2.on("character", (c) => {
     if (!c?.name) return;
     character = c;
+    if (settings.lastChar?.name !== c.name || settings.lastChar?.serverId !== c.serverId) {
+      settings.lastChar = { name: c.name, serverId: c.serverId };
+      saveSettings();
+    }
     const key = charKey(c);
     if (!chars[key]) chars[key] = { name: c.name, serverId: c.serverId, stocks: {} };
     saveChars();
@@ -136,15 +148,31 @@
   let flushTimer = 0;
   for (const name of ["shop-a", "shop-b", "shop-c", "shop-more"]) {
     a2.on(`decoded:${name}`, (data, meta) => {
+      noteMeta(meta);
       frames.push(name, data, meta?.at || Date.now());
       clearTimeout(flushTimer);
       flushTimer = setTimeout(() => frames.flush(), 250);
     });
   }
 
+  // The game sends a tab's list only the first time it opens in an hour (and
+  // after a paid change); opened again, the shop shows what it has and the
+  // list doesn't come. The Shop itself answers each time it opens (61 E2),
+  // so that opens the window too, with the list of this hour.
+  let lastShopOpen = 0;
+  a2.on("decoded:shop-open", (data, meta) => {
+    noteMeta(meta);
+    const at = meta?.at || Date.now();
+    // A frame from before this page started (replayed to it) opens nothing.
+    if (at < pageStart - 5000 || Date.now() - at > 60000) return;
+    lastShopOpen = Date.now();
+    arrived("shop");
+  });
+
   function onStock(stock) {
-    const key = character ? charKey(character) : "?:?";
-    const c = (chars[key] ||= { name: character?.name || "?", serverId: character?.serverId, stocks: {} });
+    const me = playing();
+    const key = me ? charKey(me) : "?:?";
+    const c = (chars[key] ||= { name: me?.name || "?", serverId: me?.serverId, stocks: {} });
     const before = c.stocks[stock.tab];
     const paid = !!before && before.refresh === stock.refresh && before.offers.map((o) => o.offer).join() !== stock.offers.map((o) => o.offer).join();
     const same = !!before && before.refresh === stock.refresh && !paid;
@@ -168,7 +196,7 @@
     }
     // A frame replayed from earlier (the page started again) opens nothing.
     // A frame from before this page started (replayed to it) opens nothing.
-    lastStock = { at: Date.now(), owner: character?.name || "" };
+    lastStock = { at: Date.now(), owner: me?.name || "" };
     if ((stock.at || Date.now()) >= pageStart - 5000) arrived("shop");
     sendWidgets();
     dirty();
@@ -242,15 +270,23 @@
   };
   const open = { status: false };
 
+  // The characters of the server, one row a name (a name kept under two
+  // keys, its server once unknown, is one character).
   function charsState(now) {
-    const out = [];
+    const me = playing();
+    const by = new Map();
     for (const [key, c] of Object.entries(chars)) {
-      if (character && c.serverId != null && character.serverId != null && c.serverId !== character.serverId) continue;
-      const live = Object.values(c.stocks).filter((s) => s.refresh > now);
+      if (!c?.name || c.name === "?") continue;
+      if (me && c.serverId != null && me.serverId != null && c.serverId !== me.serverId) continue;
+      const live = Object.values(c.stocks || {}).filter((s) => s.refresh > now);
       const fresh = live.reduce((n, s) => n + s.offers.filter((o) => L.statusOf(o.item, closet, ix, learned).status === "new").length, 0);
-      out.push({ name: c.name, looked: live.length > 0, fresh, playing: !!character && key === charKey(character) });
+      const row = by.get(c.name) || { name: c.name, looked: false, fresh: 0, playing: false };
+      row.looked ||= live.length > 0;
+      row.fresh += fresh;
+      row.playing ||= !!me && (key === charKey(me) || c.name === me.name);
+      by.set(c.name, row);
     }
-    return out.sort((a, b) => Number(b.playing) - Number(a.playing) || a.name.localeCompare(b.name));
+    return [...by.values()].sort((a, b) => Number(b.playing) - Number(a.playing) || a.name.localeCompare(b.name));
   }
   const nextHour = (now) => Math.ceil((now + 1) / 3600000) * 3600000;
 
@@ -259,8 +295,9 @@
   // never hides what you just opened.
   function offersState(now) {
     let best = null;
+    const me = playing();
     for (const c of Object.values(chars)) {
-      if (character && c.serverId != null && character.serverId != null && c.serverId !== character.serverId) continue;
+      if (me && c.serverId != null && me.serverId != null && c.serverId !== me.serverId) continue;
       const live = Object.values(c.stocks).filter((s) => s.refresh > now);
       const at = Math.max(0, ...live.map((s) => s.at || 0));
       if (live.length && (!best || at > best.at)) best = { c, live, at };
@@ -304,13 +341,8 @@
   }
   const stateOf = () => statusState();
   function unchecked(now) {
-    const out = [];
-    for (const [key, c] of Object.entries(chars)) {
-      if (character && key === charKey(character)) continue;
-      if (character && c.serverId != null && character.serverId != null && c.serverId !== character.serverId) continue;
-      if (!Object.values(c.stocks).some((s) => s.refresh > now)) out.push(c.name);
-    }
-    return out.sort();
+    const me = playing();
+    return charsState(now).filter((c) => !c.looked && !(me && c.name === me.name)).map((c) => c.name);
   }
   // One window: it shows at the Black Cloud shop and in the closet (tick
   // "Window at the shop"), or all the time ("Everywhere"). At the shop and
@@ -515,7 +547,10 @@
 
   function renderMerchant() {
     $(".popup").checked = settings.shopWindow !== false;
-    const ls = lastStock ? `Last shop list ${clock(lastStock.at)}${lastStock.owner ? ` (${lastStock.owner})` : ""}` : "No shop list since the meter started";
+    const ls = [
+      lastShopOpen ? `Shop opened ${clock(lastShopOpen)}` : "",
+      lastStock ? `last shop list ${clock(lastStock.at)}${lastStock.owner ? ` (${lastStock.owner})` : ""}` : "no shop list since the meter started",
+    ].filter(Boolean).join(", ");
     $(".winState").textContent = `Closet window: ${windowWhy()} · ${ls}`;
     $(".statusAlways").checked = !!settings.statusAlways;
     showSizes();
@@ -527,7 +562,8 @@
       const stocks = Object.values(c.stocks).filter((s) => s.refresh > now).sort((x, y) => x.tab - y.tab);
       const refresh = Math.min(...stocks.map((s) => s.refresh));
       const head = el("div", "charHead");
-      head.append(el("b", null, c.name), el("span", "muted", `changes at ${clock(refresh)}${character && key === charKey(character) ? " · playing" : ""}`));
+      const me = playing();
+      head.append(el("b", null, c.name), el("span", "muted", `changes at ${clock(refresh)}${me && (key === charKey(me) || c.name === me.name) ? " · playing" : ""}`));
       box.append(head);
       for (const s of stocks) {
         const skins = s.offers.filter((o) => ix.items.has(o.item));

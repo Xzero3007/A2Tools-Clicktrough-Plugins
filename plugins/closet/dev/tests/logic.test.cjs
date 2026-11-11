@@ -43,6 +43,12 @@ test("the closet at login: every entry", () => {
   assert.equal(L.spares(c, ix)[ix.looks.get(10015108).grade], 2);
 });
 
+test("the Shop opening is heard", () => {
+  assert.deepEqual(data("shop-open", "shop-open"), { a: 0 });
+  // and no other decoder reads it
+  assert.equal(byCase["shop-open"].length, 1);
+});
+
 test("an added entry", () => {
   assert.deepEqual(L.addedFrom(data("added", "closet-add")), [{ id: 30150106, count: 2 }]);
 });
