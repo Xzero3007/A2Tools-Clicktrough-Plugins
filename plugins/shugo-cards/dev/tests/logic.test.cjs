@@ -69,7 +69,7 @@ test("the chi-square chance and the advice", () => {
   assert.equal(C.advise(C.test([2, 1, 0, 0, 1])).left, C.NEED_STRONG - 4);
 });
 
-test("statistics over rounds: gold per place on the cards' own items", () => {
+test("statistics over rounds: gold per place on the whole card, bonus included", () => {
   const card = (place, main, extra = {}) => ({ place, main, mine: 0, ...extra });
   const round = (at, goldAt, mineAt) => ({
     key: String(at), at,
@@ -78,8 +78,9 @@ test("statistics over rounds: gold per place on the cards' own items", () => {
   const rounds = [round(1, 2, 2), round(2, 2, 0), round(3, 4, 4)];
   rounds[1].cards[0].bonus = [[210540103, 1], [210430080, 1]];
   const s = C.stats(rounds, new Map([["210430005", { price: 1000000 }], ["610610013", { price: 7000 }]]));
-  assert.deepEqual(s.place.map((p) => p.gold), [0, 0, 2, 0, 1]);
-  assert.deepEqual(s.place.map((p) => p.best), [0, 0, 2, 0, 1], "the most valuable card by its own items");
+  assert.deepEqual(s.place.map((p) => p.gold), [1, 0, 2, 0, 1]);
+  assert.deepEqual(s.place.map((p) => p.best), [1, 0, 1, 0, 1], "the most valuable card, bonus included");
+  assert.deepEqual(s.place.map((p) => p.bonus), [1, 0, 0, 0, 0]);
   assert.equal(s.golds.length, 4);
   assert.equal(s.golds.filter((g) => g.bonus).length, 1);
   assert.equal(s.bonusCards, 1);
@@ -112,4 +113,59 @@ test("per character and for the account", () => {
   assert.equal(C.ofChar(rounds, "all").length, 4);
   assert.equal(C.ofChar(rounds, "2305:Tester").length, 2);
   assert.equal(C.ofChar(rounds, "").length, 1);
+});
+
+// A round as the Dimensional Invasion's (2026-11-11): a bonus layer on a
+// card nobody picked, the jackpot on another, the tag a varint.
+function build({ event, cards }) {
+  const out = [];
+  const u8 = (v) => out.push(v & 255);
+  const u32 = (v) => { for (let i = 0; i < 4; i++) out.push(Math.floor(v / 2 ** (8 * i)) & 255); };
+  const varint = (v) => { do { let x = v & 127; v = Math.floor(v / 128); if (v) x |= 128; out.push(x); } while (v); };
+  const list = (l) => { varint(l.length); for (const [i, n] of l) { u32(i); u32(n); } };
+  out.push(0, 0); u32(5534); u32(4334); u32(event); u8(cards.length);
+  for (const c of cards) {
+    varint(c.tag); list(c.bonus || []); list(c.main);
+    u8((c.pickers || []).length);
+    for (const p of c.pickers || []) {
+      for (let i = 0; i < 11; i++) u8(0);
+      const nm = Buffer.from(p.name); varint(nm.length); for (const x of nm) u8(x);
+      u32(16); u32(p.times); u32(0); u8(0);
+    }
+  }
+  return Buffer.from(out).toString("hex");
+}
+const MAIN = [[210430080, 1], [930100023, 400]];
+const diHex = build({
+  event: 22020112,
+  cards: [
+    { tag: 0, bonus: [[210540103, 1]], main: MAIN },
+    { tag: 219, main: MAIN, pickers: [{ name: "Tester", times: 2 }] },
+    { tag: 2, main: MAIN },
+    { tag: 3, bonus: [[210430080, 1], [210540103, 1], [930100023, 50]], main: MAIN, pickers: [{ name: "Tester", times: 1 }] },
+    { tag: 4, main: MAIN },
+  ],
+});
+
+test("a Dimensional Invasion round reads: a bonus on an unpicked card", () => {
+  const r = C.parseRound(diHex);
+  assert.ok(r);
+  assert.equal(r.event, 22020112);
+  assert.equal(C.kindOf(r).kind, "di");
+  assert.equal(r.cards[1].tag, 219);
+  assert.deepEqual(r.cards.map((c) => c.bonus.length), [1, 0, 0, 3, 0]);
+  assert.deepEqual(r.cards.map((c) => c.pickers.length), [0, 1, 0, 1, 0]);
+  const s = C.stats([C.keep(r, 1, "Tester", 1)]);
+  assert.deepEqual(s.place.map((p) => p.bonus), [1, 0, 0, 1, 0]);
+});
+
+test("unread rounds are read again, with the character among the pickers", () => {
+  const known = [{ key: "1-2", at: 0, who: "Tester", server: 7, cards: [] }];
+  const { add, still } = C.adopt([{ at: 5, body: diHex }, { at: 6, body: diHex }, { at: 7, body: "00ff" }], known);
+  assert.equal(add.length, 1);
+  assert.equal(add[0].who, "Tester");
+  assert.equal(add[0].server, 7);
+  assert.equal(add[0].at, 5);
+  assert.deepEqual(still, [{ at: 7, body: "00ff" }]);
+  assert.equal(C.adopt([{ at: 5, body: diHex }], [...known, add[0]]).add.length, 0);
 });

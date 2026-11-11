@@ -327,7 +327,7 @@
   }
 
   function renderPlaces(s) {
-    $(".tip").replaceChildren(adviceText(s.goldTest, s.goldAdvice, "gold in the card's own items"), adviceText(s.bestTest, s.bestAdvice, "the most valuable card"));
+    $(".tip").replaceChildren(adviceText(s.goldTest, s.goldAdvice, "gold on the card"), adviceText(s.bestTest, s.bestAdvice, "the most valuable card"));
     $(".places tbody").replaceChildren(
       ...s.place.map((p, i) => {
         const pct = (v, n) => (n ? `${v} (${Math.round((v / n) * 100)} %)` : "—");
@@ -336,6 +336,7 @@
           {},
           el("td", { text: `Card ${i + 1}` }),
           el("td", { text: pct(p.gold, p.cards) }),
+          el("td", { text: pct(p.bonus, p.cards) }),
           el("td", { text: pct(p.best, s.full) }),
           el("td", { text: prices.size && p.avg != null ? C.short(p.avg) : "—" }),
           el("td", { text: String(p.mine) }),
@@ -345,9 +346,11 @@
       }),
     );
     $(".placeSum").replaceChildren(
-      el("span", {}, el("b", { text: String(s.full) }), " full rounds"),
-      el("span", {}, el("b", { text: String(s.doubles) }), " cards picked twice"),
-      prices.size ? el("span", { class: "worth" }, "your cards ", el("b", { text: C.short(s.yours) }), " Kinah, the best card each round ", el("b", { text: C.short(s.bestSum) })) : null,
+      ...[
+        el("span", {}, el("b", { text: String(s.full) }), ` full round${s.full === 1 ? "" : "s"}`),
+        el("span", {}, el("b", { text: String(s.doubles) }), ` card${s.doubles === 1 ? "" : "s"} picked twice`),
+        prices.size ? el("span", { class: "worth" }, "your cards ", el("b", { text: C.short(s.yours) }), " Kinah, the best card each round ", el("b", { text: C.short(s.bestSum) })) : null,
+      ].filter(Boolean),
     );
   }
 
@@ -457,6 +460,16 @@
       if (Array.isArray(r)) rounds = [...r.filter((x) => x && Array.isArray(x.cards)), ...rounds.filter((x) => !r.some((y) => y?.key === x.key))].sort((a, b) => a.at - b.at);
       const o = await a2.storage.get("odd");
       if (Array.isArray(o)) odd = o;
+      // Rounds an older version could not read (0.3.0: the Dimensional
+      // Invasion's): read them again.
+      if (odd.length) {
+        const { add, still } = C.adopt(odd, rounds);
+        if (add.length) {
+          rounds = [...rounds, ...add].sort((a, b) => a.at - b.at).slice(-KEEP);
+          odd = still;
+          saveRounds();
+        }
+      }
     } catch {}
     // The meter holds every event (the character, the rounds of its run)
     // until the page says it is ready.

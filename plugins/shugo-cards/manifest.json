@@ -1,7 +1,7 @@
 {
   "id": "shugo-cards",
   "name": "Shugo Cards",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "apiVersion": 2,
   "author": "Clicktrough (items and icons: the game client via SkeeveAN's Aion-DPS-Meter, MIT, and Aion2Data; prices: aion2.exchange)",
   "description": "The card rounds of the Shugo Festival and the Dimensional Invasion, together or each alone: after each round, what lay behind all five cards and which you picked, the gold items found with their pictures, what each card was worth in Kinah, and over the rounds where gold and the most valuable card lie, with a tip once the numbers show a place is better than chance.",

@@ -21,20 +21,19 @@ any card is better than another.
   Enhance Stones, Centuryroot Tokens) and what its sellable items bring on
   your server's market (the most valuable card in gold). **You** (×2 when
   picked twice) marks your picks. A **Bonus** layer shows above a card's own
-  items: so far it came on a card picked twice, with its second pick. ‹ ›
+  items: any card can have one, picked or not. ‹ ›
   go through earlier rounds.
 - **Gold**: every gold item (Unique and higher) with its picture and name,
   when, on which card, bonus or not, yours or not picked; and by item, how
   often and on which cards.
-- **Places**: per card place (1 to 5 from the left) how often its own items
-  held gold, how often it was the most valuable card, its worth on average
+- **Places**: per card place (1 to 5 from the left) how often it held gold
+  (bonus layer included), how often it had a bonus layer, how often it was the most valuable card, its worth on average
   and your picks. **The tip**: a chi-square test of "every place is alike";
   only when that is below 5 % by chance (and at least 25 cases) does it say
   which card to pick. Until then it says how far it is: a strong lead (one
   place twice as often) shows after about 50 cases, a moderate one after
   about 130. If the game shuffles the cards, no tip ever appears, and that
-  is the answer. Bonus layers are not counted here (they show only where you
-  picked twice).
+  is the answer.
 - **Items**: everything seen on the cards, on how many cards and in all,
   with each one's price.
 
@@ -51,7 +50,8 @@ cards in their places, each with its bonus layers, its items, and who picked
 it how often. Kept: your own character's name and server (whose round it was); another picker only as "someone else", no names. Nothing comes
 before the round ends: what lies behind a card is not known while you pick.
 A round that does not read is kept as it came (the last 5) and counted at
-the top.
+the top; a newer version reads them again when it starts (0.3.1: the
+Dimensional Invasion's rounds, which 0.3.0 could not read).
 
 Item names, grades and icons: `data.js` is the Inventory plugin's (SkeeveAN's
 Aion-DPS-Meter, MIT, and Aion2Data; see the NOTICE files), `anomaly.js` the

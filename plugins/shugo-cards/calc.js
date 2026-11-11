@@ -24,8 +24,8 @@
    *  { key, event, cards: [{ place, tag, main: [[item, count]], bonus: [...],
    *  pickers: [{ name, times }] }] } or null when it does not read.
    *  The layout (2026-11-10): u16, u32 u32 (the round), u32 (the event), u8
-   *  cards; each card u8 (its place; another value on a card with a bonus
-   *  layer), u8 bonus layers, the layers, the card's items, u8 pickers, each
+   *  cards; each card a varint (its place, or 219 to 255 on some cards),
+   *  its bonus layer (a list, mostly empty), its items (a list), u8 pickers, each
    *  picker 11 bytes, its name (varint length), u32, u32 times, u32, u8. A
    *  list is a varint count of (u32 item, u32 count). The cards come in their
    *  places from the left. */
@@ -61,11 +61,8 @@
       if (n < 1 || n > 10) return null;
       const cards = [];
       for (let i = 0; i < n; i++) {
-        const tag = u8();
-        const layers = u8();
-        if (layers > 4) return null;
-        const bonus = [];
-        for (let l = 0; l < layers; l++) bonus.push(...list());
+        const tag = varint();
+        const bonus = list();
         const main = list();
         const np = u8();
         if (np > 8) return null;
@@ -119,11 +116,30 @@
     };
   }
 
+  /** Rounds an older version could not read, read again. The character
+   *  that played is the one of yours among the pickers (by the names your
+   *  rounds were kept under), else unknown. Gives the rounds to add and the
+   *  entries still unreadable. */
+  function adopt(odd, rounds) {
+    const known = new Map();
+    for (const r of rounds || []) if (r?.who) known.set(r.who, r.server ?? null);
+    const add = [], still = [];
+    for (const o of odd || []) {
+      const parsed = parseRound(o?.body);
+      if (!parsed) { still.push(o); continue; }
+      if ((rounds || []).some((r) => r?.key === parsed.key) || add.some((r) => r.key === parsed.key)) continue;
+      const names = parsed.cards.flatMap((c) => c.pickers.map((pk) => pk.name));
+      const me = names.find((n) => known.has(n)) || null;
+      add.push(keep(parsed, Number(o.at) || 0, me, me ? known.get(me) : null));
+    }
+    return { add, still };
+  }
+
   // ---------- which event ----------
   // The card rounds come from two events with the same rewards: the Shugo
   // Festival (on the hour) and the Dimensional Invasion (at half past, not
   // every time). The round names its event by number; the ones known:
-  const EVENTS = { 21070110: "shugo" }; // FieldEvent_Defence_01, 2026-11-10 21:04
+  const EVENTS = { 21070110: "shugo", 22020112: "di" }; // Shugo: FieldEvent_Defence_01 (2026-11-10 21:04); DI: 2026-11-11 16:34
   const KINDS = { shugo: "Shugo", di: "Dimensional Invasion" };
   /** A round's event: the person's choice for its number, else a known
    *  number, else a guess by the time (from 20 to 50 minutes past the hour:
@@ -247,11 +263,11 @@
   /** Everything the page shows over the rounds: per place (cards, cards
    *  with gold in their own items, the most valuable card's place, your
    *  picks, the average Kinah), the gold found, the bonus layers, items seen,
-   *  your Kinah against the best card's. The places are compared on the
-   *  cards' own items only: a bonus layer shows only on a card picked twice,
-   *  so it says what you chose, not where the game put things. */
+   *  your Kinah against the best card's. A card counts whole, with its
+   *  bonus layer: the round shows it on every card that has one, picked or
+   *  not (2026-11-11: an unpicked card had one). */
   function stats(rounds, prices, hist = null) {
-    const place = Array.from({ length: PLACES }, () => ({ cards: 0, gold: 0, best: 0, mine: 0, kinah: 0 }));
+    const place = Array.from({ length: PLACES }, () => ({ cards: 0, gold: 0, best: 0, mine: 0, kinah: 0, bonus: 0 }));
     const golds = [];
     const items = new Map();
     let bonusCards = 0, bonusGold = 0, doubles = 0, yours = 0, bestSum = 0, full = 0, mineRounds = 0;
@@ -262,15 +278,15 @@
       let bestK = -1, bestAt = null, mineK = 0;
       for (const c of r.cards) {
         const w = cardWorth(c, prices, hist);
-        const own = c.bonus?.length ? cardWorth(c, prices, hist, true) : w;
         const pl = five ? place[c.place] : null;
         if (pl) {
           pl.cards++;
-          pl.kinah += own.kinah;
+          pl.kinah += w.kinah;
           if (c.mine) pl.mine++;
-          if (c.main.some(([it]) => gold(it))) pl.gold++;
+          if ([...c.main, ...(c.bonus || [])].some(([it]) => gold(it))) pl.gold++;
+          if (c.bonus?.length) pl.bonus++;
         }
-        if (own.kinah > bestK) { bestK = own.kinah; bestAt = c.place; }
+        if (w.kinah > bestK) { bestK = w.kinah; bestAt = c.place; }
         if (c.mine) mineK += w.kinah;
         if (c.mine >= 2) doubles++;
         if (c.bonus?.length) {
@@ -345,6 +361,6 @@
 
   globalThis.ShugoCalc = Object.freeze({
     GRADES, PLACES, NEED_STRONG, NEED_MODERATE, EVENTS, KINDS, kindOf, only, charKey, characters, ofChar, name, grade, icon, gold, currency,
-    parseRound, keep, worth, cardWorth, pChi4, test, advise, stats, readServers, serverOf, readCopy, kina, short,
+    parseRound, keep, adopt, worth, cardWorth, pChi4, test, advise, stats, readServers, serverOf, readCopy, kina, short,
   });
 })();
