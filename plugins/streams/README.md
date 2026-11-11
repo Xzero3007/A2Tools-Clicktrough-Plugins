@@ -28,6 +28,7 @@ Twitch and YouTube each in its own, both at once if you like.
   title, a button for each one playing (meter patches 0049 and 0051). The
   **TV button** in the meter's title shows the Twitch overlay (and plays
   the last channel again) or stops it.
+- When AION2 closes, the videos stop (0.3.1).
 - Favourites and settings stay in the plugin's storage on this computer.
 
 **Needs** `mpv` and `yt-dlp` installed (`sudo pacman -S mpv yt-dlp`); the

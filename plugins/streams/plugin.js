@@ -616,6 +616,15 @@
     }
   });
 
+  // AION2 closed: the videos stop (the meter may stay open, started by hand).
+  // Only when it closes: with the game not running at all, they play.
+  let gameRunning = null;
+  a2.on("game", ({ running } = {}) => {
+    const was = gameRunning;
+    gameRunning = !!running;
+    if (was === true && !gameRunning) for (const kind of Object.keys(slots)) if (slot(kind).playing) stop(kind);
+  });
+
   // ---------- the page ----------
   function status(tab) {
     const box = $(`.pane[data-pane="${tab}"] .status`);
