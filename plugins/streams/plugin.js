@@ -457,7 +457,27 @@
     }).catch(() => {});
   }
 
+  // The meter's player row (a2.media): what plays, and its controls there.
+  let meterSaid = "";
+  function tellMeter() {
+    const state = playing ? {
+      icon: "tv",
+      title: player.title || playing.title || "",
+      sub: [playing.kind === "twitch" ? "Twitch" : "YouTube", stateText()].filter(Boolean).join(" · "),
+      paused: !!player.pause,
+      muted: !!settings.mute,
+      volume: settings.volume / 100,
+      opacity: settings.opacity / 100,
+      controls: ["pause", "mute", "volume", "opacity", "stop"],
+    } : null;
+    const key = JSON.stringify(state);
+    if (key === meterSaid) return;
+    meterSaid = key;
+    a2.media?.set(state).catch(() => {});
+  }
+
   function drawPlayer() {
+    tellMeter();
     const bar = $(".player");
     bar.hidden = !playing;
     if (!playing) return;
@@ -475,30 +495,45 @@
     for (const b of $$(".sizes button")) b.setAttribute("aria-pressed", String(b.dataset.size === size));
   }
 
-  $(".pause").addEventListener("click", () => a2.video.control(WIDGET, "pause", !player.pause).catch(() => {}));
-  $(".mute").addEventListener("click", () => {
-    settings.mute = !settings.mute;
+  const togglePause = () => a2.video.control(WIDGET, "pause", !player.pause).catch(() => {});
+  function setMute(on) {
+    settings.mute = !!on;
     save();
     a2.video.control(WIDGET, "mute", settings.mute).catch(() => {});
     if (!settings.mute) a2.video.control(WIDGET, "volume", settings.volume).catch(() => {});
     drawPlayer();
-  });
-  $(".volume").addEventListener("input", () => {
-    settings.volume = Number($(".volume").value);
+  }
+  function setVolume(v) {
+    settings.volume = Math.min(100, Math.max(0, Math.round(Number(v) || 0)));
     a2.video.control(WIDGET, "volume", settings.volume).catch(() => {});
     if (settings.mute) {
       settings.mute = false;
       a2.video.control(WIDGET, "mute", false).catch(() => {});
     }
     drawPlayer();
-  });
-  $(".volume").addEventListener("change", save);
-  $(".opacity").addEventListener("input", () => {
-    settings.opacity = Math.min(100, Math.max(20, Number($(".opacity").value) || 100));
+  }
+  function setOpacity(v) {
+    settings.opacity = Math.min(100, Math.max(20, Math.round(Number(v) || 100)));
     a2.video.control(WIDGET, "opacity", settings.opacity / 100).catch(() => {});
     drawPlayer();
-  });
+  }
+  $(".pause").addEventListener("click", togglePause);
+  $(".mute").addEventListener("click", () => setMute(!settings.mute));
+  $(".volume").addEventListener("input", () => setVolume($(".volume").value));
+  $(".volume").addEventListener("change", save);
+  $(".opacity").addEventListener("input", () => setOpacity($(".opacity").value));
   $(".opacity").addEventListener("change", save);
+  // The meter's player row: the same as the buttons here.
+  let saveSoon = null;
+  const saveLater = () => { clearTimeout(saveSoon); saveSoon = setTimeout(save, 800); };
+  a2.on("media", ({ action, value } = {}) => {
+    if (!playing) return;
+    if (action === "pause") togglePause();
+    else if (action === "mute") setMute(!settings.mute);
+    else if (action === "volume" && Number.isFinite(value)) { setVolume(value * 100); saveLater(); }
+    else if (action === "opacity" && Number.isFinite(value)) { setOpacity(value * 100); saveLater(); }
+    else if (action === "stop") stop();
+  });
   $(".quality").addEventListener("change", () => {
     settings.quality = $(".quality").value;
     save();

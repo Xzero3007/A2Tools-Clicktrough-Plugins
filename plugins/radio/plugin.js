@@ -237,7 +237,29 @@
     return { name, state, station };
   }
 
+  // The meter's player row (a2.media, meter patch 0048): while a station
+  // plays, its name and controls under the meter's header.
+  let meterSaid = "";
+  function tellMeter() {
+    const { name, state, station } = nowText();
+    const data = playing ? {
+      icon: "radio",
+      title: name,
+      sub: state,
+      playing: true,
+      muted: !!settings.muted,
+      volume: settings.volume,
+      favourite: !!station && settings.favourites.includes(station.id),
+      controls: ["prev", "playStop", "next", "mute", "volume", "favourite"],
+    } : null;
+    const key = JSON.stringify(data);
+    if (key === meterSaid) return;
+    meterSaid = key;
+    a2.media?.set(data).catch(() => {});
+  }
+
   function renderNow() {
+    tellMeter();
     const { name, state, station } = nowText();
     $(".nowName").textContent = name;
     $(".nowName").title = station ? [station.name, station.info].filter(Boolean).join(" · ") : "";
@@ -323,6 +345,16 @@
       renderNow();
       applyOverlay();
     }
+  });
+
+  // A control in the meter's player row: as the player's buttons.
+  a2.on("media", ({ action, value } = {}) => {
+    if (action === "playStop") togglePlay();
+    else if (action === "prev") step(-1);
+    else if (action === "next") step(1);
+    else if (action === "mute") setMuted(!settings.muted);
+    else if (action === "favourite") { const id = playing || settings.station; if (id) toggleFavourite(id); }
+    else if (action === "volume" && Number.isFinite(value)) setVolume(value);
   });
 
   function togglePlay() {

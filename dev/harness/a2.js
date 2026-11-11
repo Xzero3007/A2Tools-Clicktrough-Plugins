@@ -65,6 +65,7 @@
     // The Streams plugin's calls: answers from window.__preset.video
     // ({ twitch: { <kind>: data }, search: [...], feed: { <channel>: xml }, freetube: [...] });
     // what it played is kept in window.__played.
+    media: { set: async () => {} },
     video: {
       play: async (widget, what) => { (window.__played ||= []).push({ widget, ...what }); },
       control: ok,

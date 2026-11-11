@@ -70,3 +70,7 @@ radio directories that print them (November 2026). No station's name, logo
 or programme is part of this plugin beyond its name in the list.
 
 Licence: GPL-3.0-or-later (`LICENSE`).
+
+While a station plays, the meter shows its name and controls (before, play/stop,
+after, mute, volume, favourite) in its player row under its title (0.4.0,
+permission `media`, meter patch 0049).

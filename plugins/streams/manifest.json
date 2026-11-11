@@ -1,7 +1,7 @@
 {
   "id": "streams",
   "name": "Streams",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "apiVersion": 2,
   "author": "Clicktrough",
   "description": "Twitch and YouTube while you play: Twitch's live channels (your favourites, AION 2 or all, a search) and YouTube's videos (your FreeTube subscriptions, your saved channels, a search), played by mpv in a small video overlay over the game that clicks go through when the meter is locked.",
@@ -9,6 +9,7 @@
     "storage",
     "widgets",
     "video",
+    "media",
     "web:i.ytimg.com",
     "web:yt3.ggpht.com",
     "web:static-cdn.jtvnw.net"
