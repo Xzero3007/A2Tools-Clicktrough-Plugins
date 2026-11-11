@@ -1,7 +1,7 @@
 {
   "id": "streams",
   "name": "Streams",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "apiVersion": 2,
   "author": "Clicktrough",
   "description": "Twitch and YouTube while you play: Twitch's live channels (your favourites, AION 2 or all, a search) and YouTube's videos (your FreeTube subscriptions, your saved channels, a search), and your own Jellyfin server in your home network (Continue watching, Next up, your libraries, a search; skip intros, the next episode by itself), played by mpv in small video overlays over the game (each in its own, several at once if you like) that clicks go through when the meter is locked.",

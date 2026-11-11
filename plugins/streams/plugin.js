@@ -515,10 +515,19 @@
   // mpv's and yt-dlp's words, said plainly where we know them.
   function humanError(e, kind) {
     const t = String(e || "");
-    if (/yt-dlp is not installed|youtube-dl|ytdl/i.test(t) && /not|fail|found/i.test(t)) return "yt-dlp is missing: sudo pacman -S yt-dlp";
+    if (/yt-dlp is not installed|(youtube-dl|yt-dlp|ytdl)\S* (was )?not found/i.test(t)) return "yt-dlp is missing: sudo pacman -S yt-dlp";
     if (/libmpv|mpv is not installed/i.test(t)) return "mpv is missing: sudo pacman -S mpv";
+    // yt-dlp's own reasons (the meter passes on what it said through mpv).
+    if (/javascript runtime|js.?runtime|\bdeno\b|n challenge|signature/i.test(t)) return "yt-dlp needs a JavaScript runtime for YouTube now: sudo pacman -S deno (and update yt-dlp)";
+    if (/sign in to confirm|not a bot/i.test(t)) return "YouTube wants a sign-in to prove you're not a bot (it does this to some networks); try again later";
+    if (/only images are available|requested format is not available|no video formats/i.test(t)) return "yt-dlp found no playable stream for this video: update yt-dlp (sudo pacman -Syu yt-dlp) and install deno";
     if (kind === "jellyfin" && /loading failed|unrecognized file format|401|403/i.test(t)) return "Your Jellyfin server didn't give this video (try another quality, or sign in again)";
-    if (/loading failed|unrecognized file format/i.test(t)) return kind === "twitch" ? "Not live right now, or Twitch didn't give the stream" : "YouTube didn't give this video";
+    // What yt-dlp or mpv said about it, after the plain words.
+    const detail = (t.match(/\((.*)\)\s*$/) || [])[1] || "";
+    if (/loading failed|unrecognized file format|no audio or video data/i.test(t)) {
+      const plain = kind === "twitch" ? "Not live right now, or Twitch didn't give the stream" : "YouTube didn't give this video";
+      return detail ? `${plain}: ${detail}` : plain;
+    }
     return t || "It didn't play";
   }
 

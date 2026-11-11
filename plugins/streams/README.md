@@ -51,7 +51,12 @@ video overlays over the game: each in its own, several at once if you like.
   ("Skip intros by themselves"). "⏮ Previous" and "Next ⏭" (in the bar)
   and ⏮ ⏭ (in the player row) play the episode before or after (0.5.0).
   The bar is as see-through as the window (its opacity slider; 0.5.1,
-  meter patch 0056). At an episode's end the next one starts
+  meter patch 0056).
+- A video that doesn't play says why: what yt-dlp or mpv said (meter
+  patch 0057), with a plain hint where one is known (yt-dlp too old, no
+  JavaScript runtime for YouTube: `sudo pacman -S deno`). A video started
+  while the plugins are off (the meter's puzzle button) shows at once
+  (0.5.2). At an episode's end the next one starts
   ("Play the next episode"). Quality: **Original** (the file as it is) or
   your server's conversion to 1080p down to 360p, or sound only. Your
   server is told what plays and how far, so Continue watching and
