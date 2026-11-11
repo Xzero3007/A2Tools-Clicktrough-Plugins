@@ -64,7 +64,7 @@
 
   function offerRow(o) {
       const li = el("li", o.status || "");
-      const icon = el("span", "icon");
+      const icon = el("span", `icon g${o.grade || 0}`, o.picture ? null : (o.name || "·")[0]);
       if (o.picture) {
         const img = el("img");
         img.src = o.picture;

@@ -32,7 +32,12 @@ and extract and what no longer pays.
   At the shop it shows the playing character's skin offers itself, so it
   stays the one window there; the pop-up opens only while the floater is
   off. Walking off closes the pop-up
-  too.
+  too. The offers show the skins' pictures large. At the shop and the
+  closet both windows take the mouse even with the meter locked, so their
+  lists scroll (a wide scrollbar); locked, they stay put (meter patch 0064).
+  Elsewhere a locked floater lets clicks through to the game.
+  When no picture comes from the icon server, the panel's top line says
+  why.
 - **Missing**: every skin you lack (one per closet entry) with its picture,
   grade, slot and the merchant's list price, filterable by kind and grade,
   searchable; above, what the skins still needed for 700 cost: the cheapest

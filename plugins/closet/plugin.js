@@ -169,13 +169,27 @@
   const pictures = new Map(); // icon -> data URL | null
   const waiting = new Map(); // icon -> [img]
   const queue = [];
+  const pictureStats = { ok: 0, failed: 0, error: "" };
   let loading = 0;
   function pump() {
     while (loading < 4 && queue.length) {
       const icon = queue.shift();
       loading++;
-      const get = a2.web && typeof a2.web.image === "function" ? a2.web.image(`${ICONS}Icon_${icon}.png`) : Promise.resolve(null);
-      Promise.resolve(get).catch(() => null).then((data) => {
+      // The icon server has most as .png; a few only as .webp.
+      const one = (ext) => (a2.web && typeof a2.web.image === "function" ? a2.web.image(`${ICONS}Icon_${icon}.${ext}`) : Promise.reject(new Error("this meter can't show pictures")));
+      Promise.resolve()
+        .then(() => one("png"))
+        .catch(() => one("webp"))
+        .then((data) => {
+          if (data) pictureStats.ok++;
+          return data;
+        }, (e) => {
+          pictureStats.failed++;
+          pictureStats.error = String(e?.message || e || "unknown").slice(0, 90);
+          if (!pictureStats.ok) dirty();
+          return null;
+        })
+        .then((data) => {
         loading--;
         pictures.set(icon, typeof data === "string" ? data : null);
         for (const img of waiting.get(icon) || []) if (data) img.src = data;
@@ -275,7 +289,9 @@
   }
   async function openWidget(name) {
     try {
-      await a2.widgets.open(name, sizeOf(name));
+      // At the shop and the closet the window takes the mouse even with the
+      // meter locked, so its list scrolls (it still stays put then).
+      await a2.widgets.open(name, { ...sizeOf(name), unlocked: name === "shop" || here });
       // No lock of its own: the meter's lock is every widget's.
       await a2.widgets.lock(false);
       open[name] = true;
@@ -407,6 +423,8 @@
     $(".goalOf").textContent = n == null ? `of ${L.GOAL} skins for Empty Closet` : n >= L.GOAL ? `of ${L.GOAL}: Empty Closet reached` : `of ${L.GOAL} skins for Empty Closet · ${L.GOAL - n} to go`;
     $(".bar > i").style.width = `${n == null ? 0 : Math.min(100, (n / L.GOAL) * 100)}%`;
     $(".state").textContent = closet ? `Closet as of ${new Date(closetAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Log in with the meter running: the game sends your closet at login.";
+    // No picture came at all: say why, so a screenshot tells.
+    if (!pictureStats.ok && pictureStats.failed) $(".state").textContent += ` · No pictures (${pictureStats.failed} failed: ${pictureStats.error})`;
     for (const b of document.querySelectorAll(".tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === settings.tab));
     $(".merchantView").hidden = settings.tab !== "merchant";
     $(".missingView").hidden = settings.tab !== "missing";
