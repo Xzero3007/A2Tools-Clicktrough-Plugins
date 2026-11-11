@@ -231,7 +231,7 @@ character pages), `a2.web.image(url)` (`web:<host>`, the game's icon server
 and NC's portraits, as a data URL),
 `a2.bossTimers` / `a2.abyssSiege` (`feed:boss-timers`, read only; live
 updates and reporting don't exist in this build), `a2.window.*` (`window`),
-`a2.widgets.*` (`widgets`, `resize` is Clicktrough's). `a2.media.set(state, slot)` (`media`, meter patches 0049 and 0051: what the
+`a2.widgets.*` (`widgets`, `resize` is Clicktrough's; `open(name, { width, height, unlocked: true })` keeps a widget taking the mouse while the meter is locked, so it scrolls but stays put, meter patch 0064). `a2.media.set(state, slot)` (`media`, meter patches 0049 and 0051: what the
 plugin plays, for the meter's player row under its header; `null` when
 nothing plays; a slot per player when one plugin plays two, as Streams'
 `twitch` and `youtube`; Streams and Radio; a state with `playing: false`
