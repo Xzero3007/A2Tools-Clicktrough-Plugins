@@ -249,7 +249,7 @@
           queue.push(icon);
           pump();
         }
-        offers.push({ name: m.skin.name, slot: m.skin.slot, grade: m.skin.grade, status: m.status, price: o.price, discount: o.discount, tab: s.tabName, picture: pictures.get(icon) || null });
+        offers.push({ name: m.skin.name, slot: m.skin.slot, grade: m.skin.grade, status: m.status, price: o.price, discount: o.discount, tab: s.tabName, soldOut: !!o.soldOut, picture: pictures.get(icon) || null });
       }
     }
     offers.sort((x, y) => (x.status === "new" ? 0 : x.status === "unknown" ? 1 : 2) - (y.status === "new" ? 0 : y.status === "unknown" ? 1 : 2) || y.price - x.price);

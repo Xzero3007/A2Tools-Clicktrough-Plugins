@@ -82,7 +82,7 @@
         icon.append(img);
       }
       const text = el("div", "text");
-      text.append(el("div", "name", o.name), el("div", "sub", `${o.slot} · ${o.tab}`));
+      text.append(el("div", "name", o.name), el("div", "sub", `${o.slot} · ${o.tab}${o.soldOut ? " · bought" : ""}`));
       const price = el("div", "price");
       price.append(el("b", null, kinah(o.price)), el("small", null, o.discount ? `−${o.discount}%` : ""));
       li.append(icon, text, price, el("span", `chip ${o.status}`, o.status === "new" ? "New" : o.status === "owned" ? "Owned" : "?"));

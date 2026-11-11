@@ -144,3 +144,16 @@ test("combine plan: lowest grade first, and what to collect", () => {
   assert.deepEqual(plan.now.map((n) => [n.name, n.times]), [["Common", 2], ["Epic", 1]]);
   assert.deepEqual(plan.collect, [{ grade: 2, name: "Rare", more: 3 }]);
 });
+
+test("a stock with a bought offer (left to buy 0) still reads", () => {
+  let got = null;
+  const f = new L.StockFrames((p) => { got = L.stockFrom(p); });
+  for (const e of byCase.stock) {
+    const d = e.event === "decoded:shop-a" ? { ...e.data, e0_qty: 0 } : e.data;
+    f.push(e.event.slice(8), d, WHEN);
+  }
+  f.flush();
+  assert.equal(got.offers.length, 10);
+  assert.equal(got.offers[0].soldOut, true);
+  assert.equal(got.offers[1].soldOut, false);
+});

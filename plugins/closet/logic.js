@@ -110,10 +110,11 @@
       const e = (k) => parts[n][`e${n}_${k}`];
       const paid = PAID[e("disc")];
       const original = e("orig"), price = e("price");
-      if (!(e("offer") > 0) || !(e("item") > 0) || ids.has(e("offer")) || e("qty") !== 1 || e("cur") !== KINA || !paid) return null;
+      if (!(e("offer") > 0) || !(e("item") > 0) || ids.has(e("offer")) || !(e("qty") === 0 || e("qty") === 1) || e("cur") !== KINA || !paid) return null;
       if (!(original > 0 && original <= 1e9) || !(price > 0) || price !== Math.floor((original * paid) / 100)) return null;
       ids.add(e("offer"));
-      offers.push({ offer: e("offer"), item: e("item"), price, original, discount: 100 - paid });
+      // Left to buy: 1, or 0 once bought (the game's Sold Out).
+      offers.push({ offer: e("offer"), item: e("item"), price, original, discount: 100 - paid, soldOut: e("qty") === 0 });
     }
     return { tab: a.tab, tabName: tabName(a.tab), at, refresh: c.refresh, offers };
   }
