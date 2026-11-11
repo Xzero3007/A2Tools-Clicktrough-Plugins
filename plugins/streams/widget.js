@@ -17,12 +17,20 @@
   });
   // The whole picture moves it too.
   document.body.addEventListener("mousedown", (e) => {
-    if (e.button !== 0 || locked || e.target.closest("button, .corner, .bar")) return;
+    if (e.button !== 0 || locked || e.target.closest("button, .corner, .bar, .seekLine")) return;
     e.preventDefault();
     a2.widget.drag().catch(() => {});
   });
   $(".close").addEventListener("click", () => a2.widget.post({ type: "close" }).catch(() => {}));
   $(".pause").addEventListener("click", () => a2.widget.post({ type: "pause" }).catch(() => {}));
+  $(".skip").addEventListener("click", () => a2.widget.post({ type: "skip" }).catch(() => {}));
+  let duration = 0;
+  $(".seekLine").addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    if (e.button !== 0 || locked || !duration) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    a2.widget.post({ type: "seek", to: ((e.clientX - r.left) / r.width) * duration }).catch(() => {});
+  });
 
   const canResize = typeof a2.widget.resize === "function";
   document.body.classList.toggle("noResize", !canResize);
@@ -52,6 +60,12 @@
     $(".title").textContent = d.title || "";
     $(".sub").textContent = d.sub || "";
     paused = /^Paused$/.test(d.sub || "");
+    // Jellyfin's: a part to skip, and where it is.
+    $(".skip").hidden = !d.skip || !d.playing;
+    $(".skip").textContent = d.skip || "";
+    duration = Number.isFinite(d.duration) ? d.duration : 0;
+    $(".seekLine").hidden = !duration || !d.playing;
+    if (duration) $(".seekLine span").style.width = `${Math.min(100, Math.max(0, ((d.position || 0) / duration) * 100))}%`;
     $(".pause").textContent = paused ? "▶" : "❚❚";
     if (d.state === "error") {
       $(".idleTitle").textContent = d.title || "Didn't play";

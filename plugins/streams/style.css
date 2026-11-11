@@ -83,3 +83,41 @@ h3:first-child { margin-top: 2px; }
 .opacity { width: 70px; }
 .opacityValue { min-width: 32px; font-variant-numeric: tabular-nums; }
 .pause, .mute { min-width: 32px; }
+
+/* Jellyfin: the sign-in, the options, the way back, posters 2:3 and the
+   progress under a picture. */
+.jfLogin { display: flex; flex-direction: column; gap: 8px; max-width: 380px; margin: 6px 2px; }
+.jfLogin label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: rgba(255,255,255,.7); }
+.jfLogin input, .jfMain input[type=text] { background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 5px 8px; color: #fff; }
+.jfLoginRow { display: flex; align-items: center; gap: 10px; }
+.jfLoginState.error { color: #ff8a7a; }
+.jfOptions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 2px 6px; }
+.jfOptions label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.jfOptions input { accent-color: var(--a2-accent, #e0a526); margin: 0; }
+.jfAccount { margin-left: auto; }
+.crumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 2px 4px; font-size: 12px; }
+.crumbs:empty { display: none; }
+.crumbs button { padding: 1px 8px; }
+.crumbs .here { color: #fff; font-weight: 600; }
+.grid.posters { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.thumb.poster { aspect-ratio: 2 / 3; }
+.thumb .fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 8px; text-align: center;
+  font-size: 12px; color: rgba(255,255,255,.45); }
+.progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0,0,0,.55); }
+.progress > span { display: block; height: 100%; background: var(--a2-accent, #e0a526); }
+.badge.done { top: 5px; bottom: auto; right: 5px; background: rgba(0,0,0,.78); color: var(--a2-accent, #e0a526); font-weight: 700; }
+.watched { position: absolute; top: 8px; left: 8px; z-index: 2; background: rgba(0,0,0,.6); border: 0; border-radius: 50%;
+  width: 26px; height: 26px; padding: 0; font-size: 13px; line-height: 26px; color: rgba(255,255,255,.75); }
+.card:not(:hover) .watched { display: none; }
+.lib { display: flex; flex-direction: column; justify-content: center; min-height: 56px; padding: 8px 12px; border-radius: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); cursor: pointer; }
+.lib:hover { background: rgba(255,255,255,.1); }
+.more { margin: 10px auto 0; display: block; }
+/* The player's second row for Jellyfin: where it is, the tracks, a skip. */
+.seekRow { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.seekRow button { white-space: nowrap; flex: none; }
+.seek { flex: 1 1 100px; min-width: 80px; }
+.time, .total { font-size: 12px; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.7); min-width: 38px; }
+.total { text-align: right; }
+.skipBtn { border-color: var(--a2-accent, #e0a526); color: var(--a2-accent, #e0a526); font-weight: 600; }
+.audioTrack, .subTrack { max-width: 130px; }

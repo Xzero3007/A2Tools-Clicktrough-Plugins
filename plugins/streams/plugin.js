@@ -1,19 +1,31 @@
 // The Streams plugin's window: Twitch's live channels (your favourites,
 // AION 2's, all, a search) and YouTube's videos (your FreeTube
-// subscriptions and saved channels, a search). A click plays one in the
-// video overlay (the widget "video"): the meter's mpv draws it there, and
-// the meter's lock makes it click-through. Favourites and settings are
-// kept in the plugin's storage on this computer.
+// subscriptions and saved channels, a search), and the player's own
+// Jellyfin server in the home network (Continue watching, Next up, the
+// libraries, a search). A click plays one in its video overlay: the meter's
+// mpv draws it there, and the meter's lock makes it click-through.
+// Favourites and settings are kept in the plugin's storage on this
+// computer; the Jellyfin server's address and key the meter keeps itself.
 (() => {
   const L = globalThis.StreamLists;
+  const J = globalThis.StreamJellyfin;
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-    const SIZES = { s: [320, 180], m: [480, 270], l: [640, 360], xl: [800, 450] };
+  const SIZES = { s: [320, 180], m: [480, 270], l: [640, 360], xl: [800, 450] };
+  // The qualities each kind offers ("original": Jellyfin's file as it is).
+  const QUALITIES = {
+    twitch: ["1080", "720", "480", "360", "audio"],
+    youtube: ["1080", "720", "480", "360", "audio"],
+    jellyfin: ["original", "1080", "720", "480", "360", "audio"],
+  };
 
   const settings = {
     tab: "twitch",
     twitchView: "aion",
     youtubeView: "subs",
+    jellyfinView: "home",
+    // Jellyfin: skip intros by themselves, play the next episode.
+    jellyfin: { autoSkip: false, autoNext: true },
     // Each kind's player: quality, volume, mute, opacity (percent, 20 to
     // 100), size, and [w, h] after a corner was dragged.
     slots: {},
@@ -21,7 +33,9 @@
     useFreeTube: true,
   };
   const SLOT_DEFAULTS = { quality: "1080", volume: 70, mute: false, opacity: 100, size: "m", overlaySize: null };
-  for (const k of ["twitch", "youtube"]) settings.slots[k] = { ...SLOT_DEFAULTS };
+  // Jellyfin plays the file as it is unless asked otherwise.
+  const slotDefaults = (kind) => ({ ...SLOT_DEFAULTS, ...(kind === "jellyfin" ? { quality: "original" } : {}) });
+  for (const k of ["twitch", "youtube", "jellyfin"]) settings.slots[k] = slotDefaults(k);
   // Twitch logins; YouTube channels { id, name, thumbnail }.
   const favs = { twitch: [], youtube: [] };
   // Per kind: what plays ({ kind, id, title, sub }), the player's state,
@@ -29,6 +43,7 @@
   const slots = {
     twitch: { widget: "video", playing: null, player: { state: "", title: "", pause: false, buffering: false, error: "" }, open: false },
     youtube: { widget: "youtube", playing: null, player: { state: "", title: "", pause: false, buffering: false, error: "" }, open: false },
+    jellyfin: { widget: "jellyfin", playing: null, player: { state: "", title: "", pause: false, buffering: false, error: "" }, open: false },
   };
   let focus = "twitch";
 
@@ -44,7 +59,7 @@
       const { url, img } = waiting.shift();
       if (!img.isConnected) continue;
       loading++;
-      const got = pictures.get(url) || a2.web.image(url);
+      const got = pictures.get(url) || fetchPicture(url);
       pictures.set(url, got);
       got.then((data) => { img.src = data; img.classList.remove("wait"); })
         .catch(() => pictures.delete(url))
@@ -59,6 +74,24 @@
     }
     pump();
   }, { rootMargin: "300px" });
+  // "jf:<item>:<type>:<height>": a picture of the Jellyfin server, through the meter.
+  function fetchPicture(url) {
+    if (url.startsWith("jf:")) {
+      const [, item, type, height] = url.split(":");
+      return a2.video.jellyfin("image", { item, type, height: Number(height) });
+    }
+    return a2.web.image(url);
+  }
+  function jfPicture(pic, height) {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.className = "wait";
+    if (pic) {
+      img.dataset.src = `jf:${pic.item}:${pic.type}:${height}`;
+      seen.observe(img);
+    }
+    return img;
+  }
   function picture(url, cls = "") {
     const img = document.createElement("img");
     img.alt = "";
@@ -396,6 +429,7 @@
     const kind = what.kind;
     const x = slot(kind);
     const c = ss(kind);
+    if (kind === "jellyfin" && x.playing) await jfStopped();
     x.playing = what;
     x.player = { ...idle(), state: "loading", title: what.title };
     focus = kind;
@@ -406,10 +440,13 @@
       tellWidget(kind);
       // Before it plays: the meter keeps it for the widget's video.
       await a2.video.control(x.widget, "opacity", c.opacity / 100).catch(() => {});
+      const extra = kind === "jellyfin" ? await jfPrepare(what) : {};
+      if (x.playing !== what) return;
       await a2.video.play(x.widget, {
         [kind]: what.id,
         quality: c.quality,
         volume: c.mute ? 0 : c.volume,
+        ...extra,
       });
       if (c.mute) a2.video.control(x.widget, "mute", true).catch(() => {});
       settings.last[kind] = what;
@@ -424,6 +461,7 @@
 
   async function stop(kind) {
     const x = slot(kind);
+    if (kind === "jellyfin") await jfStopped();
     await a2.video.control(x.widget, "stop").catch(() => {});
     x.playing = null;
     x.player = idle();
@@ -437,6 +475,11 @@
     const kind = kindOfWidget(v?.widget);
     if (!kind || !slot(kind).playing) return;
     const p = slot(kind).player;
+    // mpv ending a file with an error in its last seconds (no sound device,
+    // a cut-off last frame) ended it all the same.
+    if (kind === "jellyfin" && v.state === "error" && p.duration && (p.position || 0) >= p.duration - 3) {
+      v = { ...v, state: "ended", error: undefined };
+    }
     if (v.state) p.state = v.state;
     if (v.state === "loading" || v.state === "playing") p.error = "";
     if (v.error) p.error = v.error;
@@ -444,6 +487,14 @@
     if (typeof v.pause === "boolean") p.pause = v.pause;
     if (typeof v.buffering === "boolean") p.buffering = v.buffering;
     if (typeof v.mute === "boolean") ss(kind).mute = v.mute;
+    if (Number.isFinite(v.position)) p.position = v.position;
+    if (Number.isFinite(v.duration)) p.duration = v.duration;
+    if (kind === "jellyfin") jfHeard(v);
+    // The position alone: only the time moves, nothing else is drawn again.
+    if (Object.keys(v).every((k) => k === "position" || k === "widget")) {
+      if (kind === "jellyfin") { drawTime(); tellWidget(kind); }
+      return;
+    }
     drawPlayer();
     tellWidget(kind);
   });
@@ -453,8 +504,10 @@
     if (player.state === "error") return humanError(player.error, kind);
     if (player.state === "loading") return "Starting …";
     if (player.state === "ended") return "Ended";
+    if (player.state === "next") return "The next episode starts in a moment";
     if (player.buffering) return "Loading …";
     if (player.pause) return "Paused";
+    if (kind === "jellyfin") return `Jellyfin${playing?.sub ? ` · ${playing.sub}` : ""}`;
     return kind === "twitch" ? `Twitch · ${playing?.id || ""}` : `YouTube${playing?.sub ? ` · ${playing.sub}` : ""}`;
   }
 
@@ -463,6 +516,7 @@
     const t = String(e || "");
     if (/yt-dlp is not installed|youtube-dl|ytdl/i.test(t) && /not|fail|found/i.test(t)) return "yt-dlp is missing: sudo pacman -S yt-dlp";
     if (/libmpv|mpv is not installed/i.test(t)) return "mpv is missing: sudo pacman -S mpv";
+    if (kind === "jellyfin" && /loading failed|unrecognized file format|401|403/i.test(t)) return "Your Jellyfin server didn't give this video (try another quality, or sign in again)";
     if (/loading failed|unrecognized file format/i.test(t)) return kind === "twitch" ? "Not live right now, or Twitch didn't give the stream" : "YouTube didn't give this video";
     return t || "It didn't play";
   }
@@ -476,6 +530,10 @@
       state: x.player.state,
       playing: !!x.playing,
       failed: x.player.state === "error",
+      // Jellyfin: where it is, and a part to skip.
+      position: kind === "jellyfin" ? x.player.position || 0 : null,
+      duration: kind === "jellyfin" ? x.player.duration || 0 : null,
+      skip: kind === "jellyfin" ? J.skipLabel(jf.segment) : "",
     }).catch(() => {});
   }
 
@@ -484,8 +542,9 @@
   function tellMeter(kind) {
     const { playing, player } = slot(kind);
     const c = ss(kind);
+    const jelly = kind === "jellyfin";
     const state = playing ? {
-      icon: kind === "twitch" ? "tv" : "youtube",
+      icon: kind === "twitch" ? "tv" : jelly ? "clapperboard" : "youtube",
       title: player.title || playing.title || "",
       sub: stateText(kind),
       paused: !!player.pause,
@@ -493,7 +552,10 @@
       volume: c.volume / 100,
       opacity: c.opacity / 100,
       quality: c.quality,
-      controls: ["pause", "mute", "volume", "opacity", "quality", "stop"],
+      controls: jelly
+        ? ["pause", "rewind", "forward", ...(jf.segment ? ["skip"] : []), "mute", "volume", "opacity", "quality", "stop"]
+        : ["pause", "mute", "volume", "opacity", "quality", "stop"],
+      ...(jelly ? { qualities: QUALITIES.jellyfin, skip: J.skipLabel(jf.segment) } : {}),
     } : null;
     const key = JSON.stringify(state);
     if (key === meterSaid[kind]) return;
@@ -509,9 +571,12 @@
     const kind = shown();
     const { playing, player } = slot(kind);
     const c = ss(kind);
-    const both = Object.values(slots).every((x) => x.playing);
-    $(".slotSwitch").hidden = !both;
-    for (const b of $$(".slotSwitch button")) b.setAttribute("aria-pressed", String(b.dataset.slot === kind));
+    const several = Object.values(slots).filter((x) => x.playing).length > 1;
+    $(".slotSwitch").hidden = !several;
+    for (const b of $$(".slotSwitch button")) {
+      b.hidden = !slots[b.dataset.slot]?.playing;
+      b.setAttribute("aria-pressed", String(b.dataset.slot === kind));
+    }
     bar.classList.toggle("on", player.state === "playing" && !player.pause);
     bar.classList.toggle("failed", player.state === "error");
     $(".nowTitle").textContent = player.title || playing?.title || "";
@@ -521,7 +586,9 @@
     if (document.activeElement !== $(".volume")) $(".volume").value = String(c.volume);
     if (document.activeElement !== $(".opacity")) $(".opacity").value = String(c.opacity);
     $(".opacityValue").textContent = `${c.opacity}%`;
+    for (const o of $(".quality").options) o.hidden = o.disabled = !QUALITIES[kind].includes(o.value);
     $(".quality").value = c.quality;
+    drawJfBar(kind);
     const size = Array.isArray(c.overlaySize) ? "" : c.size;
     for (const b of $$(".sizes button")) b.setAttribute("aria-pressed", String(b.dataset.size === size));
   }
@@ -551,10 +618,13 @@
     drawPlayer();
   }
   function setQuality(kind, q) {
-    if (!["1080", "720", "480", "360", "audio"].includes(q) || ss(kind).quality === q) return;
+    if (!QUALITIES[kind].includes(q) || ss(kind).quality === q) return;
     ss(kind).quality = q;
     save();
-    if (slot(kind).playing) play(slot(kind).playing);
+    const playing = slot(kind).playing;
+    // Jellyfin goes on where it was.
+    if (playing && kind === "jellyfin") play({ ...playing, start: slot(kind).player.position || playing.start || 0 });
+    else if (playing) play(playing);
     else drawPlayer();
   }
   $(".pause").addEventListener("click", () => togglePause(shown()));
@@ -577,6 +647,9 @@
     else if (action === "volume" && Number.isFinite(value)) { setVolume(kind, value * 100); saveLater(); }
     else if (action === "opacity" && Number.isFinite(value)) { setOpacity(kind, value * 100); saveLater(); }
     else if (action === "quality" && typeof value === "string") setQuality(kind, value);
+    else if (action === "rewind") a2.video.control(slot(kind).widget, "skip", -10).catch(() => {});
+    else if (action === "forward") a2.video.control(slot(kind).widget, "skip", 30).catch(() => {});
+    else if (action === "skip" && kind === "jellyfin") jfSkip();
     else if (action === "stop") stop(kind);
   });
   for (const b of $$(".sizes button")) {
@@ -597,6 +670,8 @@
     if (!kind || !data) return;
     if (data.type === "close") stop(kind);
     else if (data.type === "pause") togglePause(kind);
+    else if (data.type === "skip" && kind === "jellyfin") jfSkip();
+    else if (data.type === "seek" && Number.isFinite(data.to)) a2.video.control(slot(kind).widget, "seek", data.to).catch(() => {});
     else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
       ss(kind).overlaySize = [Math.round(data.width), Math.round(data.height)];
       save();
@@ -625,10 +700,484 @@
     if (was === true && !gameRunning) for (const kind of Object.keys(slots)) if (slot(kind).playing) stop(kind);
   });
 
+  // ---------- Jellyfin ----------
+  // The player's own server, in the home network only: the meter signs in
+  // and keeps the key (a2.video.jellyfin); the plugin asks it for the lists
+  // and pictures, and tells the server what plays and how far, so Continue
+  // watching and "watched" are right in every Jellyfin app.
+  const jf = {
+    account: undefined, // undefined: not asked yet; null: not signed in
+    libs: [], resume: [], nextUp: [], latest: [], results: [], items: [], total: 0,
+    // Where the Libraries view is: the library, then a show, then a season.
+    path: [],
+    query: "", busy: false, error: "", at: 0,
+    // What plays: its tracks, its parts to skip, the server's play session.
+    tracks: null, segments: [], segment: null, skipped: new Set(), session: "", source: "", method: "DirectPlay",
+    started: false, reportedAt: 0, lastPos: 0, nextTimer: 0, seeking: false, tracksKey: "",
+  };
+  const jfCall = (action, arg) => a2.video.jellyfin(action, arg);
+  const LIST_Q = { Fields: J.FIELDS, EnableImageTypes: J.IMAGE_TYPES, ImageTypeLimit: 1, EnableUserData: true };
+  const jfError = (e) => {
+    const t = String(e?.message || e || "");
+    if (/401/.test(t)) return "Your server didn't take the sign-in any more: sign out and in again.";
+    if (/could not connect|no answer in time/.test(t)) return `Your Jellyfin server doesn't answer (${t}). Is it on, and this PC in the same network?`;
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  };
+  // Newer servers' paths first, then older ones'.
+  async function jfGet(paths, query) {
+    let last;
+    for (const path of paths) {
+      try {
+        return await jfCall("get", { path, query });
+      } catch (e) {
+        last = e;
+        if (!/40[45]/.test(String(e?.message || e))) throw e;
+      }
+    }
+    throw last;
+  }
+
+  async function jfLibs(force) {
+    if (jf.libs.length && !force) return;
+    jf.libs = J.libraries(await jfGet(["/UserViews", "/Users/{user}/Views"], { userId: jf.account.userId }));
+  }
+
+  // The folder at the end of the path: a library's films or shows, a show's
+  // seasons, a season's episodes, a collection's items; `more` adds the next page.
+  async function jfLoadFolder(more) {
+    const at = jf.path[jf.path.length - 1];
+    const uid = jf.account.userId;
+    const start = more ? jf.items.length : 0;
+    let answer;
+    if (at.type === "Series") {
+      answer = await jfGet([`/Shows/${at.id}/Seasons`], { userId: uid, ...LIST_Q });
+    } else if (at.type === "Season") {
+      answer = await jfGet([`/Shows/${at.seriesId}/Episodes`], { userId: uid, seasonId: at.id, ...LIST_Q });
+    } else {
+      const kind = at.kind || "";
+      const types = kind === "movies" ? "Movie" : kind === "tvshows" ? "Series" : "";
+      answer = await jfGet(["/Items", "/Users/{user}/Items"], {
+        userId: uid, ParentId: at.id, SortBy: "SortName", SortOrder: "Ascending", StartIndex: start, Limit: 120,
+        ...(types ? { IncludeItemTypes: types, Recursive: true } : {}), ...LIST_Q,
+      });
+    }
+    const got = J.items(answer);
+    jf.items = more ? jf.items.concat(got) : got;
+    jf.total = Number.isFinite(answer?.TotalRecordCount) ? answer.TotalRecordCount : jf.items.length;
+  }
+
+  let jfRun = 0;
+  async function loadJellyfin(force, more) {
+    const run = ++jfRun;
+    if (jf.account === undefined || force) {
+      try {
+        jf.account = await jfCall("status");
+      } catch (e) {
+        jf.account = null;
+        jf.error = jfError(e);
+      }
+    }
+    if (!jf.account) {
+      redraw();
+      return;
+    }
+    const view = settings.jellyfinView;
+    const uid = jf.account.userId;
+    jf.busy = true;
+    jf.error = "";
+    redraw();
+    try {
+      if (view === "home") {
+        const [resume, next] = await Promise.all([
+          jfGet(["/UserItems/Resume", "/Users/{user}/Items/Resume"], { userId: uid, Limit: 24, MediaTypes: "Video", ...LIST_Q }).catch(() => null),
+          jfGet(["/Shows/NextUp"], { userId: uid, Limit: 24, ...LIST_Q }).catch(() => null),
+          jfLibs(force),
+        ]);
+        jf.resume = J.items(resume);
+        jf.nextUp = J.items(next);
+        jf.latest = await Promise.all(jf.libs.slice(0, 4).map((lib) =>
+          jfGet(["/Items/Latest", "/Users/{user}/Items/Latest"], { userId: uid, ParentId: lib.id, Limit: 18, ...LIST_Q })
+            .then((a) => ({ lib, items: J.items(a) }))
+            .catch(() => ({ lib, items: [] }))));
+      } else if (view === "library") {
+        await jfLibs(force);
+        if (jf.path.length) await jfLoadFolder(more);
+      } else if (view === "search" && jf.query) {
+        jf.results = J.items(await jfGet(["/Items", "/Users/{user}/Items"], {
+          userId: uid, searchTerm: jf.query, IncludeItemTypes: "Movie,Series,Episode", Recursive: true, Limit: 60, ...LIST_Q,
+        }));
+      }
+      jf.at = Date.now();
+    } catch (e) {
+      jf.error = jfError(e);
+    }
+    if (run !== jfRun) return;
+    jf.busy = false;
+    if (settings.jellyfinView === view) redraw();
+  }
+
+  function jfOpen(it) {
+    const at = jf.path[jf.path.length - 1];
+    jf.path.push({ id: it.id, name: it.name, type: it.type, seriesId: it.seriesId || (at?.type === "Series" ? at.id : ""), kind: "" });
+    if (settings.jellyfinView !== "library") settings.jellyfinView = "library";
+    jf.items = [];
+    save();
+    loadJellyfin(false);
+    document.scrollingElement.scrollTop = 0;
+  }
+
+  function jfTitle(it) {
+    return it.type === "Episode" ? [it.series, it.code, it.name].filter(Boolean).join(" · ") : it.name;
+  }
+  function jfPlay(it, fromStart) {
+    play({ kind: "jellyfin", id: it.id, title: jfTitle(it), sub: it.type === "Episode" ? it.series : "", item: it, start: fromStart ? 0 : it.position || 0 });
+  }
+
+  function jfCard(it, wide) {
+    const card = el("div", "card");
+    card.classList.toggle("playing", slots.jellyfin.playing?.id === it.id);
+    const thumb = el("div", wide ? "thumb" : "thumb poster");
+    thumb.append(el("span", "fallback", it.name));
+    thumb.append(jfPicture(wide ? it.wide || it.poster : it.poster || it.wide, wide ? 240 : 330));
+    if (it.played) thumb.append(el("span", "badge done", "✓"));
+    else if (it.unplayed) thumb.append(el("span", "badge done", String(it.unplayed)));
+    if (it.playable && it.runtime) thumb.append(el("span", "badge right", it.position ? `${L.length(it.runtime - it.position)} left` : L.length(it.runtime)));
+    if (it.percent > 0 && !it.played) {
+      const bar = el("div", "progress");
+      const fill = el("span");
+      fill.style.width = `${it.percent}%`;
+      bar.append(fill);
+      thumb.append(bar);
+    }
+    card.append(thumb);
+    if (it.playable || it.type === "Series" || it.type === "Season") {
+      const w = el("button", "watched", "✓");
+      w.type = "button";
+      w.title = it.played ? "Mark as not watched" : "Mark as watched";
+      w.addEventListener("click", (e) => {
+        e.stopPropagation();
+        jfCall("played", { item: it.id, on: !it.played }).then(() => loadJellyfin(false)).catch((err) => { jf.error = jfError(err); status("jellyfin"); });
+      });
+      card.append(w);
+    }
+    const words = el("div", "words");
+    const inSeason = jf.path[jf.path.length - 1]?.type === "Season" && settings.jellyfinView === "library";
+    words.append(el("div", "title", inSeason && it.code ? `${it.code.replace(/^S\d+ /, "")} · ${it.name}` : it.name), el("div", "sub", inSeason ? "" : it.sub));
+    const meta = el("div", "meta");
+    meta.append(words);
+    card.append(meta);
+    card.title = [jfTitle(it), it.playable ? (it.position ? `Click: go on from ${J.clock(it.position)} · right-click: from the start` : "Click to play") : "Click to open"].join("\n");
+    card.addEventListener("click", () => (it.playable ? jfPlay(it, false) : it.openable ? jfOpen(it) : null));
+    card.addEventListener("contextmenu", (e) => {
+      if (!it.playable) return;
+      e.preventDefault();
+      jfPlay(it, true);
+    });
+    return card;
+  }
+
+  function jfGrid(box, list, wide, heading) {
+    if (!list.length) return;
+    if (heading) box.append(el("h3", "", heading));
+    const grid = el("div", wide ? "grid" : "grid posters");
+    for (const it of list) grid.append(jfCard(it, wide));
+    box.append(grid);
+  }
+
+  function drawJellyfin(box) {
+    const signed = !!jf.account;
+    $(".jfLogin").hidden = signed || jf.account === undefined;
+    $(".jfMain").hidden = !signed;
+    if (!signed) return;
+    $(".jfAccount").textContent = `${jf.account.user} · ${jf.account.serverName || jf.account.server}`;
+    $(".jfAccount").title = jf.account.server;
+    $(".jfAutoSkip").checked = !!settings.jellyfin.autoSkip;
+    $(".jfAutoNext").checked = !!settings.jellyfin.autoNext;
+    const view = settings.jellyfinView;
+    const crumbs = $(".crumbs");
+    crumbs.replaceChildren();
+    if (view === "library" && jf.path.length) {
+      const back = (n, name) => {
+        const b = el("button", "", name);
+        b.type = "button";
+        b.addEventListener("click", () => { jf.path = jf.path.slice(0, n); jf.items = []; loadJellyfin(false); });
+        return b;
+      };
+      crumbs.append(back(0, "Libraries"));
+      jf.path.forEach((p, i) => {
+        crumbs.append(el("span", "muted", "›"));
+        crumbs.append(i === jf.path.length - 1 ? el("span", "here", p.name) : back(i + 1, p.name));
+      });
+    }
+    if (view === "home") {
+      jfGrid(box, jf.resume, true, "Continue watching");
+      jfGrid(box, jf.nextUp, true, "Next up");
+      for (const { lib, items } of jf.latest) jfGrid(box, items, false, `New in ${lib.name}`);
+      if (!jf.busy && !jf.error && !jf.resume.length && !jf.nextUp.length && !jf.latest.some((l) => l.items.length)) {
+        box.append(el("div", "empty", "Nothing here yet. Your libraries are under Libraries."));
+      }
+    } else if (view === "library") {
+      if (!jf.path.length) {
+        const grid = el("div", "grid");
+        for (const lib of jf.libs) {
+          const tile = el("div", "lib");
+          tile.append(el("div", "title", lib.name), el("div", "sub", { movies: "Films", tvshows: "Shows", homevideos: "Videos", musicvideos: "Music videos" }[lib.kind] || "Folder"));
+          tile.addEventListener("click", () => { jf.path = [{ id: lib.id, name: lib.name, type: "lib", kind: lib.kind }]; jf.items = []; loadJellyfin(false); });
+          grid.append(tile);
+        }
+        box.append(grid);
+        if (!jf.libs.length && !jf.busy && !jf.error) box.append(el("div", "empty", "No libraries for this user."));
+      } else {
+        const at = jf.path[jf.path.length - 1];
+        const wide = at.type === "Season" || jf.items.every((i) => i.type === "Episode" || i.type === "Video");
+        jfGrid(box, jf.items, wide && jf.items.length > 0, "");
+        if (!jf.items.length && !jf.busy && !jf.error) box.append(el("div", "empty", "Nothing in here."));
+        if (jf.items.length < jf.total && at.type !== "Series" && at.type !== "Season") {
+          const more = el("button", "more", `More (${jf.total - jf.items.length})`);
+          more.type = "button";
+          more.addEventListener("click", () => loadJellyfin(false, true));
+          box.append(more);
+        }
+      }
+    } else {
+      const eps = jf.results.filter((i) => i.type === "Episode");
+      jfGrid(box, jf.results.filter((i) => i.type !== "Episode"), false, eps.length ? "Films and shows" : "");
+      jfGrid(box, eps, true, "Episodes");
+      if (!jf.results.length && !jf.busy && !jf.error) box.append(el("div", "empty", "Nothing found."));
+    }
+  }
+
+  $(".jfLogin").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const state = $(".jfLoginState");
+    state.classList.remove("error");
+    state.textContent = "Signing in …";
+    try {
+      jf.account = await jfCall("login", { server: f.server.value, user: f.user.value, password: f.password.value });
+      f.password.value = "";
+      state.textContent = "";
+      jf.libs = [];
+      settings.jellyfinView = "home";
+      save();
+      loadJellyfin(false);
+    } catch (err) {
+      state.classList.add("error");
+      state.textContent = jfError(err);
+    }
+  });
+  $(".jfLogout").addEventListener("click", async () => {
+    if (slots.jellyfin.playing) await stop("jellyfin");
+    await jfCall("logout").catch(() => {});
+    Object.assign(jf, { account: null, libs: [], resume: [], nextUp: [], latest: [], results: [], items: [], path: [] });
+    redraw();
+  });
+  $(".jfAutoSkip").addEventListener("change", (e) => { settings.jellyfin.autoSkip = e.target.checked; save(); });
+  $(".jfAutoNext").addEventListener("change", (e) => { settings.jellyfin.autoNext = e.target.checked; save(); });
+
+  // ----- playing on the server -----
+  const jfId = (s) => String(s || "").replace(/[^A-Za-z0-9-]/g, "").slice(0, 64);
+
+  // Before it plays: the server's file and play session, the tracks the
+  // user's settings pick, and (in the background) the parts to skip.
+  async function jfPrepare(what) {
+    clearTimeout(jf.nextTimer);
+    Object.assign(jf, { tracks: null, segments: [], segment: null, skipped: new Set(), started: false, lastPos: what.start || 0, reportedAt: 0, tracksKey: "" });
+    let info = null;
+    try {
+      info = await jfCall("playbackInfo", { item: what.id });
+    } catch {}
+    const src = Array.isArray(info?.MediaSources) ? info.MediaSources[0] : null;
+    jf.source = jfId(src?.Id) || what.id;
+    jf.session = jfId(info?.PlaySessionId);
+    jf.tracks = src ? J.tracks(src) : null;
+    if (jf.tracks && Number.isInteger(what.audioIndex)) jf.tracks.audioIndex = what.audioIndex;
+    if (jf.tracks && Number.isInteger(what.subIndex)) jf.tracks.subIndex = what.subIndex;
+    const q = ss("jellyfin").quality;
+    jf.method = q === "original" || q === "audio" ? "DirectPlay" : "Transcode";
+    jfSegments(what.id);
+    return {
+      start: what.start || 0,
+      title: what.title,
+      source: jf.source,
+      session: jf.session,
+      ...(jf.method === "Transcode" && Number.isInteger(jf.tracks?.audioIndex) ? { audio: jf.tracks.audioIndex } : {}),
+    };
+  }
+
+  // Media Segments (Jellyfin 10.10 and newer), else the Intro Skipper plugin's own.
+  async function jfSegments(id) {
+    const tries = [
+      () => jfCall("get", { path: `/MediaSegments/${id}` }),
+      () => jfCall("get", { path: `/Episode/${id}/IntroSkipperSegments` }),
+      () => jfCall("get", { path: `/Episode/${id}/IntroTimestamps/v1` }).then((a) => ({ Introduction: a })),
+    ];
+    for (const t of tries) {
+      let segs = [];
+      try { segs = J.segments(await t()); } catch {}
+      if (segs.length) {
+        if (slots.jellyfin.playing?.id === id) jf.segments = segs;
+        return;
+      }
+    }
+  }
+
+  function jfReport(kind) {
+    const what = slots.jellyfin.playing;
+    if (!what) return Promise.resolve();
+    jf.reportedAt = Date.now();
+    return jfCall("report", {
+      kind, item: what.id, source: jf.source, session: jf.session, position: jf.lastPos,
+      paused: !!slots.jellyfin.player.pause, muted: !!ss("jellyfin").mute, method: jf.method,
+    }).catch(() => {});
+  }
+  // Stopped: the server keeps where it was (or marks it watched near the end).
+  async function jfStopped() {
+    clearTimeout(jf.nextTimer);
+    if (!slots.jellyfin.playing || !jf.started) return;
+    jf.started = false;
+    await jfReport("stopped");
+    if (settings.tab === "jellyfin" && settings.jellyfinView !== "search") setTimeout(() => loadJellyfin(false), 800);
+  }
+  window.addEventListener("pagehide", () => { if (jf.started) jfReport("stopped"); });
+
+  function jfSkip() {
+    const seg = jf.segment;
+    if (!seg) return;
+    jf.skipped.add(seg);
+    jf.segment = null;
+    a2.video.control(slots.jellyfin.widget, "seek", seg.end).catch(() => {});
+    drawPlayer();
+    tellWidget("jellyfin");
+  }
+
+  function jfSubApply() {
+    const t = jf.tracks;
+    const what = slots.jellyfin.playing;
+    if (!t || !what) return;
+    const w = slots.jellyfin.widget;
+    const s = t.subs.find((x) => x.index === t.subIndex);
+    if (!s) a2.video.control(w, "subtitle", "no").catch(() => {});
+    else if (!s.external && jf.method === "DirectPlay") a2.video.control(w, "subtitle", s.ord).catch(() => {});
+    else if (s.format) a2.video.control(w, "subtitleFile", { item: what.id, source: jf.source, index: s.index, format: s.format }).catch(() => {});
+  }
+  function jfTracksApply() {
+    const t = jf.tracks;
+    if (!t) return;
+    if (jf.method === "DirectPlay") {
+      const a = t.audio.find((x) => x.index === t.audioIndex);
+      if (a) a2.video.control(slots.jellyfin.widget, "audio", a.ord).catch(() => {});
+    }
+    jfSubApply();
+  }
+
+  async function jfEnded() {
+    const what = slots.jellyfin.playing;
+    jf.lastPos = slots.jellyfin.player.duration || jf.lastPos;
+    await jfStopped();
+    if (!settings.jellyfin.autoNext || what?.item?.type !== "Episode" || !what.item.seriesId || !jf.account) return;
+    try {
+      const a = await jfGet([`/Shows/${what.item.seriesId}/Episodes`], { userId: jf.account.userId, startItemId: what.id, Limit: 2, ...LIST_Q });
+      const next = J.items(a).find((e) => e.id !== what.id);
+      if (!next || slots.jellyfin.playing !== what) return;
+      slots.jellyfin.player.state = "next";
+      slots.jellyfin.player.title = `Next: ${jfTitle(next)}`;
+      drawPlayer();
+      tellWidget("jellyfin");
+      jf.nextTimer = setTimeout(() => { if (slots.jellyfin.playing === what) jfPlay(next, true); }, 4000);
+    } catch {}
+  }
+
+  // What mpv says, for the server and the parts to skip.
+  function jfHeard(v) {
+    if (!slots.jellyfin.playing) return;
+    if (v.state === "playing" && !jf.started) {
+      jf.started = true;
+      jfTracksApply();
+      jfReport("start");
+    }
+    if (typeof v.pause === "boolean" && jf.started) jfReport("progress");
+    if (Number.isFinite(v.position)) {
+      jf.lastPos = v.position;
+      const seg = J.segmentAt(jf.segments, v.position);
+      if (seg !== jf.segment) {
+        jf.segment = seg;
+        if (seg && settings.jellyfin.autoSkip && !jf.skipped.has(seg)) jfSkip();
+        else { drawPlayer(); tellWidget("jellyfin"); }
+      }
+      if (jf.started && Date.now() - jf.reportedAt > 10000) jfReport("progress");
+    }
+    if (v.state === "ended") jfEnded();
+  }
+
+  // The bar's second row while Jellyfin shows: where it is, skip, the tracks.
+  function drawJfBar(kind) {
+    const on = kind === "jellyfin" && !!slots.jellyfin.playing;
+    $(".seekRow").hidden = !on;
+    if (!on) return;
+    const sk = $(".skipBtn");
+    sk.hidden = !jf.segment;
+    sk.textContent = J.skipLabel(jf.segment);
+    const t = jf.tracks;
+    const key = JSON.stringify([slots.jellyfin.playing.id, t?.audio, t?.subs]);
+    if (key !== jf.tracksKey) {
+      jf.tracksKey = key;
+      const a = $(".audioTrack");
+      a.replaceChildren(...(t?.audio || []).map((x) => new Option(x.label, String(x.index))));
+      a.hidden = !t || t.audio.length < 2;
+      const s = $(".subTrack");
+      const subs = (t?.subs || []).filter((x) => x.format || (!x.external && jf.method === "DirectPlay"));
+      s.replaceChildren(new Option("No subtitles", "-1"), ...subs.map((x) => new Option(x.label, String(x.index))));
+      s.hidden = !subs.length;
+    }
+    if (t) {
+      $(".audioTrack").value = String(t.audioIndex);
+      $(".subTrack").value = String(t.subIndex);
+    }
+    drawTime();
+  }
+  function drawTime() {
+    const x = slots.jellyfin;
+    if (!x.playing || shown() !== "jellyfin") return;
+    const dur = x.player.duration || x.playing.item?.runtime || 0;
+    if (!jf.seeking) {
+      $(".time").textContent = J.clock(x.player.position || 0);
+      $(".seek").value = String(dur ? Math.round(((x.player.position || 0) / dur) * 1000) : 0);
+    }
+    $(".total").textContent = J.clock(dur);
+  }
+  const seekTo = () => {
+    const x = slots.jellyfin;
+    const dur = x.player.duration || x.playing?.item?.runtime || 0;
+    return (Number($(".seek").value) / 1000) * dur;
+  };
+  $(".seek").addEventListener("input", () => { jf.seeking = true; $(".time").textContent = J.clock(seekTo()); });
+  $(".seek").addEventListener("change", () => {
+    jf.seeking = false;
+    a2.video.control(slots.jellyfin.widget, "seek", seekTo()).catch(() => {});
+  });
+  $(".back").addEventListener("click", () => a2.video.control(slot(shown()).widget, "skip", -10).catch(() => {}));
+  $(".fwd").addEventListener("click", () => a2.video.control(slot(shown()).widget, "skip", 30).catch(() => {}));
+  $(".skipBtn").addEventListener("click", jfSkip);
+  $(".audioTrack").addEventListener("change", () => {
+    const what = slots.jellyfin.playing;
+    if (!jf.tracks || !what) return;
+    jf.tracks.audioIndex = Number($(".audioTrack").value);
+    const a = jf.tracks.audio.find((x) => x.index === jf.tracks.audioIndex);
+    // The server's conversion has one sound track: it starts again with the other.
+    if (jf.method === "DirectPlay" && a) a2.video.control(slots.jellyfin.widget, "audio", a.ord).catch(() => {});
+    else play({ ...what, start: slots.jellyfin.player.position || 0, audioIndex: jf.tracks.audioIndex, subIndex: jf.tracks.subIndex });
+  });
+  $(".subTrack").addEventListener("change", () => {
+    if (!jf.tracks) return;
+    jf.tracks.subIndex = Number($(".subTrack").value);
+    jfSubApply();
+  });
+
   // ---------- the page ----------
   function status(tab) {
     const box = $(`.pane[data-pane="${tab}"] .status`);
-    const s = tab === "twitch" ? twitch : youtube;
+    const s = tab === "twitch" ? twitch : tab === "jellyfin" ? jf : youtube;
     box.classList.toggle("error", !!s.error);
     if (s.error) box.textContent = /yt-dlp is not installed/.test(s.error) ? "yt-dlp is missing: sudo pacman -S yt-dlp" : `Couldn't get the list: ${s.error}`;
     else if (s.busy) box.textContent = "Loading …";
@@ -639,7 +1188,7 @@
   function redraw() {
     for (const t of $$(".tab")) t.setAttribute("aria-selected", String(t.dataset.tab === settings.tab));
     for (const p of $$(".pane")) p.hidden = p.dataset.pane !== settings.tab;
-    for (const tab of ["twitch", "youtube"]) {
+    for (const tab of ["twitch", "youtube", "jellyfin"]) {
       const pane = $(`.pane[data-pane="${tab}"]`);
       const view = settings[`${tab}View`];
       for (const b of $$(".views button", pane)) {
@@ -652,6 +1201,7 @@
     const scroll = document.scrollingElement.scrollTop;
     box.replaceChildren();
     if (settings.tab === "twitch") drawTwitch(box);
+    else if (settings.tab === "jellyfin") drawJellyfin(box);
     else drawYoutube(box);
     document.scrollingElement.scrollTop = scroll;
   }
@@ -662,14 +1212,25 @@
     save();
     redraw();
     if (tab === "twitch") loadTwitch();
+    else if (tab === "jellyfin") loadJellyfin(false);
     else if (view !== "search") loadFeeds(false);
   }
 
+  const FIRST_VIEW = { twitch: "aion", youtube: "subs", jellyfin: "home" };
   for (const t of $$(".tab")) {
-    t.addEventListener("click", () => setView(t.dataset.tab, settings[`${t.dataset.tab}View`] === "search" ? (t.dataset.tab === "twitch" ? "aion" : "subs") : settings[`${t.dataset.tab}View`]));
+    t.addEventListener("click", () => {
+      const tab = t.dataset.tab;
+      // Jellyfin keeps its search and where it was in a library.
+      const view = settings[`${tab}View`] === "search" && tab !== "jellyfin" ? FIRST_VIEW[tab] : settings[`${tab}View`];
+      setView(tab, view);
+    });
   }
   for (const b of $$(".views button")) {
-    b.addEventListener("click", () => setView(b.closest(".pane").dataset.pane, b.dataset.view));
+    b.addEventListener("click", () => {
+      const tab = b.closest(".pane").dataset.pane;
+      if (tab === "jellyfin" && b.dataset.view === "library") jf.path = [];
+      setView(tab, b.dataset.view);
+    });
   }
   for (const f of $$(".searchForm")) {
     f.addEventListener("submit", (e) => {
@@ -680,6 +1241,9 @@
       if (tab === "twitch") {
         twitch.query = q;
         setView("twitch", "search");
+      } else if (tab === "jellyfin") {
+        jf.query = q;
+        setView("jellyfin", "search");
       } else {
         youtube.query = q;
         if (L.youtubeId(q)) { searchYoutube(); return; }
@@ -693,6 +1257,7 @@
   for (const b of $$(".refresh")) {
     b.addEventListener("click", () => {
       if (settings.tab === "twitch") loadTwitch();
+      else if (settings.tab === "jellyfin") loadJellyfin(true);
       else if (settings.youtubeView === "search") { if (youtube.query) searchYoutube(); }
       else loadFeeds(true);
     });
@@ -717,7 +1282,9 @@
         const was = saved.last && saved.last.kind ? saved.last : null;
         settings.last = was ? { [was.kind]: was } : {};
       }
-      for (const k of Object.keys(slots)) settings.slots[k] = { ...SLOT_DEFAULTS, ...old, ...(settings.slots[k] || {}) };
+      for (const k of Object.keys(slots)) settings.slots[k] = { ...slotDefaults(k), ...(k === "jellyfin" ? {} : old), ...(settings.slots[k] || {}) };
+      if (!QUALITIES.jellyfin.includes(settings.slots.jellyfin.quality)) settings.slots.jellyfin.quality = "original";
+      settings.jellyfin = { autoSkip: false, autoNext: true, ...(saved.jellyfin && typeof saved.jellyfin === "object" ? saved.jellyfin : {}) };
       for (const k of Object.keys(SLOT_DEFAULTS)) delete settings[k];
       const f = (await a2.storage.get("favourites")) || {};
       if (Array.isArray(f.twitch)) favs.twitch = f.twitch.filter((x) => L.twitchLogin(x));
@@ -725,9 +1292,12 @@
     } catch {}
     if (settings.twitchView === "search") settings.twitchView = favs.twitch.length ? "favs" : "aion";
     if (settings.youtubeView === "search") settings.youtubeView = "subs";
+    if (!["home", "library"].includes(settings.jellyfinView)) settings.jellyfinView = "home";
     redraw();
     drawPlayer();
     a2.ready();
-    if (settings.tab === "twitch") loadTwitch(); else loadFeeds(false);
+    if (settings.tab === "twitch") loadTwitch();
+    else if (settings.tab === "jellyfin") loadJellyfin(false);
+    else loadFeeds(false);
   })();
 })();

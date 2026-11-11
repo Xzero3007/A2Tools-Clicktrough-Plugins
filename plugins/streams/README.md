@@ -1,7 +1,7 @@
 # Streams (A2Tools plugin)
 
-Twitch and YouTube while you play, in small video overlays over the game:
-Twitch and YouTube each in its own, both at once if you like.
+Twitch, YouTube and your own Jellyfin server while you play, in small
+video overlays over the game: each in its own, several at once if you like.
 
 - **Twitch**: **Favourites** (your channels: who is live, with the
   stream's picture, title, game, how long it runs and how many watch; the
@@ -29,6 +29,24 @@ Twitch and YouTube each in its own, both at once if you like.
   **TV button** in the meter's title shows the Twitch overlay (and plays
   the last channel again) or stops it.
 - When AION2 closes, the videos stop (0.3.1).
+- **Jellyfin** (0.4.0): your own Jellyfin server, **in your home network
+  only**. Sign in once (the server's address, like `192.168.1.20:8096`,
+  your user and password): the meter keeps the address and the server's
+  key in its own folder on this PC and forgets the password; an address
+  outside your home network is refused. **Home** (Continue watching, Next
+  up, what is new in each library), **Libraries** (films; shows, their
+  seasons and episodes) and a **search**. A click goes on where you
+  stopped (right-click: from the start), in its own overlay. The bar shows
+  where it is (click to jump), back 10 s and on 30 s, the audio track and
+  the subtitles (those of your Jellyfin settings at start). **Skip intro**
+  (and recaps, credits, previews) where your server knows them: Jellyfin
+  10.10's Media Segments, or the Intro Skipper plugin; a button in the
+  overlay, the bar and the meter's player row, or by itself
+  ("Skip intros by themselves"). At an episode's end the next one starts
+  ("Play the next episode"). Quality: **Original** (the file as it is) or
+  your server's conversion to 1080p down to 360p, or sound only. Your
+  server is told what plays and how far, so Continue watching and
+  "watched" are right in every Jellyfin app; ✓ on a card marks it watched.
 - Favourites and settings stay in the plugin's storage on this computer.
 
 **Needs** `mpv` and `yt-dlp` installed (`sudo pacman -S mpv yt-dlp`); the
@@ -40,4 +58,5 @@ its newest videos (www.youtube.com/feeds/videos.xml) and the pictures from
 YouTube's and Twitch's picture servers; YouTube's search and the videos
 themselves go through yt-dlp and mpv, as your own mpv would play them. Only
 search words, channel names and video ids are sent; no account, no sign-in,
-no links to any website (meter patch 0047).
+no links to any website (meter patch 0047). Jellyfin: only your own
+server in your home network (meter patch 0052), nothing else.

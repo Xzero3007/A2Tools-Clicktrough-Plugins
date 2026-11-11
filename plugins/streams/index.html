@@ -8,6 +8,7 @@
     <nav class="tabs" role="tablist">
       <button type="button" class="tab" data-tab="twitch" role="tab">Twitch</button>
       <button type="button" class="tab" data-tab="youtube" role="tab">YouTube</button>
+      <button type="button" class="tab" data-tab="jellyfin" role="tab">Jellyfin</button>
     </nav>
 
     <section class="pane" data-pane="twitch">
@@ -38,8 +39,49 @@
       <div class="list"></div>
     </section>
 
+    <section class="pane" data-pane="jellyfin">
+      <!-- Not signed in: the server's address and the sign-in. -->
+      <form class="jfLogin" hidden autocomplete="off">
+        <p class="muted">Your own Jellyfin server, in your home network only. The address and the server's key stay on this PC (the meter's own folder); the password isn't kept.</p>
+        <label>Server <input type="text" name="server" placeholder="192.168.1.20:8096" spellcheck="false" /></label>
+        <label>User <input type="text" name="user" spellcheck="false" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <div class="jfLoginRow"><button type="submit">Sign in</button><span class="jfLoginState muted"></span></div>
+      </form>
+      <div class="jfMain" hidden>
+        <div class="controls">
+          <span class="seg views" role="group" aria-label="What to show">
+            <button type="button" data-view="home">Home</button><button type="button" data-view="library">Libraries</button><button type="button" data-view="search" hidden>Search</button>
+          </span>
+          <form class="searchForm" data-for="jellyfin">
+            <input type="search" class="search" placeholder="Search films, shows and episodes" autocomplete="off" spellcheck="false" />
+          </form>
+          <button type="button" class="refresh" title="Get the list again">Update</button>
+        </div>
+        <div class="jfOptions muted">
+          <label title="Jumps over intros, recaps, credits and previews by itself where your server knows them (Media Segments, or the Intro Skipper plugin)"><input type="checkbox" class="jfAutoSkip" /> Skip intros by themselves</label>
+          <label title="When an episode ends, the next one starts"><input type="checkbox" class="jfAutoNext" /> Play the next episode</label>
+          <span class="jfAccount"></span>
+          <button type="button" class="jfLogout" title="Sign out: the meter forgets the server's key">Sign out</button>
+        </div>
+        <div class="crumbs"></div>
+        <div class="status muted"></div>
+        <div class="list"></div>
+      </div>
+    </section>
+
     <footer class="player" hidden>
-      <span class="seg slotSwitch" role="group" aria-label="Which player these controls are for" hidden><button type="button" data-slot="twitch">Twitch</button><button type="button" data-slot="youtube">YouTube</button></span>
+      <div class="seekRow" hidden>
+        <button type="button" class="back" title="Back 10 seconds">−10 s</button>
+        <span class="time">0:00</span>
+        <input type="range" class="seek" min="0" max="1000" step="1" value="0" aria-label="Position" />
+        <span class="total">0:00</span>
+        <button type="button" class="fwd" title="On 30 seconds">+30 s</button>
+        <button type="button" class="skipBtn" hidden></button>
+        <select class="audioTrack" title="Audio track"></select>
+        <select class="subTrack" title="Subtitles"></select>
+      </div>
+      <span class="seg slotSwitch" role="group" aria-label="Which player these controls are for" hidden><button type="button" data-slot="twitch">Twitch</button><button type="button" data-slot="youtube">YouTube</button><button type="button" data-slot="jellyfin">Jellyfin</button></span>
       <div class="now">
         <span class="dot" aria-hidden="true"></span>
         <div class="nowText"><strong class="nowTitle"></strong><span class="nowState muted"></span></div>
@@ -49,6 +91,7 @@
       <input type="range" class="volume" min="0" max="100" step="1" title="Volume" aria-label="Volume" />
       <label class="opacityBox" title="How see-through the video is over the game"><span aria-hidden="true">◐</span><input type="range" class="opacity" min="20" max="100" step="5" aria-label="Video opacity" /><span class="opacityValue"></span></label>
       <select class="quality" title="Quality (a change starts the video again)">
+        <option value="original">Original</option>
         <option value="1080">1080p</option>
         <option value="720">720p</option>
         <option value="480">480p</option>
@@ -63,6 +106,7 @@
 
     <script src="/_sdk/a2.js"></script>
     <script src="lists.js"></script>
+    <script src="jellyfin.js"></script>
     <script src="plugin.js"></script>
   </body>
 </html>

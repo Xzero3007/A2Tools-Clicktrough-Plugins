@@ -63,7 +63,7 @@
     widget: { resize: ok, area: ok, drag: ok, post: async (m) => { (window.__posts ||= []).push(m); } },
     watchFps: ok,
     // The Streams plugin's calls: answers from window.__preset.video
-    // ({ twitch: { <kind>: data }, search: [...], feed: { <channel>: xml }, freetube: [...] });
+    // ({ twitch: { <kind>: data }, search: [...], feed: { <channel>: xml }, freetube: [...], jellyfin: {...} });
     // what it played is kept in window.__played.
     media: { set: async () => {} },
     video: {
@@ -73,6 +73,21 @@
       search: async () => structuredClone(preset.video?.search ?? []),
       feed: async (channel) => preset.video?.feed?.[channel] ?? "",
       freetube: async () => structuredClone(preset.video?.freetube ?? null),
+      // Jellyfin: preset.video.jellyfin = { status, get: { "<path>": answer }, playbackInfo };
+      // pictures fail (grey); what was asked is kept in window.__jellyfin.
+      jellyfin: async (action, arg) => {
+        const j = preset.video?.jellyfin || {};
+        (window.__jellyfin ||= []).push([action, arg]);
+        if (action === "status") return structuredClone(j.status ?? null);
+        if (action === "login") return structuredClone(j.status ?? null);
+        if (action === "get") {
+          if (!(arg?.path in (j.get || {}))) throw new Error("the server answered 404 Not Found");
+          return structuredClone(j.get[arg.path]);
+        }
+        if (action === "playbackInfo") return structuredClone(j.playbackInfo ?? null);
+        if (action === "image") throw new Error("no such picture");
+        return null;
+      },
     },
   };
   window.open = (u) => { window.__opened.push(u); };
