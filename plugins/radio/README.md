@@ -37,7 +37,8 @@ Internet radio while you play, from a fixed list of stations.
   station when the meter starts** if ticked.
 - **Player over the game**: a small player (the radio button in the meter's
   title, or the tick at the bottom) with the station, play/stop, before and
-  after, mute, volume and ☆; moved by its head, the meter's lock is its lock.
+  after, mute, volume and ☆; moved by its head. With the meter locked it
+  stays put, but its buttons and volume still work (0.5.1, meter patch 0064).
 - **Doesn't play from here**: some US stations (iHeart, Audacy) send their
   stream only inside the USA, and a station can move its stream. Each
   station has one or more addresses, tried in order; when none plays it is

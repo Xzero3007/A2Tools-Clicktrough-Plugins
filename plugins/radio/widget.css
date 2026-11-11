@@ -23,5 +23,4 @@ button:disabled { opacity: 0.4; cursor: default; }
 .close { font-size: 17px; }
 .row { display: flex; align-items: center; gap: 5px; }
 .volume { flex: 1; min-width: 40px; margin: 0 0 0 4px; accent-color: var(--a2-accent, #e0a526); }
-body.locked .close, body.locked .fav { display: none; }
 body.locked .head { cursor: default; }

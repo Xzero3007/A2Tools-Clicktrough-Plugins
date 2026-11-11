@@ -330,7 +330,9 @@
   async function applyOverlay() {
     try {
       if (settings.overlay) {
-        await a2.widgets.open("player", { width: 320, height: 96 });
+        // unlocked: its buttons and volume stay usable with the meter locked
+        // (meter patch 0064); it still doesn't move then.
+        await a2.widgets.open("player", { width: 320, height: 96, unlocked: true });
         // The meter's lock is every widget's lock (patch 0036).
         await a2.widgets.lock(false);
         sendWidget(true);
