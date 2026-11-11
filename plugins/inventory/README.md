@@ -41,6 +41,39 @@ pick.
     pauses of 5 minutes or more left out, and the per-hour numbers go by it.
     The menu on the left shows the **earlier sessions** (the last 40).
     **New session** starts one at once.
+- **Farm days** (0.5.0): each day from one daily reset (07:00 UTC) to the
+  next, per character, with **where everything came from**: **Open world**
+  (with its towns), **Dungeon**, **Abyss** (its three layers and the Abyss
+  Corridor), **Shugo Festival**, **Dimensional Invasion** and **Other**
+  (arenas, a zone not known yet). Per source: the time played there, Kinah,
+  items, their worth and the gold items. The **Kinah cap**: when the
+  1,000,000 of the open world was reached and after how long played there
+  (and since its first Kinah); the farm goes on after it (no Kinah in the
+  open world any more, the drops and the Abyss's Kinah still count), and
+  the day says what came after the cap. Every **gold item** (Unique and
+  higher) with when, from where and in which zone, and its worth.
+  - **Where from**: the zone you are in (the world's zone, permission
+    `events:world`; the zone's kind as the meter's `zones.rs` reads the
+    game's numbering, its name from the Map's data, `zones.js`). The
+    Incursion of the Spirits counts as the Dimensional Invasion. A **Shugo
+    Festival** or **Dimensional Invasion reward key** used (the game's count
+    of it going down) makes the gains 20 seconds around it that event's,
+    wherever you are. Bought (Kinah spent), crafted or broken-down items are
+    no drop. The open world's Kinah is the game's own counter toward the cap;
+    elsewhere the Kinah coming into the inventory. Worth: the market price
+    when it dropped (valued later when the prices weren't read yet).
+  - **Statistics**: for a source (or all) and **Kinah per hour** (the open
+    world's up to the cap), **gold items per hour**, **item worth per hour**
+    or **hours to the cap**: a bar a day with the **trend**'s line (a
+    straight line by date: how much it rises or falls a week, and whether
+    that is more than chance, p < 5 %), the **last 7 days against the days
+    before** (Welch's t test; for gold items, which are rare, an exact test
+    of the drops per hour played), how big a change the days at hand would
+    show, and **gold items by the hour of the day**. **When it is
+    meaningful**: a day counts for a source with half an hour played there;
+    the numbers are meaningful from **7 such days**, gold items also from
+    **30 drops**. Until then the page says how many days or drops are still
+    missing and shows a trend only as a hint.
 - **Limits**: Kinah gained today (of 1,000,000), the week's Abyss Points (of
   the week's limit), and the keys and entry counts the game keeps (Shugo
   Festival keys, Nightmare, Dimensional Invasion, the daily dungeons, the
@@ -94,6 +127,9 @@ the game's icon server (assets.playnccdn.com), through the meter
 (`a2.web.image`). Nothing is sent anywhere.
 
 ## Data
+
+`zones.js` (the zone names): `node dev/make_zones.cjs` from the Map's
+`data.js`.
 
 `data.js` is generated: `python3 -I dev/fetch_icons.py <cache>` (Aion2Data's
 item lists, once), then `python3 -I dev/make_data.py <SkeeveAN checkout>

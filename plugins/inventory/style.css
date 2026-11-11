@@ -94,3 +94,43 @@ li.sellable .tot { color: var(--gold-t); font-weight: 600; }
 .limits li.empty, .tickets li.empty { display: block; }
 .items li.empty { display: block; }
 .tag.odd { border-color: rgba(255,138,122,.55); color: #ffb0a5; }
+
+/* Farm days */
+.dayBar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 8px; }
+.dayBar .dayText { flex: 1; min-width: 200px; color: var(--muted); font-size: 12px; }
+.dayBar b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dayCard { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 4px 9px; font-size: 12px; }
+.dayCard .row { display: grid; grid-template-columns: minmax(0, 1.6fr) 1fr 1fr .8fr 1fr .6fr; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.dayCard .row > span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.dayCard .row.head { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.dayCard .row.total { border-bottom: 0; font-weight: 600; }
+.dayCard .empty { margin: 6px 0; }
+.gold { color: var(--gold-t); }
+.g4c { color: var(--g4); font-weight: 600; }
+.goldList li { grid-template-columns: 38px minmax(0, 1fr) 54px 92px; }
+.tag.src-open { border-color: rgba(127,220,154,.5); color: #a8ecbd; }
+.tag.src-dungeon { border-color: rgba(255,176,102,.55); color: #ffc99a; }
+.tag.src-abyss { border-color: rgba(255,122,107,.55); color: #ffaaa0; }
+.tag.src-shugo { border-color: rgba(242,196,107,.6); color: var(--gold-t); }
+.tag.src-invasion { border-color: rgba(214,189,255,.55); color: #d6bdff; }
+.statMetrics { margin-top: -2px; }
+.chart { display: block; width: 100%; height: 120px; margin: 4px 0 6px; }
+.chart .axis { stroke: rgba(255,255,255,.18); }
+.chart .col { fill: rgba(224,165,38,.55); }
+.chart .col:hover { fill: var(--gold); }
+.chart .trend { stroke: rgba(255,255,255,.45); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart .trend.sure { stroke: #fff; stroke-dasharray: none; }
+.chart .lbl { fill: var(--faint); font-size: 10px; }
+.chart .lbl.end { text-anchor: end; }
+.verdicts { font-size: 12px; color: var(--muted); display: grid; gap: 3px; }
+.verdicts b { color: var(--text); font-weight: 600; }
+.verdicts .head { color: var(--text); font-weight: 600; margin-right: 4px; }
+.verdicts .ok { color: #a8ecbd; }
+.verdicts .wait { color: var(--gold-t); }
+.verdicts .prelim { opacity: .6; }
+.hours { margin-top: 10px; font-size: 12px; color: var(--muted); }
+.hours .head { margin-bottom: 4px; }
+.hourBars { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; height: 56px; align-items: end; }
+.hourBars span { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.hourBars i { display: block; background: rgba(224,165,38,.6); border-radius: 2px 2px 0 0; min-height: 1px; }
+.hourBars small { font-size: 9px; color: var(--faint); text-align: left; height: 11px; }

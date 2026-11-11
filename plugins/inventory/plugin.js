@@ -37,6 +37,8 @@
     breakMin: 180, // a new session after this long off (minutes; 0: only by hand)
     source: "all", // Drops: all, gathered, loot, reward, other
     lastLimits: null, // the key of the character whose limits were kept last
+    statSource: "open", // Farm days: the source the statistics are about ("all" or days.js SOURCES)
+    statMetric: "kinah", // Farm days: kinah, gold, worth, toCap
   };
   const HISTORY = 40; // earlier sessions kept
   const SOURCE_NAMES = { all: "All", gathered: "Gathered", loot: "Loot", reward: "Rewards", other: "Other" };
@@ -57,6 +59,126 @@
   let busy = false;
   let priceError = "";
   let shownRows = PAGE;
+
+  // ---------- farm days ----------
+  // What a character gained from one daily reset to the next, by where it
+  // came from (days.js): the day being counted (the one playing), the lists
+  // of days (summaries) per character, the world's zone, and the reward
+  // keys' counts (a key going down marks its rewards).
+  const F = globalThis.InventoryDays;
+  const FARM_DAYS = 400; // days kept in a character's list
+  let zone = null;
+  let farmKey = null;
+  let farmDay = null;
+  const farmLists = new Map(); // character key -> [summaries], oldest first
+  const keyCounts = new Map(); // ticket id -> left, for the one playing
+  let dayView = null; // the day looked at; null: today
+  let farmQ = Promise.resolve();
+  const farm = (fn) => (farmQ = farmQ.then(fn).catch((e) => console.error(e)));
+  const listKey = (key) => `f${key}`;
+  const dayKey = (key, day) => `f${key}-${F.dayName(day)}`;
+  async function loadFarmList(key) {
+    if (!key || farmLists.has(key)) return;
+    let list = null;
+    try {
+      list = await a2.storage.get(listKey(key));
+    } catch {}
+    if (!farmLists.has(key)) farmLists.set(key, Array.isArray(list) ? list.filter((x) => x && Number.isFinite(x.day)) : []);
+  }
+  let farmTimer = 0;
+  const saveFarm = () => {
+    clearTimeout(farmTimer);
+    farmTimer = setTimeout(() => farm(async () => {
+      if (!farmKey || !farmDay) return;
+      await a2.storage.set(dayKey(farmKey, farmDay.day), farmDay).catch(() => {});
+      await a2.storage.set(listKey(farmKey), farmLists.get(farmKey) || []).catch(() => {});
+    }), 2000);
+  };
+  function noteSummary() {
+    if (!farmKey || !farmDay || F.isEmpty(farmDay)) return;
+    const list = (farmLists.get(farmKey) || []).filter((x) => x.day !== farmDay.day);
+    list.push(F.summary(farmDay));
+    list.sort((a, b) => a.day - b.day);
+    farmLists.set(farmKey, list.slice(-FARM_DAYS));
+  }
+  /** The day an event at `at` counts in, for the one playing (loaded or new). */
+  async function farmFor(at) {
+    const key = currentKey();
+    if (!key || !Number.isFinite(at)) return null;
+    const day = F.dayOf(at);
+    if (farmKey === key && farmDay?.day === day) return farmDay;
+    if (farmKey === key && farmDay && day < farmDay.day) return null; // an older day's late event
+    // Another character or a new day: the one before is kept as it is.
+    if (farmKey && farmDay) {
+      noteSummary();
+      await a2.storage.set(dayKey(farmKey, farmDay.day), farmDay).catch(() => {});
+      await a2.storage.set(listKey(farmKey), farmLists.get(farmKey) || []).catch(() => {});
+    }
+    await loadFarmList(key);
+    let doc = null;
+    try {
+      doc = await a2.storage.get(dayKey(key, day));
+    } catch {}
+    farmKey = key;
+    farmDay = F.normalize(doc) || F.newDay(at);
+    return farmDay;
+  }
+  const priceOf = (item, n) => {
+    if (!prices.size) return null;
+    const w = C.worth(item, n, prices, settings.fee, hist);
+    if (!w.sellable) return 0;
+    return w.total ?? null;
+  };
+  function farmChanged() {
+    noteSummary();
+    saveFarm();
+    if (settings.tab === "days") renderDays();
+  }
+  function farmItems(it) {
+    const ats = (it?.changes || []).map((c) => c?.[1]).filter(Number.isFinite);
+    if (!ats.length) return;
+    const at = Math.max(...ats);
+    const z = zone;
+    farm(async () => {
+      if (!(await farmFor(at))) return;
+      farmDay = F.addItems(farmDay, it, z, priceOf);
+      farmChanged();
+    });
+  }
+  function farmCharacter(c) {
+    if (!c?.name) return;
+    const seen = c.seenAt || {};
+    const z = zone;
+    const kinah = Number(c.kinahToday);
+    const kinahAt = Number(seen.kinahToday) || Date.now();
+    // The reward keys: one going down is a reward taken.
+    const used = [];
+    const counts = c.contentCounts || {};
+    for (const id of Object.keys(F.KEYS)) {
+      const v = counts[id];
+      if (!Array.isArray(v) || !Number.isFinite(Number(v[0]))) continue;
+      const left = Number(v[0]) + (Number(v[1]) || 0);
+      const before = keyCounts.get(id);
+      keyCounts.set(id, left);
+      if (before != null && left < before) used.push([id, Number(seen.contentCounts?.[id]) || Date.now()]);
+    }
+    if (!Number.isFinite(kinah) && !used.length) return;
+    farm(async () => {
+      if (Number.isFinite(kinah) && (await farmFor(kinahAt))) farmDay = F.addCounter(farmDay, kinah, kinahAt, z);
+      for (const [id, at] of used) if (await farmFor(at)) farmDay = F.keyUsed(farmDay, id, at);
+      farmChanged();
+    });
+  }
+  function farmPrices() {
+    if (!farmDay) return;
+    farm(async () => {
+      const next = F.settle(farmDay, priceOf);
+      if (next !== farmDay) {
+        farmDay = next;
+        farmChanged();
+      }
+    });
+  }
 
   const el = (tag, props = {}, ...kids) => {
     const n = document.createElement(tag);
@@ -281,6 +403,7 @@
       prices = got.prices;
       snapshot = got.snapshot;
       fetchedAt = Date.now();
+      farmPrices();
       const keep = [...prices].map(([id, p]) => [id, p.price, p.listings, p.sold, p.soldAvg, p.last, p.change]);
       a2.storage.set("prices", { server: s.id, at: fetchedAt, snapshot, rows: keep }).catch(() => {});
       // The course of the lowest listings (the copy's history): an item far
@@ -395,9 +518,12 @@
     renderTop();
     for (const b of document.querySelectorAll(".tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === settings.tab));
     const limitsTab = settings.tab === "limits";
-    $(".listView").hidden = limitsTab;
+    const daysTab = settings.tab === "days";
+    $(".listView").hidden = limitsTab || daysTab;
     $(".limitsView").hidden = !limitsTab;
+    $(".daysView").hidden = !daysTab;
     if (limitsTab) renderLimits();
+    else if (daysTab) renderDays();
     else renderList();
     sendFloater();
   }
@@ -550,6 +676,199 @@
     }
     box.hidden = !lines.length;
     box.replaceChildren(...lines.flat());
+  }
+
+  // ---------- farm days: the page ----------
+  const pctText = (x) => `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))} %`;
+  const pText = (p) => (p < 0.001 ? "p < 0.001" : `p = ${p.toFixed(p < 0.01 ? 3 : 2)}`);
+  const dayLabel = (day) => new Date(day).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
+  const clockOf = (ms) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const hours = (ms) => (ms ? span(ms) : "—");
+  const metricText = (metric, v) => (v == null ? "—" : metric === "gold" ? v.toFixed(2) : metric === "toCap" ? `${v.toFixed(1)} h` : C.short(v));
+  /** The days of the character looked at, today's as it is now. */
+  function farmSums() {
+    const key = viewKey();
+    if (!key) return [];
+    if (!farmLists.has(key)) {
+      loadFarmList(key).then(() => settings.tab === "days" && renderDays());
+      return [];
+    }
+    const list = [...farmLists.get(key)];
+    if (key === farmKey && farmDay && !F.isEmpty(farmDay)) {
+      const i = list.findIndex((x) => x.day === farmDay.day);
+      const s = F.summary(farmDay);
+      if (i >= 0) list[i] = s;
+      else list.push(s);
+    }
+    return list.sort((a, b) => a.day - b.day);
+  }
+
+  function renderDays() {
+    const sums = farmSums();
+    const today = F.dayOf(Date.now());
+    const shown = sums.find((s) => s.day === (dayView ?? today)) || (dayView == null ? null : sums[sums.length - 1]) || null;
+    // Which day.
+    const pick = $(".dayPick");
+    const opts = [...sums].reverse();
+    if (!opts.some((s) => s.day === today)) opts.unshift({ day: today });
+    pick.replaceChildren(...opts.map((s) => el("option", { value: String(s.day), text: `${dayLabel(s.day)}${s.day === today ? " (today)" : ""}${s.cap ? " · cap" : ""}`, selected: s.day === (shown?.day ?? today) })));
+    renderDay(shown);
+    renderStats(sums);
+  }
+
+  function renderDay(s) {
+    const box = $(".dayCard");
+    const goldBox = $(".goldList");
+    if (!s) {
+      $(".dayText").textContent = "";
+      box.replaceChildren(el("p", { class: "empty", text: "Nothing yet this day. Gains count from the daily reset (07:00 UTC) to the next, each with where it came from." }));
+      goldBox.replaceChildren(el("li", { class: "empty", text: "No gold items this day." }));
+      return;
+    }
+    const open = s.src?.open || {};
+    // The Kina cap and the time to it.
+    const bits = [];
+    if (s.cap) {
+      bits.push(el("span", {}, "Kina cap reached at ", el("b", { text: clockOf(s.cap.at) }), " after ", el("b", { text: hours(s.cap.active) }), " in the open world",
+        s.cap.sinceFirst ? ` (${span(s.cap.sinceFirst)} since its first Kina)` : ""));
+      const after = { active: (open.active || 0) - (s.cap.active || 0), gold: (open.gold || 0) - (s.cap.gold || 0), worth: (open.worth || 0) - (s.cap.worth || 0) };
+      if (after.active > 0 || after.gold > 0 || after.worth > 0) {
+        bits.push(el("span", { title: "In the open world after the cap: no more Kina there, the drops go on" }, "After it: ", el("b", { text: hours(after.active) }), ", ",
+          el("b", { text: String(after.gold) }), " gold, worth ", el("b", { class: "gold", text: C.short(after.worth) })));
+      }
+    } else {
+      const k = s.counter ?? open.kinah ?? 0;
+      bits.push(el("span", {}, "Kina toward the cap ", el("b", { text: C.kina(k) }), ` / ${C.short(C.KINA_DAILY)}`, open.active ? ` after ${hours(open.active)} in the open world` : ""));
+    }
+    $(".dayText").replaceChildren(...bits.flatMap((b, i) => (i ? [" · ", b] : [b])));
+    // By source.
+    const head = el("div", { class: "row head" }, el("span", { text: "Where" }), el("span", { text: "Played" }), el("span", { text: "Kina" }), el("span", { text: "Items" }), el("span", { text: "Worth" }), el("span", { text: "Gold" }));
+    const rows = [head];
+    const tot = { active: 0, kinah: 0, n: 0, worth: 0, gold: 0 };
+    for (const k of F.SOURCES) {
+      const p = s.src?.[k];
+      if (!p || !(p.n || p.kinah || p.active)) continue;
+      for (const f of Object.keys(tot)) tot[f] += p[f] || 0;
+      rows.push(el("div", { class: `row src-${k}` },
+        el("span", { text: F.NAMES[k] }), el("span", { text: hours(p.active) }), el("span", { text: C.kina(p.kinah) }),
+        el("span", { text: C.kina(p.n) }), el("span", { class: "gold", text: C.short(p.worth) }), el("span", { class: p.gold ? "g4c" : "", text: String(p.gold || 0) })));
+    }
+    if (rows.length > 2) rows.push(el("div", { class: "row total" }, el("span", { text: "All" }), el("span", { text: hours(tot.active) }), el("span", { text: C.kina(tot.kinah) }), el("span", { text: C.kina(tot.n) }), el("span", { class: "gold", text: C.short(tot.worth) }), el("span", { text: String(tot.gold) })));
+    box.replaceChildren(...(rows.length > 1 ? rows : [el("p", { class: "empty", text: "Nothing came in yet this day." })]));
+    // The gold items, newest first.
+    const gold = [...(s.gold || [])].sort((a, b) => b[0] - a[0]);
+    goldBox.replaceChildren(...(gold.length ? gold.map(([at, item, n, k, z, w]) => el("li", { class: `g${C.grade(item)}`, title: `${C.name(item)} (${item})` },
+      iconBox(item),
+      el("span", { class: "nm" }, el("span", { class: "n", text: `${C.name(item)}${n > 1 ? ` ×${n}` : ""}` }),
+        el("span", { class: "tags" }, el("span", { text: C.GRADES[C.grade(item)] || "" }), el("span", { class: `tag src-${k}`, text: F.NAMES[k] || k }), el("span", { text: F.zoneName(z) }))),
+      el("span", { class: "cnt", text: clockOf(at) }),
+      el("span", { class: "tot gold", text: w != null ? C.kina(w) : "" }))) : [el("li", { class: "empty", text: "No gold items this day." })]));
+  }
+
+  function chips(target, items, current, onPick) {
+    target.replaceChildren(...items.map(([k, label, title]) => {
+      const b = el("button", { type: "button", "aria-pressed": String(current === k), title: title || "" }, label);
+      b.addEventListener("click", () => onPick(k));
+      return b;
+    }));
+  }
+
+  function renderStats(sums) {
+    const k = settings.statSource;
+    const metric = F.METRICS[settings.statMetric] ? settings.statMetric : "kinah";
+    chips($(".statSources"), [["all", "All"], ...F.SOURCES.map((x) => [x, F.NAMES[x]])], k, (x) => {
+      settings.statSource = x;
+      saveSettings();
+      renderDays();
+    });
+    chips($(".statMetrics"), Object.entries(F.METRICS).map(([m, d]) => [m, d.label, d.open ? "The open world only: its played time until the Kina cap" : ""]), metric, (m) => {
+      settings.statMetric = m;
+      saveSettings();
+      renderDays();
+    });
+    const pts = F.points(sums, k, metric);
+    const where = metric === "toCap" ? "the open world" : k === "all" ? "anywhere" : F.NAMES[k];
+    // The chart: a bar a day, the trend's line over it.
+    const chart = $(".chart");
+    const tr = F.trend(pts);
+    if (!pts.length) {
+      chart.replaceChildren();
+      chart.setAttribute("hidden", "");
+    } else {
+      chart.removeAttribute("hidden");
+      const W = 560, H = 120, pad = 4;
+      const max = Math.max(...pts.map((p) => p.value), tr ? Math.max(tr.icept, tr.icept + tr.slope * ((pts[pts.length - 1].day - pts[0].day) / 86_400_000)) : 0) || 1;
+      const first = pts[0].day, spanDays = Math.max(1, (pts[pts.length - 1].day - first) / 86_400_000);
+      const bw = Math.max(3, Math.min(24, (W - 2 * pad) / (spanDays + 1) - 2));
+      const x = (day) => pad + ((day - first) / 86_400_000 / spanDays) * (W - 2 * pad - bw);
+      const y = (v) => H - 14 - (v / max) * (H - 24);
+      const ns = "http://www.w3.org/2000/svg";
+      const svg = (tag, attrs, text) => {
+        const n = document.createElementNS(ns, tag);
+        for (const [a, v] of Object.entries(attrs)) n.setAttribute(a, v);
+        if (text != null) n.textContent = text;
+        return n;
+      };
+      const parts = [svg("line", { x1: 0, x2: W, y1: H - 14, y2: H - 14, class: "axis" })];
+      for (const p of pts) {
+        const r = svg("rect", { x: x(p.day), y: y(p.value), width: bw, height: Math.max(1, H - 14 - y(p.value)), class: "col" });
+        r.append(svg("title", {}, `${dayLabel(p.day)}: ${metricText(metric, p.value)} (${p.hours.toFixed(1)} h${metric === "gold" ? `, ${p.gold} gold` : ""})`));
+        parts.push(r);
+      }
+      if (tr) {
+        const xs = (pts[pts.length - 1].day - first) / 86_400_000;
+        parts.push(svg("line", { x1: x(first) + bw / 2, x2: x(pts[pts.length - 1].day) + bw / 2, y1: y(Math.max(0, tr.icept)), y2: y(Math.max(0, tr.icept + tr.slope * xs)), class: `trend${tr.p < 0.05 && pts.length >= F.MIN_DAYS ? " sure" : ""}` }));
+      }
+      parts.push(svg("text", { x: pad, y: H - 2, class: "lbl" }, dayLabel(first)));
+      if (pts.length > 1) parts.push(svg("text", { x: W - pad, y: H - 2, class: "lbl end" }, dayLabel(pts[pts.length - 1].day)));
+      parts.push(svg("text", { x: W - pad, y: 10, class: "lbl end" }, `max ${metricText(metric, max)}`));
+      chart.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      chart.replaceChildren(...parts);
+    }
+    // What the numbers say, and whether they can say it yet.
+    const out = [];
+    const ready = F.readiness(pts, metric);
+    const avg = pts.length ? pts.reduce((t, p) => t + p.value, 0) / pts.length : null;
+    out.push(el("div", {}, el("span", { class: "head", text: F.METRICS[metric].label }), ` in ${where}: `,
+      el("b", { text: metricText(metric, avg) }), ` on average over `, el("b", { text: String(pts.length) }), ` day${pts.length === 1 ? "" : "s"}`,
+      metric === "gold" && ready.gold != null ? [` (`, el("b", { text: String(Math.round(ready.gold)) }), ` gold items)`] : ""));
+    const missing = [];
+    if (ready.needDays) missing.push(`${ready.needDays} more day${ready.needDays === 1 ? "" : "s"} with half an hour or more here`);
+    if (ready.needGold) missing.push(`${ready.needGold} more gold item${ready.needGold === 1 ? "" : "s"}`);
+    out.push(el("div", { class: ready.ready ? "ok" : "wait" }, ready.ready
+      ? `Statistically meaningful: ${pts.length} days${metric === "gold" ? ` and ${Math.round(ready.gold)} gold items` : ""}.`
+      : `Not meaningful yet: it needs ${F.MIN_DAYS} days${metric === "gold" ? ` and ${F.MIN_GOLD} gold items` : ""}; ${missing.join(" and ")} to go. Until then a trend is only a hint.`));
+    if (tr) {
+      const sure = tr.p < 0.05;
+      out.push(el("div", { class: ready.ready ? "" : "prelim", title: "A straight line through the days by date: how much it rises or falls a week, against the average, and how likely a slope this steep is by chance alone (p)" },
+        "Trend: ", sure ? el("b", { text: `${tr.perWeek >= 0 ? "rising" : "falling"} ${pctText(tr.perWeek)} a week` }) : el("b", { text: "none to see" }),
+        ` (${sure ? "" : `a slope of ${pctText(tr.perWeek)} a week is chance, `}${pText(tr.p)})`));
+    }
+    const ch = metric === "gold" ? F.goldChange(pts) : F.change(pts);
+    if (ch) {
+      const sure = ch.p < 0.05;
+      out.push(el("div", { class: ready.ready ? "" : "prelim", title: metric === "gold" ? "Gold items per hour played in the last 7 days against the days before; an exact test for rare drops" : "The last 7 days against the days before (Welch's t test)" },
+        `Last ${F.RECENT_DAYS} days against the ${ch.nBefore ?? pts.length - F.RECENT_DAYS} before: `, el("b", { text: `${metricText(metric, ch.before)} → ${metricText(metric, ch.after)}` }),
+        ` (${pctText(ch.rel)}): `, el("b", { text: sure ? "the drops changed" : "no change to see" }), ` (${pText(ch.p)})`));
+    } else if (pts.length) {
+      out.push(el("div", { class: "prelim", text: `Changes: from ${F.RECENT_DAYS + 3} days on, the last ${F.RECENT_DAYS} days are compared with the ones before.` }));
+    }
+    if (ready.detect != null && Number.isFinite(ready.detect)) {
+      out.push(el("div", { class: "muted", title: "95 % sure, found 4 times out of 5" },
+        `With these days a change of about ${Math.round(ready.detect * 100)} % shows`,
+        ready.daysFor10 ? `; for 10 % about ${ready.daysFor10} days` : "", "."));
+    }
+    $(".verdicts").replaceChildren(...out);
+    // Gold items by the hour of the day.
+    const byHour = F.goldByHour(sums, metric === "toCap" ? "open" : k, (at) => new Date(at).getHours());
+    const most = Math.max(...byHour);
+    const hb = $(".hours");
+    hb.hidden = !most;
+    if (most) {
+      hb.replaceChildren(el("div", { class: "head", text: `Gold items by the hour of the day (${where})` }),
+        el("div", { class: "hourBars" }, ...byHour.map((n, h) => el("span", { title: `${String(h).padStart(2, "0")}:00 to ${String((h + 1) % 24).padStart(2, "0")}:00: ${n}` },
+          el("i", { style: `height:${(n / most) * 100}%` }), el("small", { text: h % 3 ? "" : String(h) })))));
+    }
   }
 
   // ---------- limits and the floater ----------
@@ -778,6 +1097,11 @@
     settings.breakMin = Number($(".breakPick").value) || 0;
     saveSettings();
   });
+  $(".dayPick").addEventListener("change", () => {
+    const v = Number($(".dayPick").value);
+    dayView = Number.isFinite(v) && v !== F.dayOf(Date.now()) ? v : null;
+    renderDays();
+  });
   $(".floater").addEventListener("change", () => {
     settings.floater = $(".floater").checked;
     saveSettings();
@@ -788,6 +1112,8 @@
   a2.on("character", async (c) => {
     const before = character?.serverId;
     character = c || null;
+    if (character?.name && currentKey() !== farmKey) keyCounts.clear();
+    farmCharacter(character);
     if (character?.name) {
       await loadStock(currentKey());
       await loadKept(currentKey());
@@ -800,8 +1126,14 @@
     }
     render();
   });
+  // The zone you are in (the world's): where a farm day's gains came from.
+  a2.on("world", (w) => {
+    if (Number(w?.zone) > 0) zone = Number(w.zone);
+  });
   a2.on("items", (it) => {
-    if (it && typeof it === "object") noteItems(it);
+    if (!it || typeof it !== "object") return;
+    farmItems(it);
+    noteItems(it);
   });
   // The game's gathering result (the plugin's decoder): item, amount, bonus.
   a2.on("decoded:gathered", (d, meta) => {
@@ -866,6 +1198,7 @@
     setInterval(() => {
       if (settings.tab === "drops") renderList();
       if (settings.tab === "limits") renderLimits();
+      if (settings.tab === "days") renderDays();
     }, 30_000);
   })();
 })();

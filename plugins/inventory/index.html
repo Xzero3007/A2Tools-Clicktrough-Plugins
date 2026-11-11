@@ -20,6 +20,7 @@
       <button type="button" data-tab="char" role="tab">Character storage</button>
       <button type="button" data-tab="acc" role="tab">Server storage</button>
       <button type="button" data-tab="drops" role="tab">Drops</button>
+      <button type="button" data-tab="days" role="tab">Farm days</button>
       <button type="button" data-tab="limits" role="tab">Limits</button>
     </nav>
     <section class="listView">
@@ -51,6 +52,22 @@
       <p class="note hint" hidden></p>
       <ul class="items"></ul>
     </section>
+    <section class="daysView" hidden>
+      <div class="dayBar">
+        <select class="dayPick" title="A farm day: from one daily reset (07:00 UTC) to the next"></select>
+        <span class="dayText"></span>
+      </div>
+      <div class="dayCard"></div>
+      <h3>Gold items</h3>
+      <ul class="items goldList"></ul>
+      <h3>Statistics</h3>
+      <div class="sources statSources"></div>
+      <div class="sources statMetrics"></div>
+      <svg class="chart" preserveAspectRatio="none" hidden></svg>
+      <div class="verdicts"></div>
+      <div class="hours" hidden></div>
+      <p class="note">Where it came from: the zone you are in (open world with its towns, dungeon, Abyss with the Abyss Corridor, the Shugo Festival's games, the Incursion of the Spirits as the Dimensional Invasion), and a Shugo Festival or Dimensional Invasion key used marks the rewards around it as that event's. Bought, crafted and broken-down items are no drop. The open world's Kina is the game's counter toward the daily cap; elsewhere (the Abyss goes on past the cap) the Kina coming in. Worth: the market price when it dropped. A day counts for a source with half an hour or more played there; days start counting when this version runs.</p>
+    </section>
     <section class="limitsView" hidden>
       <div class="floaterBar">
         <label class="check"><input type="checkbox" class="floater" /> Floater</label>
@@ -69,6 +86,8 @@
     <script src="data.js"></script>
     <script src="anomaly.js"></script>
     <script src="calc.js"></script>
+    <script src="zones.js"></script>
+    <script src="days.js"></script>
     <script src="plugin.js"></script>
   </body>
 </html>
