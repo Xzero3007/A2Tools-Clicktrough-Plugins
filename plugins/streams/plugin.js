@@ -37,7 +37,7 @@
   const slotDefaults = (kind) => ({ ...SLOT_DEFAULTS, ...(kind === "jellyfin" ? { quality: "original" } : {}) });
   for (const k of ["twitch", "youtube", "jellyfin"]) settings.slots[k] = slotDefaults(k);
   // Twitch logins; YouTube channels { id, name, thumbnail }.
-  const favs = { twitch: [], youtube: [] };
+  const favs = { twitch: [], youtube: [], videos: [] };
   // Per kind: what plays ({ kind, id, title, sub }), the player's state,
   // whether its overlay is open.
   const slots = {
@@ -181,6 +181,22 @@
     if (v.live) thumb.append(el("span", "badge live", "LIVE"));
     if (v.duration) thumb.append(el("span", "badge right", L.length(v.duration)));
     card.append(thumb);
+    {
+      const on = favs.videos.some((x) => x.id === v.id);
+      const heart = el("button", `heart${on ? " on" : ""}`, on ? "♥" : "♡");
+      heart.type = "button";
+      heart.title = on ? "Remove from your favourite videos" : "Add to your favourite videos";
+      heart.addEventListener("click", (e) => { e.stopPropagation(); toggleVideoFav(v); });
+      card.append(heart);
+    }
+    if (v.isNew) thumb.append(el("span", "badge new", "NEW"));
+    if (v.hideable && v.channelId) {
+      const hide = el("button", "hideCh", "Hide channel");
+      hide.type = "button";
+      hide.title = `Never show ${v.channel || "this channel"} in AION 2 new`;
+      hide.addEventListener("click", (e) => { e.stopPropagation(); hideTrackerChannel(v.channelId); });
+      card.append(hide);
+    }
     if (v.channelId) {
       const fav = favs.youtube.some((c) => c.id === v.channelId);
       card.append(starButton(fav, fav ? `Remove ${v.channel} from your channels` : `Add ${v.channel} to your channels`,
@@ -198,6 +214,15 @@
   }
 
   // ---------- favourites ----------
+  // Favourite videos: a list to watch later (the heart on a video).
+  function toggleVideoFav(v) {
+    const i = favs.videos.findIndex((x) => x.id === v.id);
+    if (i >= 0) favs.videos.splice(i, 1);
+    else favs.videos.unshift({ id: v.id, title: v.title || "", channel: v.channel || "", channelId: v.channelId || "", duration: v.duration || null, published: v.published || "", addedAt: Date.now() });
+    if (favs.videos.length > 300) favs.videos.length = 300;
+    saveFavs();
+    redraw();
+  }
   function toggleTwitchFav(login) {
     const i = favs.twitch.indexOf(login);
     if (i >= 0) favs.twitch.splice(i, 1);
@@ -344,8 +369,97 @@
     redraw();
   }
 
+  // ---------- AION 2 new: the newest AION 2 videos in English, German, Turkish ----------
+  // Three of YouTube's searches, newest uploads first (yt-dlp, through the
+  // meter), every 30 minutes while the meter runs. YouTube's list doesn't
+  // say a video's language: titles in other scripts (Korean, Chinese,
+  // Japanese, Cyrillic, Thai, Arabic, Vietnamese) and with a few Spanish,
+  // Portuguese, French, Italian or Polish words are left out, and a channel
+  // can be hidden for good.
+  const TRACK_SEARCHES = ["AION 2", "AION 2 deutsch", "AION 2 türkçe"];
+  const TRACK_EVERY = 30 * 60000;
+  const tracker = { videos: [], hidden: [], at: 0, seenAt: 0, shownSince: 0, busy: false, error: "" };
+  const saveTracker = () => a2.storage.set("aion2Tracker", { videos: tracker.videos, hidden: tracker.hidden, at: tracker.at, seenAt: tracker.seenAt }).catch(() => {});
+  const OTHER_SCRIPT = /[Ѐ-ӿ؀-ۿ฀-๿ᄀ-ᇿ぀-ヿ㄰-㆏㐀-鿿가-힯Ạ-ỹƠơƯư]/;
+  const OTHER_WORDS = /(^|[^\p{L}])(español|espanol|guía|guia|nuevo|nueva|mejor|cómo|português|portugues|brasil|pt-br|novo|nova|melhor|français|francais|meilleur|nouveau|italiano|polski|po polsku|indonesia|bahasa|tiếng)(?![\p{L}])/iu;
+  function trackerKeeps(v) {
+    const text = `${v.title} ${v.channel}`;
+    if (!/aion/i.test(text)) return false;
+    if (OTHER_SCRIPT.test(text) || OTHER_WORDS.test(v.title)) return false;
+    return !tracker.hidden.includes(v.channelId);
+  }
+  async function trackAion2(force) {
+    if (tracker.busy || (!force && Date.now() - tracker.at < TRACK_EVERY)) return;
+    tracker.busy = true;
+    tracker.error = "";
+    if (settings.youtubeView === "new") status("youtube");
+    let found = 0;
+    let failed = 0;
+    for (const q of TRACK_SEARCHES) {
+      try {
+        const list = await a2.video.search(q, { newest: true });
+        for (const v of Array.isArray(list) ? list : []) {
+          if (v.live || tracker.videos.some((x) => x.id === v.id)) continue;
+          tracker.videos.push({ ...v, foundAt: Date.now() });
+          found++;
+        }
+      } catch (e) {
+        failed++;
+        tracker.error = String(e?.message || e);
+      }
+    }
+    if (failed < TRACK_SEARCHES.length) tracker.error = "";
+    // The newest found first; at most 200 kept.
+    tracker.videos.sort((a, b) => b.foundAt - a.foundAt);
+    if (tracker.videos.length > 200) tracker.videos.length = 200;
+    tracker.at = Date.now();
+    tracker.busy = false;
+    // Looked at while found: seen (the NEW marks stay for this visit).
+    if (settings.tab === "youtube" && settings.youtubeView === "new") tracker.seenAt = Date.now();
+    saveTracker();
+    drawTrackerCount();
+    if (found || settings.youtubeView === "new") redraw();
+  }
+  function trackerUnseen() {
+    return tracker.videos.filter((v) => v.foundAt > tracker.seenAt && trackerKeeps(v)).length;
+  }
+  function drawTrackerCount() {
+    const b = $('.pane[data-pane="youtube"] .views button[data-view="new"]');
+    if (!b) return;
+    const n = trackerUnseen();
+    b.textContent = n ? `AION 2 new (${n})` : "AION 2 new";
+  }
+  function hideTrackerChannel(id) {
+    if (!tracker.hidden.includes(id)) tracker.hidden.push(id);
+    saveTracker();
+    drawTrackerCount();
+    redraw();
+  }
+  setInterval(() => trackAion2(false), 5 * 60000);
+
   function drawYoutube(box) {
     const view = settings.youtubeView;
+    if (view === "favs") {
+      if (!favs.videos.length) box.append(el("div", "empty", "No favourite videos yet. Click the ♡ on a video to keep it here."));
+      const grid = el("div", "grid");
+      for (const v of favs.videos) grid.append(videoCard(v));
+      box.append(grid);
+      return;
+    }
+    if (view === "new") {
+      const list = tracker.videos.filter(trackerKeeps);
+      if (tracker.hidden.length) {
+        const undo = el("button", "more", `Show hidden channels again (${tracker.hidden.length})`);
+        undo.type = "button";
+        undo.addEventListener("click", () => { tracker.hidden = []; saveTracker(); drawTrackerCount(); redraw(); });
+        box.append(undo);
+      }
+      if (!list.length && !tracker.busy) box.append(el("div", "empty", tracker.at ? "No new AION 2 videos found yet." : "Looking for new AION 2 videos …"));
+      const grid = el("div", "grid");
+      for (const v of list.slice(0, 120)) grid.append(videoCard({ ...v, isNew: v.foundAt > tracker.shownSince, hideable: true }));
+      box.append(grid);
+      return;
+    }
     if (view === "search") {
       if (!youtube.results.length && !youtube.busy && !youtube.error) box.append(el("div", "empty", "Nothing found."));
       const grid = el("div", "grid");
@@ -1268,7 +1382,8 @@
     if (to.tab === "twitch") loadTwitch();
     else if (to.tab === "jellyfin") { jf.items = []; loadJellyfin(false); }
     else if (to.yv === "search") { if (youtube.resultsFor !== to.yq && to.yq) searchYoutube(); }
-    else loadFeeds(false);
+    else if (to.yv === "new") openTracker();
+    else if (to.yv !== "favs") loadFeeds(false);
     document.scrollingElement.scrollTop = 0;
     nav.restoring = false;
     drawNav();
@@ -1307,6 +1422,11 @@
     box.classList.toggle("error", !!s.error);
     if (s.error) box.textContent = /yt-dlp is not installed/.test(s.error) ? "yt-dlp is missing: sudo pacman -S yt-dlp" : `Couldn't get the list: ${s.error}`;
     else if (s.busy) box.textContent = "Loading …";
+    else if (tab === "youtube" && settings.youtubeView === "new") {
+      box.classList.toggle("error", !!tracker.error);
+      box.textContent = tracker.error ? `Couldn't search: ${tracker.error}` : tracker.busy ? "Looking for new videos …"
+        : tracker.at ? `English, German and Turkish titles · looked ${new Date(tracker.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}, every 30 minutes` : "";
+    }
     else if (tab === "twitch" && twitch.at) box.textContent = `${twitch.list.filter((c) => c.live).length} live · updated ${new Date(twitch.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     else box.textContent = "";
   }
@@ -1340,7 +1460,17 @@
     redraw();
     if (tab === "twitch") loadTwitch();
     else if (tab === "jellyfin") loadJellyfin(false);
-    else if (view !== "search") loadFeeds(false);
+    else if (view === "new") openTracker();
+    else if (view === "subs" || view === "channels") loadFeeds(false);
+  }
+  // Opened: what came since the last look is marked NEW for this visit.
+  function openTracker() {
+    tracker.shownSince = tracker.seenAt;
+    tracker.seenAt = Date.now();
+    saveTracker();
+    drawTrackerCount();
+    redraw();
+    trackAion2(false);
   }
 
   const FIRST_VIEW = { twitch: "aion", youtube: "subs", jellyfin: "home" };
@@ -1388,12 +1518,26 @@
       drawNav();
     });
   }
+  // The AION 2 button beside YouTube's search.
+  $(".aionSearch").addEventListener("click", () => {
+    remember();
+    nav.restoring = true;
+    youtube.query = "AION 2";
+    $('.searchForm[data-for="youtube"] .search').value = youtube.query;
+    settings.tab = "youtube";
+    settings.youtubeView = "search";
+    redraw();
+    searchYoutube();
+    nav.restoring = false;
+    drawNav();
+  });
   for (const b of $$(".refresh")) {
     b.addEventListener("click", () => {
       if (settings.tab === "twitch") loadTwitch();
       else if (settings.tab === "jellyfin") loadJellyfin(true);
       else if (settings.youtubeView === "search") { if (youtube.query) searchYoutube(); }
-      else loadFeeds(true);
+      else if (settings.youtubeView === "new") trackAion2(true);
+      else if (settings.youtubeView !== "favs") loadFeeds(true);
     });
   }
 
@@ -1423,6 +1567,14 @@
       const f = (await a2.storage.get("favourites")) || {};
       if (Array.isArray(f.twitch)) favs.twitch = f.twitch.filter((x) => L.twitchLogin(x));
       if (Array.isArray(f.youtube)) favs.youtube = f.youtube.filter((c) => c && typeof c.id === "string");
+      if (Array.isArray(f.videos)) favs.videos = f.videos.filter((v) => v && typeof v.id === "string");
+      const t = await a2.storage.get("aion2Tracker");
+      if (t && typeof t === "object") {
+        if (Array.isArray(t.videos)) tracker.videos = t.videos.filter((v) => v && typeof v.id === "string");
+        if (Array.isArray(t.hidden)) tracker.hidden = t.hidden.filter((x) => typeof x === "string");
+        tracker.at = Number(t.at) || 0;
+        tracker.seenAt = Number(t.seenAt) || 0;
+      }
     } catch {}
     if (settings.twitchView === "search") settings.twitchView = favs.twitch.length ? "favs" : "aion";
     if (settings.youtubeView === "search") settings.youtubeView = "subs";
@@ -1430,9 +1582,13 @@
     redraw();
     drawPlayer();
     drawNav();
+    drawTrackerCount();
     a2.ready();
+    // The tracker's first look a minute after the start (the meter busy then).
+    setTimeout(() => trackAion2(false), 60000);
     if (settings.tab === "twitch") loadTwitch();
     else if (settings.tab === "jellyfin") loadJellyfin(false);
-    else loadFeeds(false);
+    else if (settings.youtubeView === "new") openTracker();
+    else if (settings.youtubeView !== "favs") loadFeeds(false);
   })();
 })();

@@ -52,6 +52,16 @@ video overlays over the game: each in its own, several at once if you like.
   and ⏮ ⏭ (in the player row) play the episode before or after (0.5.0).
   The bar is as see-through as the window (its opacity slider; 0.5.1,
   meter patch 0056).
+- **YouTube** (0.6.0): **Favourites**, videos kept with the ♡ on a video
+  (a list to watch later; the ☆ still saves its channel); an **AION 2**
+  button beside the search; **AION 2 new**, the newest AION 2 videos in
+  English, German and Turkish: three searches ("AION 2", "AION 2 deutsch",
+  "AION 2 türkçe", newest uploads first, meter patch 0059) every 30
+  minutes while the meter runs, the count of new ones on its button, NEW
+  on what came since the last look. YouTube's list doesn't say a video's
+  language: titles in other scripts and with a few Spanish, Portuguese,
+  French, Italian or Polish words are left out, and **Hide channel** (on a
+  card) leaves a channel out for good.
 - A video that doesn't play says why: what yt-dlp or mpv said (meter
   patch 0057), with a plain hint where one is known (yt-dlp too old, no
   JavaScript runtime for YouTube: `sudo pacman -S deno`). A video started

@@ -61,6 +61,16 @@ img.wait { visibility: hidden; position: absolute; left: 0; top: 0; width: 1px; 
   width: 26px; height: 26px; padding: 0; font-size: 15px; line-height: 26px; color: rgba(255,255,255,.75); }
 .star.on { color: #f2c46b; }
 .card:not(:hover) .star:not(.on) { display: none; }
+/* A video's heart (favourite videos), top left; Hide channel in AION 2 new. */
+.heart { position: absolute; top: 8px; left: 8px; z-index: 2; background: rgba(0,0,0,.6); border: 0; border-radius: 50%;
+  width: 26px; height: 26px; padding: 0; font-size: 15px; line-height: 26px; color: rgba(255,255,255,.75); }
+.heart.on { color: var(--a2-accent, #e0a526); }
+.card:not(:hover) .heart:not(.on) { display: none; }
+.badge.live ~ .heart, .card:has(.badge.live) .heart { top: 30px; }
+.badge.new { left: 5px; background: var(--a2-accent, #e0a526); color: #111; font-weight: 700; }
+.hideCh { position: absolute; top: 40px; right: 8px; z-index: 2; background: rgba(0,0,0,.7); border: 0; border-radius: 4px;
+  padding: 2px 6px; font-size: 11px; color: rgba(255,255,255,.8); }
+.card:not(:hover) .hideCh { display: none; }
 h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: rgba(255,255,255,.55); margin: 14px 0 8px; font-weight: 600; }
 h3:first-child { margin-top: 2px; }
 /* Channels not live: a row each. */
