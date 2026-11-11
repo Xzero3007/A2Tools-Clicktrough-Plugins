@@ -22,6 +22,10 @@ input[type=range] { accent-color: var(--a2-accent, #e0a526); }
   padding: 5px 2px; color: rgba(255,255,255,.55); font-weight: 600; }
 .tab[aria-selected="true"] { color: #fff; border-bottom-color: var(--a2-accent, #e0a526); }
 .tab:hover { background: none; color: #fff; }
+.navBtns { display: inline-flex; gap: 2px; flex: none; align-items: center; }
+.navBtns button { background: none; border: 0; padding: 3px 7px; color: rgba(255,255,255,.75); font-size: 15px; line-height: 1; }
+.navBtns button:hover:not(:disabled) { color: var(--a2-accent, #e0a526); background: rgba(255,255,255,.06); }
+.navBtns button:disabled { color: rgba(255,255,255,.22); cursor: default; }
 .pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .controls { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .searchForm { flex: 1; min-width: 180px; margin: 0; }

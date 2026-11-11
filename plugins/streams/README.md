@@ -26,8 +26,14 @@ video overlays over the game: each in its own, several at once if you like.
   which one they are for). While a video plays, the meter shows its controls
   (pause, mute, volume, opacity, quality, stop) in its player row under its
   title, a button for each one playing (meter patches 0049 and 0051). The
-  **TV button** in the meter's title shows the Twitch overlay (and plays
-  the last channel again) or stops it.
+  **TV button** in the meter's title shows or hides that row (0.5.0, meter
+  patch 0055). The row always has Twitch, YouTube and Jellyfin: a stopped
+  one is dimmed and ▶ plays its last video again; the row opens by itself
+  when a video starts. A playing video stays on screen when the plugin
+  window is hidden.
+- **← →** at the top of the window go back and on through where you were
+  (tabs, views, Jellyfin's folders, searches), as in a browser; also the
+  mouse's side buttons and Alt+← / Alt+→ (0.5.0).
 - When AION2 closes, the videos stop (0.3.1).
 - **Jellyfin** (0.4.0): your own Jellyfin server, **in your home network
   only**. Sign in once (the server's address, like `192.168.1.20:8096`,
@@ -42,7 +48,8 @@ video overlays over the game: each in its own, several at once if you like.
   (and recaps, credits, previews) where your server knows them: Jellyfin
   10.10's Media Segments, or the Intro Skipper plugin; a button in the
   overlay, the bar and the meter's player row, or by itself
-  ("Skip intros by themselves"). At an episode's end the next one starts
+  ("Skip intros by themselves"). ⏮ and ⏭ (in the bar and the player row)
+  play the episode before or after (0.5.0). At an episode's end the next one starts
   ("Play the next episode"). Quality: **Original** (the file as it is) or
   your server's conversion to 1080p down to 360p, or sound only. Your
   server is told what plays and how far, so Continue watching and

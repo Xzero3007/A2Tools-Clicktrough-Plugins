@@ -25,6 +25,7 @@
   const audio = new Audio();
   audio.preload = "none";
   let playing = null; // the station id while it should play
+  let paused = false; // playing, held by the player row's pause
   let streamIndex = 0;
   let status = "idle"; // idle | connecting | playing | buffering | failed
   let why = "";
@@ -46,6 +47,7 @@
     if (!station) return;
     stopAudio();
     playing = id;
+    paused = false;
     streamIndex = 0;
     settings.station = id;
     save();
@@ -76,7 +78,7 @@
   }
 
   function onFail(text) {
-    if (!playing) return;
+    if (!playing || paused) return;
     clearTimeout(watchdog);
     why = text;
     streamIndex++;
@@ -92,8 +94,24 @@
 
   function stop() {
     playing = null;
+    paused = false;
     stopAudio();
     setStatus("idle");
+  }
+
+  // Pause: the station stays chosen (and in the meter's row); play goes on
+  // live, connecting again, not from where it was held.
+  function togglePause() {
+    if (!playing) return;
+    if (paused) {
+      paused = false;
+      streamIndex = 0;
+      tryStream();
+    } else {
+      paused = true;
+      stopAudio();
+      setStatus("paused");
+    }
   }
 
   audio.addEventListener("playing", () => {
@@ -104,7 +122,7 @@
   audio.addEventListener("waiting", () => { if (playing && status === "playing") setStatus("buffering"); });
   audio.addEventListener("error", () => onFail(R.mediaError(audio.error)));
   // A stream that ends (the server dropped it): connect again.
-  audio.addEventListener("ended", () => { if (playing) tryStream(); });
+  audio.addEventListener("ended", () => { if (playing && !paused) tryStream(); });
   audio.addEventListener("stalled", () => {
     if (!playing || status !== "playing") return;
     setTimeout(() => { if (playing && status === "buffering") tryStream(); }, 10000);
@@ -206,7 +224,7 @@
       const mark = document.createElement("span");
       mark.className = "mark";
       if (s.id === playing && status !== "failed") {
-        mark.textContent = status === "playing" ? "♪" : "…";
+        mark.textContent = status === "playing" ? "♪" : status === "paused" ? "❚❚" : "…";
         mark.classList.add("ok");
       } else if (c?.ok === false) {
         mark.textContent = "✕";
@@ -232,6 +250,7 @@
     if (status === "connecting") state = "Connecting…";
     else if (status === "buffering") state = "Buffering…";
     else if (status === "playing") state = settings.muted ? "Playing (muted)" : "Playing";
+    else if (status === "paused") state = "Paused";
     else if (status === "failed") state = `${why || "It doesn't play from here"}: try another station`;
     else if (station) state = "Stopped";
     return { name, state, station };
@@ -247,10 +266,11 @@
       title: name,
       sub: state,
       playing: true,
+      paused,
       muted: !!settings.muted,
       volume: settings.volume,
       favourite: !!station && settings.favourites.includes(station.id),
-      controls: ["prev", "playStop", "next", "mute", "volume", "favourite"],
+      controls: ["prev", "pause", "next", "mute", "volume", "favourite", "stop"],
     } : null;
     const key = JSON.stringify(data);
     if (key === meterSaid) return;
@@ -350,6 +370,8 @@
   // A control in the meter's player row: as the player's buttons.
   a2.on("media", ({ action, value } = {}) => {
     if (action === "playStop") togglePlay();
+    else if (action === "pause") togglePause();
+    else if (action === "stop") stop();
     else if (action === "prev") step(-1);
     else if (action === "next") step(1);
     else if (action === "mute") setMuted(!settings.muted);

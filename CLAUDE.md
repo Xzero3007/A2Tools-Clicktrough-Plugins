@@ -228,7 +228,10 @@ updates and reporting don't exist in this build), `a2.window.*` (`window`),
 `a2.widgets.*` (`widgets`, `resize` is Clicktrough's). `a2.media.set(state, slot)` (`media`, meter patches 0049 and 0051: what the
 plugin plays, for the meter's player row under its header; `null` when
 nothing plays; a slot per player when one plugin plays two, as Streams'
-`twitch` and `youtube`; Streams and Radio). `<audio>` from the
+`twitch` and `youtube`; Streams and Radio; a state with `playing: false`
+is listed dimmed, Streams' stopped players). A manifest's `ui.overlay`
+with `"button": false` has no header button of its own (meter patch 0055:
+Streams' video, the player row's TV button stands for it). `<audio>` from the
 radio stations' servers (`radio`, meter patch 0043; only the hosts in the
 meter's `RADIO_HOSTS`).
 

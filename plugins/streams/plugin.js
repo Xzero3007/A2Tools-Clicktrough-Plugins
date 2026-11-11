@@ -334,6 +334,7 @@
     youtube.results = [];
     status("youtube");
     redraw();
+    youtube.resultsFor = q;
     try {
       youtube.results = await a2.video.search(q);
     } catch (e) {
@@ -537,14 +538,27 @@
     }).catch(() => {});
   }
 
-  // The meter's player row (a2.media): each playing kind in its own slot.
+  // The meter's player row (a2.media): each kind in its own slot, always:
+  // one not playing offers its last video again (playStop).
   const meterSaid = {};
+  const KIND_NAMES = { twitch: "Twitch", youtube: "YouTube", jellyfin: "Jellyfin" };
+  const KIND_ICONS = { twitch: "tv", youtube: "youtube", jellyfin: "clapperboard" };
+  const isEpisode = (what) => what?.kind === "jellyfin" && what.item?.type === "Episode" && !!what.item.seriesId;
   function tellMeter(kind) {
     const { playing, player } = slot(kind);
     const c = ss(kind);
     const jelly = kind === "jellyfin";
+    const last = settings.last[kind];
+    const idleState = {
+      icon: KIND_ICONS[kind],
+      title: last?.title || KIND_NAMES[kind],
+      sub: last ? `${KIND_NAMES[kind]} · stopped` : "Nothing played yet",
+      playing: false,
+      controls: last ? ["playStop"] : [],
+    };
+    const ep = isEpisode(playing);
     const state = playing ? {
-      icon: kind === "twitch" ? "tv" : jelly ? "clapperboard" : "youtube",
+      icon: KIND_ICONS[kind],
       title: player.title || playing.title || "",
       sub: stateText(kind),
       paused: !!player.pause,
@@ -553,10 +567,10 @@
       opacity: c.opacity / 100,
       quality: c.quality,
       controls: jelly
-        ? ["pause", "rewind", "forward", ...(jf.segment ? ["skip"] : []), "mute", "volume", "opacity", "quality", "stop"]
+        ? [...(ep ? ["prev"] : []), "pause", ...(ep ? ["next"] : []), "rewind", "forward", ...(jf.segment ? ["skip"] : []), "mute", "volume", "opacity", "quality", "stop"]
         : ["pause", "mute", "volume", "opacity", "quality", "stop"],
       ...(jelly ? { qualities: QUALITIES.jellyfin, skip: J.skipLabel(jf.segment) } : {}),
-    } : null;
+    } : idleState;
     const key = JSON.stringify(state);
     if (key === meterSaid[kind]) return;
     meterSaid[kind] = key;
@@ -641,7 +655,14 @@
   let saveSoon = null;
   const saveLater = () => { clearTimeout(saveSoon); saveSoon = setTimeout(save, 800); };
   a2.on("media", ({ action, value, slot: kind } = {}) => {
-    if (!slots[kind] || !slot(kind).playing) return;
+    if (!slots[kind]) return;
+    if (action === "playStop") {
+      if (slot(kind).playing) stop(kind);
+      else if (settings.last[kind]) play(settings.last[kind]);
+      return;
+    }
+    if (!slot(kind).playing) return;
+    if ((action === "prev" || action === "next") && kind === "jellyfin") { jfEpisode(action === "prev" ? -1 : 1); return; }
     if (action === "pause") togglePause(kind);
     else if (action === "mute") setMute(kind, !ss(kind).mute);
     else if (action === "volume" && Number.isFinite(value)) { setVolume(kind, value * 100); saveLater(); }
@@ -817,6 +838,7 @@
   }
 
   function jfOpen(it) {
+    remember();
     const at = jf.path[jf.path.length - 1];
     jf.path.push({ id: it.id, name: it.name, type: it.type, seriesId: it.seriesId || (at?.type === "Series" ? at.id : ""), kind: "" });
     if (settings.jellyfinView !== "library") settings.jellyfinView = "library";
@@ -900,7 +922,7 @@
       const back = (n, name) => {
         const b = el("button", "", name);
         b.type = "button";
-        b.addEventListener("click", () => { jf.path = jf.path.slice(0, n); jf.items = []; loadJellyfin(false); });
+        b.addEventListener("click", () => { remember(); jf.path = jf.path.slice(0, n); jf.items = []; loadJellyfin(false); });
         return b;
       };
       crumbs.append(back(0, "Libraries"));
@@ -922,7 +944,7 @@
         for (const lib of jf.libs) {
           const tile = el("div", "lib");
           tile.append(el("div", "title", lib.name), el("div", "sub", { movies: "Films", tvshows: "Shows", homevideos: "Videos", musicvideos: "Music videos" }[lib.kind] || "Folder"));
-          tile.addEventListener("click", () => { jf.path = [{ id: lib.id, name: lib.name, type: "lib", kind: lib.kind }]; jf.items = []; loadJellyfin(false); });
+          tile.addEventListener("click", () => { remember(); jf.path = [{ id: lib.id, name: lib.name, type: "lib", kind: lib.kind }]; jf.items = []; loadJellyfin(false); });
           grid.append(tile);
         }
         box.append(grid);
@@ -1036,6 +1058,9 @@
     clearTimeout(jf.nextTimer);
     if (!slots.jellyfin.playing || !jf.started) return;
     jf.started = false;
+    // Played again from the player row: on from here.
+    const last = settings.last.jellyfin;
+    if (last && last.id === slots.jellyfin.playing.id) { last.start = jf.lastPos; save(); }
     await jfReport("stopped");
     if (settings.tab === "jellyfin" && settings.jellyfinView !== "search") setTimeout(() => loadJellyfin(false), 800);
   }
@@ -1088,6 +1113,23 @@
     } catch {}
   }
 
+  // The episode before or after the one playing (the series' order, across
+  // seasons), from its start.
+  async function jfEpisode(dir) {
+    const what = slots.jellyfin.playing;
+    if (!isEpisode(what) || !jf.account) return;
+    try {
+      const all = J.items(await jfGet([`/Shows/${what.item.seriesId}/Episodes`], { userId: jf.account.userId, ...LIST_Q }));
+      const at = all.findIndex((e) => e.id === what.id);
+      const to = at >= 0 ? all[at + dir] : null;
+      if (!to || slots.jellyfin.playing !== what) return;
+      jfPlay(to, true);
+    } catch (e) {
+      jf.error = jfError(e);
+      status("jellyfin");
+    }
+  }
+
   // What mpv says, for the server and the parts to skip.
   function jfHeard(v) {
     if (!slots.jellyfin.playing) return;
@@ -1115,6 +1157,9 @@
     const on = kind === "jellyfin" && !!slots.jellyfin.playing;
     $(".seekRow").hidden = !on;
     if (!on) return;
+    const ep = isEpisode(slots.jellyfin.playing);
+    $(".prevEp").hidden = !ep;
+    $(".nextEp").hidden = !ep;
     const sk = $(".skipBtn");
     sk.hidden = !jf.segment;
     sk.textContent = J.skipLabel(jf.segment);
@@ -1159,6 +1204,8 @@
   $(".back").addEventListener("click", () => a2.video.control(slot(shown()).widget, "skip", -10).catch(() => {}));
   $(".fwd").addEventListener("click", () => a2.video.control(slot(shown()).widget, "skip", 30).catch(() => {}));
   $(".skipBtn").addEventListener("click", jfSkip);
+  $(".prevEp").addEventListener("click", () => jfEpisode(-1));
+  $(".nextEp").addEventListener("click", () => jfEpisode(1));
   $(".audioTrack").addEventListener("change", () => {
     const what = slots.jellyfin.playing;
     if (!jf.tracks || !what) return;
@@ -1172,6 +1219,76 @@
     if (!jf.tracks) return;
     jf.tracks.subIndex = Number($(".subTrack").value);
     jfSubApply();
+  });
+
+  // ---------- back and forth ----------
+  // Every place the window was (tab, view, Jellyfin folder, searches): ←
+  // goes back to the one before, → on again, as in a browser.
+  const nav = { back: [], fwd: [], restoring: false };
+  const here = () => ({
+    tab: settings.tab, tv: settings.twitchView, yv: settings.youtubeView, jv: settings.jellyfinView,
+    path: jf.path.map((p) => ({ ...p })), tq: twitch.query, yq: youtube.query, jq: jf.query,
+  });
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function remember() {
+    if (nav.restoring) return;
+    const now = here();
+    if (!same(nav.back[nav.back.length - 1], now)) nav.back.push(now);
+    if (nav.back.length > 50) nav.back.shift();
+    nav.fwd = [];
+    drawNav();
+  }
+  function drawNav() {
+    $(".navBack").disabled = !nav.back.length;
+    $(".navFwd").disabled = !nav.fwd.length;
+  }
+  function goTo(to) {
+    nav.restoring = true;
+    settings.tab = to.tab;
+    settings.twitchView = to.tv;
+    settings.youtubeView = to.yv;
+    settings.jellyfinView = to.jv;
+    jf.path = to.path.map((p) => ({ ...p }));
+    twitch.query = to.tq;
+    youtube.query = to.yq;
+    jf.query = to.jq;
+    const input = $(`.searchForm[data-for="${to.tab}"] .search`);
+    if (input) input.value = { twitch: to.tq, youtube: to.yq, jellyfin: to.jq }[to.tab] || "";
+    save();
+    redraw();
+    if (to.tab === "twitch") loadTwitch();
+    else if (to.tab === "jellyfin") { jf.items = []; loadJellyfin(false); }
+    else if (to.yv === "search") { if (youtube.resultsFor !== to.yq && to.yq) searchYoutube(); }
+    else loadFeeds(false);
+    document.scrollingElement.scrollTop = 0;
+    nav.restoring = false;
+    drawNav();
+  }
+  function goBack() {
+    if (!nav.back.length) return;
+    let to = nav.back.pop();
+    while (to && same(to, here()) && nav.back.length) to = nav.back.pop();
+    if (!to || same(to, here())) { drawNav(); return; }
+    nav.fwd.push(here());
+    goTo(to);
+  }
+  function goFwd() {
+    if (!nav.fwd.length) return;
+    const to = nav.fwd.pop();
+    nav.back.push(here());
+    goTo(to);
+  }
+  $(".navBack").addEventListener("click", goBack);
+  $(".navFwd").addEventListener("click", goFwd);
+  // The mouse's side buttons, and Alt+← / Alt+→.
+  window.addEventListener("mouseup", (e) => {
+    if (e.button === 3) { e.preventDefault(); goBack(); }
+    else if (e.button === 4) { e.preventDefault(); goFwd(); }
+  });
+  window.addEventListener("keydown", (e) => {
+    if (!e.altKey) return;
+    if (e.key === "ArrowLeft") { e.preventDefault(); goBack(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); goFwd(); }
   });
 
   // ---------- the page ----------
@@ -1207,6 +1324,7 @@
   }
 
   function setView(tab, view) {
+    remember();
     settings.tab = tab;
     settings[`${tab}View`] = view;
     save();
@@ -1228,8 +1346,11 @@
   for (const b of $$(".views button")) {
     b.addEventListener("click", () => {
       const tab = b.closest(".pane").dataset.pane;
+      remember();
+      nav.restoring = true;
       if (tab === "jellyfin" && b.dataset.view === "library") jf.path = [];
       setView(tab, b.dataset.view);
+      nav.restoring = false;
     });
   }
   for (const f of $$(".searchForm")) {
@@ -1238,6 +1359,8 @@
       const q = $(".search", f).value.trim();
       if (!q) return;
       const tab = f.dataset.for;
+      remember();
+      nav.restoring = true;
       if (tab === "twitch") {
         twitch.query = q;
         setView("twitch", "search");
@@ -1246,12 +1369,14 @@
         setView("jellyfin", "search");
       } else {
         youtube.query = q;
-        if (L.youtubeId(q)) { searchYoutube(); return; }
+        if (L.youtubeId(q)) { nav.restoring = false; searchYoutube(); return; }
         settings.tab = "youtube";
         settings.youtubeView = "search";
         redraw();
         searchYoutube();
       }
+      nav.restoring = false;
+      drawNav();
     });
   }
   for (const b of $$(".refresh")) {
@@ -1295,6 +1420,7 @@
     if (!["home", "library"].includes(settings.jellyfinView)) settings.jellyfinView = "home";
     redraw();
     drawPlayer();
+    drawNav();
     a2.ready();
     if (settings.tab === "twitch") loadTwitch();
     else if (settings.tab === "jellyfin") loadJellyfin(false);

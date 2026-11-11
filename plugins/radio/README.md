@@ -71,6 +71,7 @@ or programme is part of this plugin beyond its name in the list.
 
 Licence: GPL-3.0-or-later (`LICENSE`).
 
-While a station plays, the meter shows its name and controls (before, play/stop,
-after, mute, volume, favourite) in its player row under its title (0.4.0,
-permission `media`, meter patch 0049).
+While a station plays, the meter shows its name and controls (before, pause,
+after, mute, volume, favourite, stop) in its player row under its title (0.4.0,
+permission `media`, meter patch 0049). Pause (0.5.0) keeps the station: play
+goes on live, connecting again.

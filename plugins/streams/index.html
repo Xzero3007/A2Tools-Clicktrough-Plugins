@@ -6,6 +6,7 @@
   </head>
   <body>
     <nav class="tabs" role="tablist">
+      <span class="navBtns"><button type="button" class="navBack" title="Back (Alt+←)" aria-label="Back" disabled>←</button><button type="button" class="navFwd" title="Forward (Alt+→)" aria-label="Forward" disabled>→</button></span>
       <button type="button" class="tab" data-tab="twitch" role="tab">Twitch</button>
       <button type="button" class="tab" data-tab="youtube" role="tab">YouTube</button>
       <button type="button" class="tab" data-tab="jellyfin" role="tab">Jellyfin</button>
@@ -72,11 +73,13 @@
 
     <footer class="player" hidden>
       <div class="seekRow" hidden>
+        <button type="button" class="prevEp" title="The episode before" aria-label="The episode before" hidden>⏮</button>
         <button type="button" class="back" title="Back 10 seconds">−10 s</button>
         <span class="time">0:00</span>
         <input type="range" class="seek" min="0" max="1000" step="1" value="0" aria-label="Position" />
         <span class="total">0:00</span>
         <button type="button" class="fwd" title="On 30 seconds">+30 s</button>
+        <button type="button" class="nextEp" title="The next episode" aria-label="The next episode" hidden>⏭</button>
         <button type="button" class="skipBtn" hidden></button>
         <select class="audioTrack" title="Audio track"></select>
         <select class="subTrack" title="Subtitles"></select>
