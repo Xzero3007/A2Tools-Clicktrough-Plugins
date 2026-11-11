@@ -28,7 +28,9 @@ extract and what no longer pays.
   mouse even with the meter locked, so its list scrolls (a wide
   scrollbar); it stays put then (meter patch 0064). Elsewhere a locked
   window lets clicks through to the game. When no picture comes from the
-  icon server, the panel's top line says why. **Note new skins**: a note
+  icon server, the panel's top line says why. The Merchant tab says
+  whether the window is open and why not (the tick off, closed with its ×),
+  and when the last shop list came. **Note new skins**: a note
   when a skin you lack is on offer.
 - **Missing**: every skin you lack (one per closet entry) with its picture,
   grade, slot and the merchant's list price, filterable by kind and grade,

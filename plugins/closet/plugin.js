@@ -8,7 +8,9 @@
   const $ = (s) => document.querySelector(s);
   const ICONS = "https://assets.playnccdn.com/static-aion2-gamedata/resources/";
 
-  const settings = { tab: "merchant", popup: true, toast: true, popupMinutes: 3, status: false, statusAlways: false, sizes: {}, kind: "all", grade: "all", order: "price", lucky: false };
+  // shopWindow: the Closet window at the shop and the closet (0.2.11 on;
+  // the older "popup" tick meant the old second window and is not read).
+  const settings = { tab: "merchant", shopWindow: true, popup: true, toast: true, popupMinutes: 3, status: false, statusAlways: false, sizes: {}, kind: "all", grade: "all", order: "price", lucky: false };
   let closet = null; // Map closet id -> copies
   let closetAt = 0;
   let chars = {}; // key -> { name, serverId, stocks: { tab: stock } }
@@ -165,7 +167,9 @@
       a2.notify(`Black Cloud: ${fresh.length === 1 ? "a skin you lack" : `${fresh.length} skins you lack`} on offer (${names.join(", ")})`).catch(() => {});
     }
     // A frame replayed from earlier (the page started again) opens nothing.
-    if (Date.now() - (stock.at || Date.now()) < 90 * 1000) arrived("shop");
+    // A frame from before this page started (replayed to it) opens nothing.
+    lastStock = { at: Date.now(), owner: character?.name || "" };
+    if ((stock.at || Date.now()) >= pageStart - 5000) arrived("shop");
     sendWidgets();
     dirty();
   }
@@ -316,21 +320,27 @@
   // One open at a time: two at once (two shop tabs told in one moment) made
   // two windows in the meter, the second empty and impossible to close.
   // A change asked for while one runs is applied when it is done.
-  let opening = false, again = false;
+  let opening = false, again = false, lastOpenError = "";
+  let lastStock = null; // when the last shop list came, and whose
+  const pageStart = Date.now();
   async function openWidget() {
     if (opening) {
       again = true;
       return;
     }
     opening = true;
+    // A meter that never answers must not keep every later open waiting.
+    const late = (ms) => new Promise((_, no) => setTimeout(() => no(new Error("the meter did not answer")), ms));
     try {
-      await a2.widgets.open("status", widgetSize());
-      // No lock of its own: the meter's lock is every widget's.
-      await a2.widgets.lock(false);
+      await Promise.race([a2.widgets.open("status", widgetSize()), late(8000)]);
+      lastOpenError = "";
       open.status = true;
       sendWidgets();
+      // No lock of its own: the meter's lock is every widget's.
+      a2.widgets.lock(false).catch(() => {});
     } catch (e) {
       console.error(e);
+      lastOpenError = String(e?.message || e).slice(0, 120);
     } finally {
       opening = false;
     }
@@ -351,16 +361,24 @@
   let hereTimer = 0;
   let anchor = null; // where you stood when it opened
   let dismissed = false; // closed with its × until you come back
-  const statusWanted = () => !dismissed && ((settings.popup && here) || settings.statusAlways);
-  let openedHere = null; // `here` when the window was last opened (its mouse rule)
-  function applyStatus() {
+  const statusWanted = () => !dismissed && ((settings.shopWindow !== false && here) || settings.statusAlways);
+  // Why the window is or isn't up, for the Merchant tab (a screenshot of it
+  // tells what happened).
+  const windowWhy = () => {
+    if (lastOpenError) return `could not open: ${lastOpenError}`;
+    if (open.status) return here ? "open (at the shop or the closet)" : "open (Everywhere)";
+    if (dismissed) return "closed with its × until you leave the shop";
+    if (here && settings.shopWindow === false) return "off: tick Window at the shop";
+    if (!here) return "shows when you open the Black Cloud shop or the closet";
+    return "opening…";
+  };
+  // Each arrival asks the meter again: it shows a window something hid.
+  function applyStatus(again = false) {
     if (statusWanted()) {
-      if (open.status && openedHere === here) sendWidgets();
-      else {
-        openedHere = here;
-        openWidget();
-      }
+      if (open.status && !again) sendWidgets();
+      else openWidget();
     } else if (open.status || opening) closeWidget();
+    if (settings.tab === "merchant") dirty();
   }
   let hereBy = "", hereSince = 0, hereZone = null;
   function arrived(by = "") {
@@ -374,7 +392,7 @@
     anchor = null;
     clearTimeout(hereTimer);
     hereTimer = setTimeout(left, Math.max(1, settings.popupMinutes) * 60 * 1000);
-    applyStatus();
+    applyStatus(true);
   }
   function left() {
     here = false;
@@ -496,7 +514,9 @@
   }
 
   function renderMerchant() {
-    $(".popup").checked = !!settings.popup;
+    $(".popup").checked = settings.shopWindow !== false;
+    const ls = lastStock ? `Last shop list ${clock(lastStock.at)}${lastStock.owner ? ` (${lastStock.owner})` : ""}` : "No shop list since the meter started";
+    $(".winState").textContent = `Closet window: ${windowWhy()} · ${ls}`;
     $(".statusAlways").checked = !!settings.statusAlways;
     showSizes();
     $(".toast").checked = !!settings.toast;
@@ -663,7 +683,7 @@
       render();
     });
   }
-  $(".popup").addEventListener("change", (e) => { settings.popup = e.target.checked; saveSettings(); applyStatus(); });
+  $(".popup").addEventListener("change", (e) => { settings.shopWindow = e.target.checked; saveSettings(); applyStatus(); });
   function showSizes() {
     for (const i of document.querySelectorAll(".size")) if (document.activeElement !== i) i.value = String(sizeOf(i.dataset.w)[i.dataset.k]);
   }
