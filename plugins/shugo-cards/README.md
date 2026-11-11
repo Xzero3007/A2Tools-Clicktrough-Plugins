@@ -1,10 +1,18 @@
 # Shugo Cards (A2Tools plugin)
 
-The Shugo Festival's card rounds, kept and counted. When a round ends the
+The card rounds of the Shugo Festival and the Dimensional Invasion (the same
+rewards), kept and counted. When a round ends the
 game shows what lay behind every card, picked or not; this plugin keeps each
 round and adds them up, so you see over time where the gold lies and whether
 any card is better than another.
 
+- **All / Shugo / Dimensional Invasion** (above the tabs, with each one's
+  count): every tab, the statistics and the tip go by the rounds picked here,
+  both events together or each alone. A round names its event by number:
+  21070110 is the Shugo Festival; a number not known yet is guessed by the
+  time (20 to 50 minutes past the hour: the Dimensional Invasion, which comes
+  at half past) and marked so, and its two buttons settle it for every round
+  of that number.
 - **Rounds**: the five cards from the left, each with its items (picture,
   name, count; gold items first and marked), its currencies (Abyss Points,
   Enhance Stones, Centuryroot Tokens) and what its sellable items bring on

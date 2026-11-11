@@ -87,3 +87,17 @@ test("statistics over rounds: gold per place on the cards' own items", () => {
   assert.equal(s.mineRounds, 3);
   assert.equal(s.items.find((x) => x.item === 610610013).seen, 12, "cards it was on");
 });
+
+test("which event: a known number, the person's choice, else a guess by the time", () => {
+  const at = (h, m) => new Date(2026, 10, 11, h, m).getTime();
+  assert.deepEqual(C.kindOf({ event: 21070110, at: at(21, 4) }), { kind: "shugo", sure: true });
+  assert.deepEqual(C.kindOf({ event: 99, at: at(21, 34) }), { kind: "di", sure: false });
+  assert.deepEqual(C.kindOf({ event: 99, at: at(21, 4) }), { kind: "shugo", sure: false });
+  assert.deepEqual(C.kindOf({ event: 99, at: at(21, 4) }, { 99: "di" }), { kind: "di", sure: true });
+  assert.deepEqual(C.kindOf({ event: 21070110, at: at(21, 4) }, { 21070110: "di" }), { kind: "di", sure: true });
+  const rounds = [{ event: 21070110, at: at(21, 4) }, { event: 99, at: at(21, 33) }, { event: 99, at: at(22, 33) }];
+  assert.equal(C.only(rounds, "all").length, 3);
+  assert.equal(C.only(rounds, "shugo").length, 1);
+  assert.equal(C.only(rounds, "di").length, 2);
+  assert.equal(C.only(rounds, "shugo", { 99: "shugo" }).length, 3);
+});

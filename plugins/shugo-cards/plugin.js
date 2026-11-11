@@ -14,7 +14,7 @@
   // Rounds that did not read: their frame is kept (a few) to be looked at.
   const KEEP_ODD = 5;
 
-  let settings = { tab: "round", server: null };
+  let settings = { tab: "round", server: null, kind: "all", kinds: {} }; // kinds: event number -> "shugo" | "di"
   let rounds = [];
   let odd = [];
   let character = null;
@@ -147,9 +147,18 @@
       .join(" · ");
   const kinahText = (w) => (w.priced ? `${w.guess ? "≈ " : ""}${C.short(w.kinah)}` : "—");
 
+  // The rounds of the event picked above (All, Shugo, Dimensional Invasion).
+  const picked = () => C.only(rounds, settings.kind, settings.kinds);
   function renderTop() {
     const s = server();
-    $(".count").textContent = rounds.length ? `${rounds.length} round${rounds.length === 1 ? "" : "s"} since ${when(rounds[0].at)}${odd.length ? ` · ${odd.length} not read` : ""}` : "No round yet";
+    const list = picked();
+    const what = settings.kind === "all" ? "" : ` (${C.KINDS[settings.kind]})`;
+    $(".count").textContent = list.length ? `${list.length} round${list.length === 1 ? "" : "s"}${what} since ${when(list[0].at)}${odd.length ? ` · ${odd.length} not read` : ""}` : `No round yet${what}`;
+    for (const b of document.querySelectorAll(".kinds button")) {
+      const n = C.only(rounds, b.dataset.kind, settings.kinds).length;
+      b.textContent = `${b.dataset.kind === "all" ? "All" : C.KINDS[b.dataset.kind]} ${n}`;
+      b.setAttribute("aria-pressed", String(b.dataset.kind === settings.kind));
+    }
     $(".priceState").textContent = busy ? "Reading prices …" : priceError || (s ? `${s.name}: ${prices.size ? `prices of ${when(Date.parse(snapshot) || fetchedAt)}` : "no prices yet"}` : "No server for prices yet");
     $(".update").disabled = busy || !s;
   }
@@ -168,19 +177,46 @@
   }
 
   function renderRound() {
-    const i = shown == null ? rounds.length - 1 : rounds.findIndex((r) => r.key === shown);
-    const r = rounds[i] || null;
+    const list = picked();
+    let i = shown == null ? list.length - 1 : list.findIndex((r) => r.key === shown);
+    if (i < 0) i = list.length - 1;
+    const r = list[i] || null;
     $(".empty").hidden = !!r;
     $(".nav").hidden = !r;
     $(".prev").disabled = i <= 0;
-    $(".next").disabled = !r || i >= rounds.length - 1;
-    $(".when").textContent = r ? `${when(r.at)} · round ${i + 1} of ${rounds.length}` : "";
+    $(".next").disabled = !r || i >= list.length - 1;
+    $(".when").textContent = r ? `${when(r.at)} · round ${i + 1} of ${list.length}` : "";
     const box = $(".cards");
+    const kindBox = $(".kindOf");
     if (!r) {
       box.replaceChildren();
+      kindBox.replaceChildren();
       $(".roundSum").textContent = "";
       return;
     }
+    // Which event: known, or guessed by the time and settled with a click
+    // (for every round of that event number).
+    const k = C.kindOf(r, settings.kinds);
+    const choose = (kind) => {
+      settings.kinds = { ...settings.kinds, [r.event]: kind };
+      saveSettings();
+      render();
+    };
+    kindBox.replaceChildren(
+      el("span", { class: "kindName", text: C.KINDS[k.kind] }),
+      k.sure ? null : el("span", { class: "muted", text: " (guessed by the time; event " + r.event + ")" }),
+      settings.kinds[r.event] || !C.EVENTS[r.event]
+        ? el(
+            "span",
+            { class: "setKind" },
+            ...["shugo", "di"].map((kind) => {
+              const b = el("button", { type: "button", "aria-pressed": String(k.sure && k.kind === kind), title: `Every round of event ${r.event} is ${C.KINDS[kind]}` }, C.KINDS[kind]);
+              b.addEventListener("click", () => choose(kind));
+              return b;
+            }),
+          )
+        : null,
+    );
     const ws = r.cards.map((c) => C.cardWorth(c, prices, hist));
     const best = Math.max(...ws.map((w) => w.kinah));
     let mine = 0;
@@ -318,7 +354,7 @@
     for (const b of document.querySelectorAll(".tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === settings.tab));
     for (const v of document.querySelectorAll(".view")) v.hidden = v.dataset.view !== settings.tab;
     if (settings.tab === "round") return renderRound();
-    const s = C.stats(rounds, prices, hist);
+    const s = C.stats(picked(), prices, hist);
     if (settings.tab === "gold") renderGold(s);
     else if (settings.tab === "places") renderPlaces(s);
     else renderItems(s);
@@ -333,11 +369,20 @@
     });
   $(".update").addEventListener("click", () => loadPrices(true));
   const step = (d) => {
-    const i = shown == null ? rounds.length - 1 : rounds.findIndex((r) => r.key === shown);
-    const j = Math.max(0, Math.min(rounds.length - 1, i + d));
-    shown = j === rounds.length - 1 ? null : rounds[j]?.key ?? null;
+    const list = picked();
+    let i = shown == null ? list.length - 1 : list.findIndex((r) => r.key === shown);
+    if (i < 0) i = list.length - 1;
+    const j = Math.max(0, Math.min(list.length - 1, i + d));
+    shown = j === list.length - 1 ? null : list[j]?.key ?? null;
     renderRound();
   };
+  for (const b of document.querySelectorAll(".kinds button"))
+    b.addEventListener("click", () => {
+      settings.kind = b.dataset.kind;
+      shown = null;
+      saveSettings();
+      render();
+    });
   $(".prev").addEventListener("click", () => step(-1));
   $(".next").addEventListener("click", () => step(1));
 
@@ -383,7 +428,7 @@
   (async () => {
     try {
       const s = await a2.storage.get("settings");
-      if (s && typeof s === "object") settings = { ...settings, ...s };
+      if (s && typeof s === "object") settings = { ...settings, ...s, kinds: { ...(s.kinds || {}) } };
     } catch {}
     try {
       const r = await a2.storage.get("rounds");

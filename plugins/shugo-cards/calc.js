@@ -116,6 +116,24 @@
     };
   }
 
+  // ---------- which event ----------
+  // The card rounds come from two events with the same rewards: the Shugo
+  // Festival (on the hour) and the Dimensional Invasion (at half past, not
+  // every time). The round names its event by number; the ones known:
+  const EVENTS = { 21070110: "shugo" }; // FieldEvent_Defence_01, 2026-11-10 21:04
+  const KINDS = { shugo: "Shugo", di: "Dimensional Invasion" };
+  /** A round's event: the person's choice for its number, else a known
+   *  number, else a guess by the time (from 20 to 50 minutes past the hour:
+   *  the Dimensional Invasion). { kind, sure }. */
+  function kindOf(round, chosen = {}) {
+    const k = chosen?.[round?.event] || EVENTS[round?.event];
+    if (k === "shugo" || k === "di") return { kind: k, sure: true };
+    const m = new Date(Number(round?.at) || 0).getMinutes();
+    return { kind: m >= 20 && m < 50 ? "di" : "shugo", sure: false };
+  }
+  /** The rounds of one event ("shugo", "di"), or all ("all"). */
+  const only = (rounds, which, chosen = {}) => (which === "shugo" || which === "di" ? rounds.filter((r) => kindOf(r, chosen).kind === which) : rounds);
+
   // ---------- worth ----------
   let byName = null;
   /** The ids of every item of a name (gear comes under several ids: a card's
@@ -308,7 +326,7 @@
   };
 
   globalThis.ShugoCalc = Object.freeze({
-    GRADES, PLACES, NEED_STRONG, NEED_MODERATE, name, grade, icon, gold, currency,
+    GRADES, PLACES, NEED_STRONG, NEED_MODERATE, EVENTS, KINDS, kindOf, only, name, grade, icon, gold, currency,
     parseRound, keep, worth, cardWorth, pChi4, test, advise, stats, readServers, serverOf, readCopy, kina, short,
   });
 })();

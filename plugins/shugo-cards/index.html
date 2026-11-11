@@ -11,6 +11,11 @@
       <span class="priceState muted"></span>
       <button type="button" class="update" title="Read your server's market prices again">Update prices</button>
     </header>
+    <div class="kinds" role="group" title="Which event's rounds: both, or one">
+      <button type="button" data-kind="all">All</button>
+      <button type="button" data-kind="shugo">Shugo</button>
+      <button type="button" data-kind="di">Dimensional Invasion</button>
+    </div>
     <nav class="tabs" role="tablist">
       <button type="button" data-tab="round" role="tab">Rounds</button>
       <button type="button" data-tab="gold" role="tab">Gold</button>
@@ -25,6 +30,7 @@
         <span class="grow"></span>
         <span class="roundSum muted"></span>
       </div>
+      <div class="kindOf"></div>
       <div class="cards"></div>
       <p class="note empty" hidden>No round yet. Play a Shugo Festival: once its card round ends, the game shows what lay behind every card, and it appears here, picked or not.</p>
     </section>

@@ -20,6 +20,14 @@ h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: v
 
 .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .count { font-weight: 600; }
+.kinds { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
+.kinds button { border-radius: 12px; padding: 1px 10px; font-size: 12px; color: var(--muted); }
+.kinds button[aria-pressed="true"] { color: #fff; border-color: var(--gold); background: rgba(224,165,38,.16); }
+.kindOf { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -2px 0 8px; font-size: 12px; }
+.kindOf .kindName { font-weight: 600; }
+.kindOf .setKind { display: inline-flex; gap: 4px; margin-left: 4px; }
+.kindOf .setKind button { font-size: 11px; padding: 0 7px; border-radius: 10px; color: var(--muted); }
+.kindOf .setKind button[aria-pressed="true"] { color: #fff; border-color: var(--gold); }
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 5px 10px; color: var(--muted); }
 .tabs button:hover { color: var(--text); background: none; }
