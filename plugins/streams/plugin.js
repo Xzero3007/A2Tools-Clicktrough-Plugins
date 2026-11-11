@@ -607,7 +607,7 @@
     if (kind === "jellyfin") jfHeard(v);
     // The position alone: only the time moves, nothing else is drawn again.
     if (Object.keys(v).every((k) => k === "position" || k === "widget")) {
-      if (kind === "jellyfin") { drawTime(); tellWidget(kind); }
+      if (seekable(kind)) { drawTime(); tellWidget(kind); }
       return;
     }
     drawPlayer();
@@ -655,8 +655,8 @@
       playing: !!x.playing,
       failed: x.player.state === "error",
       // Jellyfin: where it is, and a part to skip.
-      position: kind === "jellyfin" ? x.player.position || 0 : null,
-      duration: kind === "jellyfin" ? x.player.duration || 0 : null,
+      position: seekable(kind) ? x.player.position || 0 : null,
+      duration: seekable(kind) ? x.player.duration || 0 : null,
       skip: kind === "jellyfin" ? J.skipLabel(jf.segment) : "",
     }).catch(() => {});
   }
@@ -666,6 +666,14 @@
   const meterSaid = {};
   const KIND_NAMES = { twitch: "Twitch", youtube: "YouTube", jellyfin: "Jellyfin" };
   const KIND_ICONS = { twitch: "tv", youtube: "youtube", jellyfin: "clapperboard" };
+  // A time line (where it is, jump, back and on): Jellyfin, and a YouTube
+  // video with a length (not one live now).
+  const seekable = (kind) => {
+    const x = slots[kind];
+    if (!x?.playing) return false;
+    if (kind === "jellyfin") return true;
+    return kind === "youtube" && (x.player.duration || 0) > 0;
+  };
   const isEpisode = (what) => what?.kind === "jellyfin" && what.item?.type === "Episode" && !!what.item.seriesId;
   function tellMeter(kind) {
     const { playing, player } = slot(kind);
@@ -691,7 +699,7 @@
       quality: c.quality,
       controls: jelly
         ? [...(ep ? ["prev"] : []), "pause", ...(ep ? ["next"] : []), "rewind", "forward", ...(jf.segment ? ["skip"] : []), "mute", "volume", "opacity", "quality", "stop"]
-        : ["pause", "mute", "volume", "opacity", "quality", "stop"],
+        : ["pause", ...(seekable(kind) ? ["rewind", "forward"] : []), "mute", "volume", "opacity", "quality", "stop"],
       ...(jelly ? { qualities: QUALITIES.jellyfin, skip: J.skipLabel(jf.segment) } : {}),
     } : idleState;
     const key = JSON.stringify(state);
@@ -1277,8 +1285,11 @@
 
   // The bar's second row while Jellyfin shows: where it is, skip, the tracks.
   function drawJfBar(kind) {
+    $(".seekRow").hidden = !seekable(kind);
+    // YouTube: the time line alone.
+    for (const c of [".prevEp", ".nextEp", ".skipBtn", ".audioTrack", ".subTrack"]) if (kind !== "jellyfin") $(c).hidden = true;
+    if (kind === "youtube" && seekable(kind)) drawTime();
     const on = kind === "jellyfin" && !!slots.jellyfin.playing;
-    $(".seekRow").hidden = !on;
     if (!on) return;
     const ep = isEpisode(slots.jellyfin.playing);
     $(".prevEp").hidden = !ep;
@@ -1305,8 +1316,9 @@
     drawTime();
   }
   function drawTime() {
-    const x = slots.jellyfin;
-    if (!x.playing || shown() !== "jellyfin") return;
+    const kind = shown();
+    const x = slots[kind];
+    if (!seekable(kind)) return;
     const dur = x.player.duration || x.playing.item?.runtime || 0;
     if (!jf.seeking) {
       $(".time").textContent = J.clock(x.player.position || 0);
@@ -1315,14 +1327,14 @@
     $(".total").textContent = J.clock(dur);
   }
   const seekTo = () => {
-    const x = slots.jellyfin;
+    const x = slot(shown());
     const dur = x.player.duration || x.playing?.item?.runtime || 0;
     return (Number($(".seek").value) / 1000) * dur;
   };
   $(".seek").addEventListener("input", () => { jf.seeking = true; $(".time").textContent = J.clock(seekTo()); });
   $(".seek").addEventListener("change", () => {
     jf.seeking = false;
-    a2.video.control(slots.jellyfin.widget, "seek", seekTo()).catch(() => {});
+    a2.video.control(slot(shown()).widget, "seek", seekTo()).catch(() => {});
   });
   $(".back").addEventListener("click", () => a2.video.control(slot(shown()).widget, "skip", -10).catch(() => {}));
   $(".fwd").addEventListener("click", () => a2.video.control(slot(shown()).widget, "skip", 30).catch(() => {}));

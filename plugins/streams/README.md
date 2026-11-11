@@ -62,6 +62,11 @@ video overlays over the game: each in its own, several at once if you like.
   language: titles in other scripts and with a few Spanish, Portuguese,
   French, Italian or Polish words are left out, and **Hide channel** (on a
   card) leaves a channel out for good.
+- A YouTube video with a length has the **time line** too (0.6.1): in the
+  bar (click or drag to jump, −10 s, +30 s), on the overlay and back and on
+  in the meter's player row. AION 2 new reads YouTube's results page sorted
+  by upload date (meter patch 0060): the person's yt-dlp no longer knows
+  `ytsearchdate`.
 - A video that doesn't play says why: what yt-dlp or mpv said (meter
   patch 0057), with a plain hint where one is known (yt-dlp too old, no
   JavaScript runtime for YouTube: `sudo pacman -S deno`). A video started
