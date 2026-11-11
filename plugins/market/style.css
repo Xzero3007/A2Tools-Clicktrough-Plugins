@@ -46,8 +46,11 @@ th { text-align: right; font-weight: 500; font-size: 11px; color: rgba(255,255,2
 /* A list's columns the same for all its groups, its header kept at the top
    as the page scrolls (on the panel's colour, so rows pass under it). */
 table.list { table-layout: fixed; }
-table.list > thead th { position: sticky; top: 0; z-index: 3; background: var(--a2-panel, #0e1420);
+table.list > thead th { position: sticky; top: 0; z-index: 3; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   border-bottom: 0; box-shadow: inset 0 -1px 0 rgba(255,255,255,.14); padding-top: 6px; overflow: hidden; text-overflow: ellipsis; }
+/* The header's background as see-through as the window's (its opacity slider). */
+table.list > thead th::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--a2-panel, #0e1420); opacity: var(--a2-alpha, 1); }
 table.list > tbody > tr > td { overflow: hidden; text-overflow: ellipsis; }
 tr.group th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: rgba(255,255,255,.55);
   font-weight: 600; padding: 14px 6px 4px; border-bottom: 1px solid rgba(255,255,255,.12); }
@@ -130,6 +133,7 @@ tr.why > td { text-align: left; white-space: normal; font-size: 11px; color: rgb
    list scrolling in its own box under them (no background of their own: as
    see-through as the window). The pinned block scrolls by itself when long. */
 .listTop table.list > thead th { position: static; background: none; }
+.listTop table.list > thead th::before { display: none; }
 .listTop > table > tbody:empty { display: none; }
 .pins { max-height: 40vh; overflow-y: auto; border-bottom: 1px solid var(--a2-accent, #e0a526); }
 .pins tr.group th { color: var(--a2-accent, #e0a526); }

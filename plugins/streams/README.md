@@ -48,8 +48,10 @@ video overlays over the game: each in its own, several at once if you like.
   (and recaps, credits, previews) where your server knows them: Jellyfin
   10.10's Media Segments, or the Intro Skipper plugin; a button in the
   overlay, the bar and the meter's player row, or by itself
-  ("Skip intros by themselves"). ⏮ and ⏭ (in the bar and the player row)
-  play the episode before or after (0.5.0). At an episode's end the next one starts
+  ("Skip intros by themselves"). "⏮ Previous" and "Next ⏭" (in the bar)
+  and ⏮ ⏭ (in the player row) play the episode before or after (0.5.0).
+  The bar is as see-through as the window (its opacity slider; 0.5.1,
+  meter patch 0056). At an episode's end the next one starts
   ("Play the next episode"). Quality: **Original** (the file as it is) or
   your server's conversion to 1080p down to 360p, or sound only. Your
   server is told what plays and how far, so Continue watching and

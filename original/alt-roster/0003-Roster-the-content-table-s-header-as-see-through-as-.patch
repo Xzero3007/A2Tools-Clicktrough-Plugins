@@ -1,0 +1,36 @@
+From 65af2e158f8eb37db138f6dfdce00bf4b9d9795f Mon Sep 17 00:00:00 2001
+From: A2Tools-patch <patch@localhost>
+Date: Wed, 11 Nov 2026 07:28:02 +0000
+Subject: [PATCH] Roster: the content table's header as see-through as the
+ window
+
+---
+ plugins/alt-roster/style.css | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/alt-roster/style.css b/plugins/alt-roster/style.css
+index eec5c08..eec364a 100644
+--- a/plugins/alt-roster/style.css
++++ b/plugins/alt-roster/style.css
+@@ -170,10 +170,16 @@ body.tab-content .list, body.tab-content .empty, body.tab-content .foot { displa
+ .contentScroll { flex: 1; min-height: 0; overflow: auto; }
+ .contentTable { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+ .contentTable th, .contentTable td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+-.contentTable thead th { position: sticky; top: 0; background: var(--bg); font-weight: 600; white-space: nowrap; z-index: 1; }
++.contentTable thead th { position: sticky; top: 0; font-weight: 600; white-space: nowrap; z-index: 1;
++  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
++/* The header's background as see-through as the window's (its opacity
++   slider, var(--a2-alpha) from the meter), rows passing under it blurred. */
++.contentTable thead th::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
++  background: var(--bg); opacity: var(--a2-alpha, 1); }
+ .contentTable thead .colSub { display: block; font-size: 10.5px; font-weight: 400; color: var(--dim); }
+ .contentTable .serverCol { background: rgba(167, 139, 250, 0.06); }
+-.contentTable thead .serverCol { color: #b9a2ff; background: color-mix(in srgb, #a78bfa 6%, var(--bg)); }
++.contentTable thead .serverCol { color: #b9a2ff; background: none; }
++.contentTable thead .serverCol::before { background: color-mix(in srgb, #a78bfa 6%, var(--bg)); }
+ .contentTable .group th {
+   padding-top: 8px; font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim);
+   background: rgba(255, 255, 255, 0.025);
+-- 
+2.43.0
+

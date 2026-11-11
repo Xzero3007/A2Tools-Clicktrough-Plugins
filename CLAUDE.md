@@ -89,7 +89,7 @@ on only when the person decides (see below).
 | `plugins/<id>/` | Own plugins: `armory`, `closet`, `inventory`, `map`, `market`, `pet-finder`, `radio`, `shugo-cards`, `streams`. Edited here directly. `dev/` holds tests (`dev/ci.sh`) and data generators; it is not shipped. |
 | `original/PIN` | The commit of `taengu/A2Tools-Plugins` the build takes the original's plugins at. |
 | `original/pins.txt` | Single plugins at another commit (`<id> <commit>`): a new plugin, or a new version of one, without moving PIN. |
-| `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints, Enhanced Boss Telegraph without its link and with its Test shown while AION2 is closed; gold instead of blue in all four; no lock of their own in Event Timers, Enhanced Boss Telegraph, Cooldowns and Ping (the meter's lock is every widget's, meter patch 0036). A file `installed-only` there: the plugin still runs only where installed. |
+| `original/<id>/*.patch` | Changes to the original's plugins (`git format-patch`, applied in order with `git am -3`). Now: Daily Checklist, Event Timers, Roster's report times and hints (and its content table's head as see-through as the window), Enhanced Boss Telegraph without its link and with its Test shown while AION2 is closed; gold instead of blue in all four; no lock of their own in Event Timers, Enhanced Boss Telegraph, Cooldowns and Ping (the meter's lock is every widget's, meter patch 0036). A file `installed-only` there: the plugin still runs only where installed. |
 | `original/left-out.txt` | The original's plugins never shipped or run (the meter's patch 0026): Pet Soul Tracker (Pet Finder replaces it). |
 | `build/assemble.sh` | Puts the package's plugin folder together (the release, the app's `setup-workspace.sh` and `a2tools-rebuild.sh` all run it). |
 | `dev/setup.sh` | The working clones (below). |
@@ -231,7 +231,11 @@ nothing plays; a slot per player when one plugin plays two, as Streams'
 `twitch` and `youtube`; Streams and Radio; a state with `playing: false`
 is listed dimmed, Streams' stopped players). A manifest's `ui.overlay`
 with `"button": false` has no header button of its own (meter patch 0055:
-Streams' video, the player row's TV button stands for it). `<audio>` from the
+Streams' video, the player row's TV button stands for it). `var(--a2-alpha)`
+(meter patch 0056): the window's opacity slider (0 to 1), for what a page
+paints opaque itself (a sticky header or bar): put its background on a
+`::before` with `opacity: var(--a2-alpha, 1)`, as Streams, Market and
+Roster do. `<audio>` from the
 radio stations' servers (`radio`, meter patch 0043; only the hosts in the
 meter's `RADIO_HOSTS`).
 
