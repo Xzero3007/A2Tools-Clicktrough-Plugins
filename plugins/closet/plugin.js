@@ -258,7 +258,10 @@
   }
   function statusState() {
     const now = Date.now();
-    return { kind: "status", who: character?.name || "", count: count(), goal: L.GOAL, next: nextHour(now), chars: charsState(now), ...adviceState() };
+    // At the shop: the playing character's skin offers on top.
+    const shop = here ? popupState() : null;
+    return { kind: "status", who: character?.name || "", count: count(), goal: L.GOAL, next: nextHour(now), chars: charsState(now),
+      offers: shop?.offers || [], refresh: shop?.refresh || 0, ...adviceState() };
   }
   const stateOf = (name) => (name === "shop" ? popupState() : statusState());
   function unchecked(now) {
@@ -292,8 +295,12 @@
   }
   function openPopup() {
     keepPopup();
-    // The pop-up shows what the floater does: the floater steps aside meanwhile.
-    if (open.status) closeWidget("status");
+    // One window at the shop: with the floater on, the floater shows the
+    // offers itself; the pop-up is for when the floater is off.
+    if (settings.status) {
+      if (open.shop) closeWidget("shop");
+      return;
+    }
     openWidget("shop");
   }
   // The floater shows at the shop and the closet (or always, when ticked so):
@@ -302,7 +309,7 @@
   let here = false; // at the shop or the closet now
   let hereTimer = 0;
   let anchor = null; // where you stood when they opened
-  const statusWanted = () => settings.status && (settings.statusAlways || here) && !open.shop;
+  const statusWanted = () => settings.status && (settings.statusAlways || here);
   function applyStatus() {
     if (statusWanted()) openWidget("status");
     else if (open.status) closeWidget("status");

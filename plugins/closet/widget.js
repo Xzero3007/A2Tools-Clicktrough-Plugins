@@ -62,17 +62,7 @@
     return rows;
   }
 
-  function drawShop(st) {
-    $(".title").textContent = st?.who ? `Black Cloud · ${st.who}` : "Black Cloud";
-    const offers = Array.isArray(st?.offers) ? st.offers : [];
-    const fresh = offers.filter((o) => o.status === "new").length;
-    const known = st?.count != null;
-    $(".info").textContent = !known ? "Closet not known yet: log in once with the meter running (until then every skin shows ?)"
-      : !offers.length ? "Open a tab of the shop: its skins show here."
-      : `${fresh ? `${fresh} new for you` : "Nothing new for you"}${st.refresh ? ` · changes at ${clock(st.refresh)}` : ""}`;
-    $(".info").classList.toggle("good", fresh > 0);
-    $(".chars").replaceChildren();
-    $(".rows").replaceChildren(...offers.map((o) => {
+  function offerRow(o) {
       const li = el("li", o.status || "");
       const icon = el("span", "icon");
       if (o.picture) {
@@ -87,7 +77,19 @@
       price.append(el("b", null, kinah(o.price)), el("small", null, o.discount ? `−${o.discount}%` : ""));
       li.append(icon, text, price, el("span", `chip ${o.status}`, o.status === "new" ? "New" : o.status === "owned" ? "Owned" : "?"));
       return li;
-    }));
+  }
+
+  function drawShop(st) {
+    $(".title").textContent = st?.who ? `Black Cloud · ${st.who}` : "Black Cloud";
+    const offers = Array.isArray(st?.offers) ? st.offers : [];
+    const fresh = offers.filter((o) => o.status === "new").length;
+    const known = st?.count != null;
+    $(".info").textContent = !known ? "Closet not known yet: log in once with the meter running (until then every skin shows ?)"
+      : !offers.length ? "Open a tab of the shop: its skins show here."
+      : `${fresh ? `${fresh} new for you` : "Nothing new for you"}${st.refresh ? ` · changes at ${clock(st.refresh)}` : ""}`;
+    $(".info").classList.toggle("good", fresh > 0);
+    $(".chars").replaceChildren();
+    $(".rows").replaceChildren(...offers.map(offerRow));
     $(".advice").replaceChildren(...adviceRows(st, false));
     const un = Array.isArray(st?.unchecked) ? st.unchecked : [];
     $(".foot").textContent = un.length ? `Not looked this hour: ${un.join(", ")}` : "";
@@ -106,7 +108,14 @@
       return li;
     }));
     if (!chars.length) $(".chars").append(el("li", "todo", "Open the Black Cloud shop: your characters show here."));
-    $(".rows").replaceChildren();
+    // At the shop: the offers of this hour, new first.
+    const offers = Array.isArray(st?.offers) ? st.offers : [];
+    $(".rows").replaceChildren(...offers.map(offerRow));
+    if (offers.length) {
+      const fresh = offers.filter((o) => o.status === "new").length;
+      $(".info").textContent = `${fresh ? `${fresh} new for you` : "Nothing new for you"} · merchant changes in ${left(st.next)}`;
+      $(".info").classList.toggle("good", fresh > 0);
+    }
     $(".advice").replaceChildren(...adviceRows(st, true));
     $(".foot").hidden = true;
   }

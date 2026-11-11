@@ -29,7 +29,9 @@ and extract and what no longer pays.
   extract. Moved and sized like the pop-up. It shows at the Black Cloud shop
   and in the closet (the game sends the closet when it opens) and goes when
   you walk off or after 3 minutes; **Everywhere** keeps it up all the time.
-  It steps aside while the pop-up is open. Walking off closes the pop-up
+  At the shop it shows the playing character's skin offers itself, so it
+  stays the one window there; the pop-up opens only while the floater is
+  off. Walking off closes the pop-up
   too.
 - **Missing**: every skin you lack (one per closet entry) with its picture,
   grade, slot and the merchant's list price, filterable by kind and grade,
