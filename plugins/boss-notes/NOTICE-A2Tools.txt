@@ -1,0 +1,7 @@
+bosses.js is Enhanced Boss Telegraph's data file from A2 Tools' plugins
+(taengu/A2Tools-Plugins, plugins/boss-telegraph/bosses.js), GPL-3.0,
+built by its author from the game's NpcBehaviorCase, NpcTalk, NpcData,
+Skill, SkillAbnormal, Dungeon and L10N tables. Used unchanged: the bosses,
+their dungeons and names in ten languages, the lines the game shows for
+their casts, skills and buffs, and the hand-checked mechanics, which are
+Boss Notes' starter sheets. Boss Notes is GPL-3.0 as well (LICENSE).

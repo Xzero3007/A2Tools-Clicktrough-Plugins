@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <nav class="tabs" role="tablist">
+      <button type="button" data-tab="now" role="tab">Now</button>
+      <button type="button" data-tab="sheets" role="tab">Sheets</button>
+      <button type="button" data-tab="fights" role="tab">Fights</button>
+      <button type="button" data-tab="settings" role="tab">Settings</button>
+      <span class="grow"></span>
+      <label class="overlayTick" title="The cheat sheet over the game (also the button in the meter's title)"><input type="checkbox" class="overlayOn" /> Overlay</label>
+    </nav>
+
+    <section class="view" data-view="now">
+      <div class="live"></div>
+    </section>
+
+    <section class="view" data-view="sheets" hidden>
+      <div class="pickRow">
+        <input type="search" class="find" placeholder="Find a boss or dungeon" aria-label="Find a boss or dungeon" />
+        <label class="muted"><input type="checkbox" class="onlyMine" /> With notes only</label>
+      </div>
+      <div class="split">
+        <ul class="bossList"></ul>
+        <div class="editor"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="fights" hidden>
+      <div class="split fightsSplit">
+        <ul class="fightList"></ul>
+        <div class="fightView"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="settings" hidden>
+      <h3>Overlay</h3>
+      <label class="row">Text size <input type="range" class="size" min="12" max="40" step="1" /> <span class="sizeVal muted"></span></label>
+      <label class="row"><input type="checkbox" class="showNext" /> Show the next phase and what starts it</label>
+      <label class="row"><input type="checkbox" class="showNotes" /> Show the boss's general notes under the phase</label>
+      <label class="row"><input type="checkbox" class="showIdle" /> Keep the overlay up between fights (the last boss's notes)</label>
+      <h3>Recording</h3>
+      <label class="row">Keep the last <select class="keep"><option>5</option><option>10</option><option>15</option><option>20</option></select> fights</label>
+      <p class="note">Every boss fight is recorded: what the boss casts, the buffs it gets and its HP over time, only the boss's, never a player's. Open one in Fights to turn a moment into a phase or an alert.</p>
+      <h3>Sheets</h3>
+      <div class="row">
+        <button type="button" class="export" title="Copy every sheet as text, to keep or to give to someone">Copy all sheets</button>
+        <button type="button" class="import" title="Add sheets copied from Boss Notes">Paste sheets…</button>
+        <span class="ioState muted"></span>
+      </div>
+      <textarea class="ioText" rows="5" hidden placeholder="Paste sheets copied from Boss Notes here, then Add."></textarea>
+      <div class="row ioRow" hidden><button type="button" class="ioAdd">Add</button><button type="button" class="ioCancel">Cancel</button></div>
+      <p class="note">Bosses and their lines come from the game's tables, as A2 Tools' Enhanced Boss Telegraph has them (GPL-3.0); its hand-checked mechanics are the starting sheets. The notes are yours: kept by the meter on this computer, sent nowhere.</p>
+    </section>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="bosses.js"></script>
+    <script src="logic.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

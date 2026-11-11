@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="widget.css" />
+  </head>
+  <body>
+    <div class="card">
+      <header class="head">
+        <strong class="title">Boss Notes</strong>
+        <span class="hp"></span>
+        <span class="time"></span>
+        <span class="slots" role="group" aria-label="Places">
+          <button type="button" data-slot="0">1</button>
+          <button type="button" data-slot="1">2</button>
+          <button type="button" data-slot="2">3</button>
+        </span>
+        <input type="range" class="opacity" min="20" max="100" step="5" title="Opacity" aria-label="Opacity" />
+        <button type="button" class="edit" title="Edit this boss's sheet">✎</button>
+        <button type="button" class="close" title="Close the overlay" aria-label="Close the overlay">×</button>
+      </header>
+      <div class="hpBar"><i></i></div>
+      <div class="body"></div>
+      <div class="corner se" data-edge="se" title="Drag to change the size"></div>
+      <div class="corner sw" data-edge="sw" title="Drag to change the size"></div>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

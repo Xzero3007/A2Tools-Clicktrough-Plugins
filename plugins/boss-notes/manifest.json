@@ -1,0 +1,55 @@
+{
+  "id": "boss-notes",
+  "name": "Boss Notes",
+  "version": "0.1.0",
+  "apiVersion": 2,
+  "author": "Clicktrough (bosses and their lines: the game's tables as A2 Tools' Enhanced Boss Telegraph has them, GPL-3.0)",
+  "description": "A cheat sheet for boss fights: your notes for each boss, its phases and what to do in them, shown over the game as the fight goes on. A phase starts at an HP percent, a time into the fight, or when the boss casts a skill or gets a buff; alerts show for a while with a countdown. Every boss fight is recorded (the boss's casts, buffs and HP over time) so you can turn what happened into phases with a click.",
+  "permissions": [
+    "storage",
+    "widgets",
+    "window",
+    "events:combat",
+    "decoder:cast",
+    "decoder:skill",
+    "decoder:buff-added",
+    "decoder:buff-removed"
+  ],
+  "decoders": [
+    {
+      "name": "cast",
+      "opcode": "09 38",
+      "immediate": true,
+      "fields": [ { "name": "caster", "type": "varint" }, { "type": "skip:1" }, { "name": "skill", "type": "u32" } ]
+    },
+    {
+      "name": "skill",
+      "opcode": "02 38",
+      "immediate": true,
+      "fields": [ { "name": "caster", "type": "varint" }, { "type": "skip:1" }, { "name": "skill", "type": "u32" } ]
+    },
+    {
+      "name": "buff-added",
+      "opcode": "2A 38",
+      "immediate": true,
+      "fields": [
+        { "name": "entity", "type": "varint" }, { "type": "skip:1" }, { "name": "flags", "type": "u8" },
+        { "name": "instance", "type": "varint" }, { "name": "abnormal", "type": "u32" },
+        { "name": "length", "type": "u64" }
+      ]
+    },
+    {
+      "name": "buff-removed",
+      "opcode": "2C 38",
+      "immediate": true,
+      "fields": [
+        { "name": "entity", "type": "varint" }, { "name": "count", "type": "u8" },
+        { "name": "kind", "type": "u8" }, { "name": "instance", "type": "varint" }
+      ]
+    }
+  ],
+  "ui": {
+    "panel": { "width": 560, "height": 640 },
+    "overlay": { "widget": "sheet", "title": "Boss Notes", "icon": "swords", "hideIn": ["games", "shop"] }
+  }
+}

@@ -1,0 +1,90 @@
+/* The host window paints the panel; the page stays transparent. Neutral
+   colours as the meter's, gold for what is on now (the accent), red for an
+   alert. */
+[hidden] { display: none !important; }
+:root {
+  --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
+  --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035);
+  --gold: var(--a2-accent, #e0a526); --gold-t: #f2c46b; --red: #ff7a6b;
+}
+html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+body { padding: 8px 10px 10px; box-sizing: border-box; }
+button { font: inherit; color: inherit; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 4px; padding: 2px 9px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.16); }
+button:disabled { opacity: .45; cursor: default; }
+button.mini { padding: 0 7px; font-size: 12px; }
+button.del:hover { color: var(--red); }
+input[type=text], input[type=number], input[type=search], textarea, select {
+  font: inherit; color: var(--text); background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); border-radius: 4px; padding: 3px 6px; box-sizing: border-box; }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--gold); }
+select option { background: #1c1f24; color: #fff; }
+input[type=checkbox], input[type=range] { accent-color: var(--gold); }
+textarea { width: 100%; resize: vertical; }
+.muted { color: var(--muted); font-size: 12px; }
+.note { color: var(--muted); font-size: 12px; margin: 8px 2px; }
+.grow { flex: 1; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+.tag { font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
+
+.tabs { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 5px 10px; color: var(--muted); }
+.tabs button:hover { color: var(--text); background: none; }
+.tabs button[aria-selected="true"] { color: #fff; border-bottom-color: var(--gold); }
+.overlayTick { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+
+/* Now */
+.liveHead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.liveName { font-size: 16px; }
+.hpBar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; margin-bottom: 10px; }
+.hpBar > i { display: block; height: 100%; background: var(--red); }
+.phase { border: 1px solid var(--gold); background: rgba(224,165,38,.1); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.phase.none { border-color: var(--line); background: var(--card); color: var(--muted); }
+.pName { font-size: 20px; font-weight: 700; color: var(--gold-t); }
+.pText, .aText { font-size: 15px; white-space: pre-wrap; margin-top: 3px; }
+.alert { border: 1px solid var(--red); background: rgba(255,122,107,.12); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+.aName { font-size: 18px; font-weight: 700; color: #ffb3a8; }
+.nextLine { margin: 4px 2px; }
+.notes { white-space: pre-wrap; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; margin-top: 8px; }
+
+/* Sheets and Fights: a list on the left, the chosen one on the right */
+.pickRow { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.find { flex: 1; min-width: 0; }
+.split { display: grid; grid-template-columns: minmax(130px, 200px) minmax(0, 1fr); gap: 10px; align-items: start; }
+@media (max-width: 460px) { .split { grid-template-columns: 1fr; } }
+.bossList, .fightList { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 100px); overflow-y: auto; }
+.bossList li, .fightList li { padding: 3px 6px; border-radius: 4px; cursor: pointer; display: flex; gap: 6px; align-items: baseline; }
+.fightList li { flex-direction: column; gap: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.bossList li:hover, .fightList li:hover { background: rgba(255,255,255,.06); }
+.bossList li.on, .fightList li.on { background: rgba(224,165,38,.16); box-shadow: inset 2px 0 0 var(--gold); }
+.bossList li.sep { cursor: default; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); padding: 8px 6px 2px; }
+.bossList li.sep:hover { background: none; }
+.bossList li.has .bn { color: #fff; font-weight: 600; }
+.bossList .bn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bossList .cnt { font-size: 11px; color: var(--gold-t); }
+.bossList li.empty { cursor: default; }
+.edHead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.edHead strong { font-size: 15px; }
+.entries { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.entry { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.entry.isPhase { box-shadow: inset 3px 0 0 var(--gold); }
+.entry.isAlert { box-shadow: inset 3px 0 0 var(--red); }
+.eTop { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.eTop .val { width: 92px; }
+.eTop .ms { width: 64px; }
+.msL { font-size: 12px; color: var(--muted); }
+.entry .name { width: 100%; font-weight: 600; }
+.gameLine { font-style: italic; }
+.lines ul { list-style: none; margin: 0; padding: 0; }
+.lines li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 3px 0; border-top: 1px solid var(--line); }
+.lines .lk { white-space: nowrap; }
+.lt { font-style: italic; }
+.marks .markRow { display: flex; flex-wrap: wrap; gap: 4px; }
+.marks .mark { font-size: 11.5px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+table.did { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.did th { text-align: left; color: var(--faint); font-weight: 600; font-size: 11px; padding: 2px 4px; }
+table.did td { border-top: 1px solid var(--line); padding: 3px 4px; vertical-align: top; }
+table.did td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.did td.acts { white-space: nowrap; text-align: right; }
+table.did tr.known .lt { color: var(--gold-t); }
+textarea.ioText { margin-top: 6px; font-size: 11px; }
