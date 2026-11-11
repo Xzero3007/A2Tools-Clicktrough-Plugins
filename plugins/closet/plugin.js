@@ -7,6 +7,8 @@
   const ix = L.index(globalThis.CLOSET_DATA);
   const $ = (s) => document.querySelector(s);
   const ICONS = "https://assets.playnccdn.com/static-aion2-gamedata/resources/";
+  // The hourly price list (aion2.exchange's prices, copied by this build).
+  const LIST = "https://raw.githubusercontent.com/Xzero3007/A2Tools-DPS-Meter_Clicktrough/market-data";
 
   // shopWindow: the Closet window at the shop and the closet (0.2.11 on;
   // the older "popup" tick meant the old second window and is not read).
@@ -59,6 +61,7 @@
       saveSettings();
     }
     const key = charKey(c);
+    if (exList && exList.gameServer !== c.serverId) loadList(true);
     if (!chars[key]) chars[key] = { name: c.name, serverId: c.serverId, stocks: {} };
     saveChars();
     dirty();
@@ -140,20 +143,13 @@
   });
 
   let toldNew = "";
-  const frames = new L.StockFrames((parts) => {
-    const stock = L.stockFrom(parts);
-    if (!stock) return;
-    onStock(stock);
+  a2.on("decoded:shop", (data, meta) => {
+    noteMeta(meta);
+    const stock = L.stockFromShop(data, meta?.at || Date.now());
+    if (stock) onStock(stock);
+    else if (L.tabName(data?.tab)) lastBadStock = Date.now();
   });
-  let flushTimer = 0;
-  for (const name of ["shop-a", "shop-b", "shop-c", "shop-more"]) {
-    a2.on(`decoded:${name}`, (data, meta) => {
-      noteMeta(meta);
-      frames.push(name, data, meta?.at || Date.now());
-      clearTimeout(flushTimer);
-      flushTimer = setTimeout(() => frames.flush(), 250);
-    });
-  }
+  let lastBadStock = 0; // a shop frame that wasn't a stock (the Merchant tab tells)
 
   // The game sends a tab's list only the first time it opens in an hour (and
   // after a paid change); opened again, the shop shows what it has and the
@@ -206,6 +202,47 @@
     if (typeof a2.share !== "function" || !closet) return;
     a2.share({ skins: closet.size, goal: L.GOAL }).catch(() => {});
   }
+
+  // ---------- the Exchange ----------
+  // The game's reading of the Exchange first (as you browse it), the hourly
+  // price list for the rest.
+  let exList = null; // { server, gameServer, at, fetched, prices: Map item -> { price, listings, at, from } }
+  const exGame = new Map(); // item -> { price, listings, at, from: "game" }
+  let exError = "";
+  let exBusy = false;
+  const exchange = () => L.mergeExchange(exGame, exList?.prices);
+  async function loadList(force = false) {
+    const me = playing();
+    if (exBusy) return;
+    if (me?.serverId == null) {
+      exError = "the server is known once a character logs in with the meter running";
+      return;
+    }
+    if (!force && exList?.gameServer === me.serverId && Date.now() - (exList.fetched || 0) < 30 * 60 * 1000) return;
+    exBusy = true;
+    try {
+      const id = L.exchangeServer(await a2.web.get(`${LIST}/servers.json`), me.serverId);
+      if (!id) throw new Error("your server is not in the price list");
+      const prices = L.listPrices(await a2.web.get(`${LIST}/prices/${id}.json`), ix);
+      if (!prices) throw new Error("no prices for your server in the list yet");
+      const at = Math.max(0, ...[...prices.values()].map((p) => p.at || 0));
+      exList = { server: id, gameServer: me.serverId, at, fetched: Date.now(), prices };
+      exError = "";
+      a2.storage.set("exchange", { server: id, gameServer: me.serverId, at, fetched: exList.fetched, rows: [...prices].map(([i, p]) => [i, p.price, p.listings]) }).catch(() => {});
+    } catch (e) {
+      exError = String(e?.message || e).slice(0, 120);
+    } finally {
+      exBusy = false;
+    }
+    if (settings.tab === "missing") dirty();
+  }
+  function restoreList(c) {
+    if (!c || !Array.isArray(c.rows)) return;
+    const prices = new Map();
+    for (const [i, price, listings] of c.rows) if (ix.items.has(i) && price > 0) prices.set(i, { price, listings, at: c.at || 0, from: "list" });
+    exList = { server: c.server, gameServer: c.gameServer, at: c.at || 0, fetched: c.fetched || 0, prices };
+  }
+  const dayClock = (t) => new Date(t).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   // ---------- pictures ----------
   const pictures = new Map(); // icon -> data URL | null
@@ -550,6 +587,7 @@
     const ls = [
       lastShopOpen ? `Shop opened ${clock(lastShopOpen)}` : "",
       lastStock ? `last shop list ${clock(lastStock.at)}${lastStock.owner ? ` (${lastStock.owner})` : ""}` : "no shop list since the meter started",
+      lastBadStock > (lastStock?.at || 0) ? `a shop frame at ${clock(lastBadStock)} not read` : "",
     ].filter(Boolean).join(", ");
     $(".winState").textContent = `Closet window: ${windowWhy()} · ${ls}`;
     $(".statusAlways").checked = !!settings.statusAlways;
@@ -608,7 +646,8 @@
     $(".kind").value = settings.kind;
     $(".grade").value = settings.grade;
     $(".order").value = settings.order;
-    const miss = L.missing(closet, ix);
+    const ex = exchange();
+    const miss = L.missing(closet, ix).map((m) => ({ ...m, ex: L.exchangeOf(m.look, ix, ex) }));
     const need = closet ? Math.max(0, L.GOAL - closet.size) : 0;
     const c = L.costs(miss, need);
     const costs = $(".costs");
@@ -629,18 +668,35 @@
     }
     const q = $(".search").value.trim().toLowerCase();
     let list = miss.filter((m) => (settings.kind === "all" || m.kind === settings.kind)
-      && (settings.grade === "all" || (settings.grade === "shop" ? m.price > 0 : String(m.grade) === settings.grade))
+      && (settings.grade === "all" || (settings.grade === "shop" ? m.price > 0 : settings.grade === "exchange" ? !!m.ex : String(m.grade) === settings.grade))
       && (!q || m.name.toLowerCase().includes(q) || m.slot.toLowerCase().includes(q)));
     const by = { price: (x, y) => (x.price || Infinity) - (y.price || Infinity) || x.name.localeCompare(y.name),
       name: (x, y) => x.name.localeCompare(y.name) || x.slot.localeCompare(y.slot),
-      grade: (x, y) => y.grade - x.grade || x.name.localeCompare(y.name) };
+      grade: (x, y) => y.grade - x.grade || x.name.localeCompare(y.name),
+      exchange: (x, y) => (x.ex?.price || Infinity) - (y.ex?.price || Infinity) || (x.price || Infinity) - (y.price || Infinity) || x.name.localeCompare(y.name) };
     list = list.sort(by[settings.order] || by.price);
+    const listed = miss.filter((m) => m.ex);
+    const fromGame = listed.filter((m) => m.ex.from === "game");
+    const lowest = listed.reduce((a, m) => Math.min(a, m.ex.price), Infinity);
+    const sources = [
+      fromGame.length ? `the game's Exchange as you browsed it (${fromGame.length})` : "",
+      exList ? `the hourly price list of ${dayClock(exList.at || exList.fetched)} (aion2.exchange)` : "",
+    ].filter(Boolean).join(", then ");
+    $(".exInfo").textContent = !closet ? "" : listed.length
+      ? `On the Exchange: ${listed.length} of the skins you lack, from ${kinah(lowest)} Kinah; gold where cheaper than the merchant's price. Prices: ${sources}.${exError ? ` (Price list: ${exError}.)` : ""}`
+      : `On the Exchange: none of the skins you lack known yet.${exError ? ` Price list: ${exError}.` : exList ? "" : " The price list is loading."}`;
     $(".missCount").textContent = closet ? `${list.length} of the ${miss.length} skins you lack${list.length > 300 ? " (the first 300 shown)" : ""}. Skins without a number in the game's data (sets, costumes) are not listed.` : "";
     $(".grid").replaceChildren(...list.slice(0, 300).map((m) => {
       const d = el("div", `card g${m.grade}`);
       const t = el("div", "text");
       t.append(el("div", "name", m.name), el("div", "sub", `${grade(m.grade)} · ${m.slot}`),
-        el("div", "price", m.price ? `${kinah(m.price)} · 50% off ${kinah(m.price / 2)}` : "not sold by the merchant"));
+        el("div", "price", m.price ? `Merchant ${kinah(m.price)} · 50% off ${kinah(m.price / 2)}` : "not sold by the merchant"));
+      if (m.ex) {
+        const good = L.goodBuy(m.ex.price, m.price);
+        const ex = el("div", `ex${good ? " good" : ""}`, `Exchange ${kinah(m.ex.price)}${m.ex.listings ? ` · ${m.ex.listings} listed` : ""}${m.ex.from === "game" ? "" : " · price list"}`);
+        ex.title = `${m.ex.from === "game" ? "Read from the game's Exchange" : "From the hourly price list (aion2.exchange)"}, ${dayClock(m.ex.at)}${good ? ": cheaper than the merchant asks" : ""}`;
+        t.append(ex);
+      }
       d.append(picture(m.icon, m.name[0]), t);
       return d;
     }));
@@ -760,6 +816,7 @@
       if (Array.isArray(sn)) seen = [...sn, ...seen];
       const le = await a2.storage.get("learned");
       if (le && typeof le === "object") learned = { ...le, ...learned };
+      restoreList(await a2.storage.get("exchange"));
     } catch (e) {
       console.error(e);
     }
@@ -769,5 +826,8 @@
     a2.widgets.close("shop").catch(() => {});
     applyStatus();
     a2.ready?.();
+    // The price list once the server is known (the character, or the last one).
+    setTimeout(() => loadList(), 3000);
+    setInterval(() => loadList(), 10 * 60 * 1000);
   })();
 })();

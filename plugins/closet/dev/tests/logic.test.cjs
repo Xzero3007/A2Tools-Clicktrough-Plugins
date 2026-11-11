@@ -20,13 +20,12 @@ const byCase = {};
   }
 }
 const data = (name, ev) => byCase[name].find((e) => e.event === `decoded:${ev}`)?.data;
-function stockOf(name) {
-  let got = null;
-  const f = new L.StockFrames((p) => { got = L.stockFrom(p); });
-  for (const e of byCase[name]) f.push(e.event.slice(8), e.data, WHEN);
-  f.flush();
-  return got;
+function stockOf(name, edit = (d) => d) {
+  const e = byCase[name].find((x) => x.event === "decoded:shop");
+  return e ? L.stockFromShop(edit(e.data), WHEN) : null;
 }
+// The stock's body with bytes put in at a place (as hex).
+const putIn = (d, at, hex) => ({ ...d, body: d.body.slice(0, at * 2) + hex + d.body.slice(at * 2) });
 
 test("closet entries come from the skins' icons", () => {
   assert.equal(ix.items.get(535710120).look, 10015108); // Shadow Whisper staff
@@ -64,8 +63,18 @@ test("a Skins stock: ten offers, prices checked, marked against the closet", () 
   assert.equal(L.statusOf(930100031, closet, ix).status, null);
 });
 
-test("a longer frame is no stock", () => {
-  assert.equal(stockOf("longer"), null);
+test("a byte between offers, or more at the end, loses nothing", () => {
+  // after the sixth offer (each 34 bytes, markers after the first and fifth), and at the end
+  const s = stockOf("stock", (d) => putIn(putIn(d, 34 * 6 + 2, "07"), d.body.length / 2 + 1, "0000"));
+  assert.equal(s.offers.length, 10);
+  assert.equal(s.refresh, WHEN + 3600 * 1000);
+  assert.equal(s.offers[6].offer, 230006);
+});
+
+test("a frame of another shop, or a broken one, is no stock", () => {
+  assert.equal(stockOf("stock", (d) => ({ ...d, tab: 7 })), null);
+  assert.equal(stockOf("stock", (d) => ({ ...d, body: d.body.slice(0, 200) })), null); // no change time
+  assert.equal(stockOf("stock", (d) => ({ ...d, body: "zz" })), null);
 });
 
 test("list prices: Common, Rare 2.5 times, Legend 10 times", () => {
@@ -152,14 +161,27 @@ test("combine plan: lowest grade first, and what to collect", () => {
 });
 
 test("a stock with a bought offer (left to buy 0) still reads", () => {
-  let got = null;
-  const f = new L.StockFrames((p) => { got = L.stockFrom(p); });
-  for (const e of byCase.stock) {
-    const d = e.event === "decoded:shop-a" ? { ...e.data, e0_qty: 0 } : e.data;
-    f.push(e.event.slice(8), d, WHEN);
-  }
-  f.flush();
+  // the first offer's left-to-buy u64 starts 8 bytes in (after tab and count: body offset 8)
+  const got = stockOf("stock", (d) => ({ ...d, body: d.body.slice(0, 16) + "00" + d.body.slice(18) }));
   assert.equal(got.offers.length, 10);
   assert.equal(got.offers[0].soldOut, true);
   assert.equal(got.offers[1].soldOut, false);
+});
+
+test("the Exchange: the server, the skins' prices, the game's reading first", () => {
+  const servers = { servers: [{ server_id: 12316, game_server_key: 2316, name: "A" }, { server_id: 11301, name: "B" }] };
+  assert.equal(L.exchangeServer(servers, 2316), 12316);
+  assert.equal(L.exchangeServer(servers, 1301), 11301); // 10000 more
+  assert.equal(L.exchangeServer(servers, 9999), null);
+  const list = L.listPrices({ snapshot: "2030-01-01T06:00:00Z", items: { 535810734: [400000, 4, null], 930100031: [1, 1], 535710120: [null, 0] } }, ix);
+  assert.deepEqual([...list.keys()], [535810734]); // a skin with a price only
+  assert.equal(list.get(535810734).from, "list");
+  const game = new Map([[535810734, { price: 350000, listings: 2, at: WHEN, from: "game" }]]);
+  const both = L.mergeExchange(game, list);
+  assert.equal(L.exchangeOf(30150106, ix, both).price, 350000); // Duskpath boots' look
+  assert.equal(L.exchangeOf(30150106, ix, list).price, 400000);
+  assert.equal(L.exchangeOf(10015108, ix, both), null);
+  assert.equal(L.goodBuy(400000, 403200), true);
+  assert.equal(L.goodBuy(410000, 403200), false);
+  assert.equal(L.goodBuy(400000, null), false);
 });

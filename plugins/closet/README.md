@@ -33,13 +33,22 @@ extract and what no longer pays.
   window lets clicks through to the game. When no picture comes from the
   icon server, the panel's top line says why. The Merchant tab says
   whether the window is open and why not (the tick off, closed with its ×),
-  and when the last shop list came. **Note new skins**: a note
+  and when the last shop list came (and when a shop frame came that it
+  couldn't read). The offers are found in the shop's message by their
+  prices, so a changed layout around them doesn't lose a tab. **Note new skins**: a note
   when a skin you lack is on offer.
 - **Missing**: every skin you lack (one per closet entry) with its picture,
   grade, slot and the merchant's list price, filterable by kind and grade,
   searchable; above, what the skins still needed for 700 cost: the cheapest
   all at 50 % off, an average mix at the usual discount, the dearest at 10 %
-  off, and every merchant skin you lack.
+  off, and every merchant skin you lack. **On the Exchange** (the players'
+  market): each skin you lack that is listed there, with its lowest price
+  and how many are listed, in gold where that is below the merchant's
+  price (he may never offer it); filter "On the Exchange" and order "By
+  Exchange price" show only those, cheapest first. The prices come from
+  this build's hourly price list (aion2.exchange's market prices, which
+  know only the skins players' clients reported, often a few dozen a
+  server, hours old).
 - **Combine**: a combine takes 4 skins of a grade and gives one, the next
   grade at NCSOFT's published chance (Common 25 %, Rare 20 %, Epic 15 %,
   Unique 10 %; 35/30/25/15 % with a Lucky Aura), else a skin of the same
@@ -92,14 +101,18 @@ extract and what no longer pays.
 lack on offer), `widgets` (the Closet window), `share` (the count for the
 Inventory), `events:character` (whose stock it is), `events:world` (walking off closes the windows), `events:items` (which
 skin was just bought, for the looks it learns, and the gear in your bag), `web:assets.playnccdn.com`
-(the skins' pictures from the game's icon server), and one `decoder:` per
-game message it reads. Nothing is sent anywhere.
+(the skins' pictures from the game's icon server),
+`web:raw.githubusercontent.com` (the hourly price list, this build's copy
+of aion2.exchange's prices on the app repo's branch `market-data`, read
+only), and one `decoder:` per game message it reads. Nothing is sent
+anywhere.
 
 ## Data
 
 Skin names, grades and icons: the Inventory plugin's item list, from AION 2's
 client via SkeeveAN's Aion-DPS-Meter (MIT) and Aion2Data
-(`dev/make_data.py`). AION 2 names and game data belong to NCSOFT.
+(`dev/make_data.py`). AION 2 names and game data belong to NCSOFT. Exchange
+prices: aion2.exchange, as this build copies them every hour.
 
 ## Tests
 

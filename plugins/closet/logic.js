@@ -38,12 +38,14 @@
   function index(data) {
     const items = new Map();
     const looks = new Map(); // closet id -> skin (the first item with it)
+    const byLook = new Map(); // closet id -> every skin item with it
     for (const [k, [name, grade, slot, icon, look]] of Object.entries(data.skins)) {
       const s = { item: Number(k), name, grade, slot, icon, look: look || 0, kind: kindOf(slot) };
       items.set(s.item, s);
       if (s.look && !looks.has(s.look)) looks.set(s.look, s);
+      if (s.look) byLook.set(s.look, [...(byLook.get(s.look) || []), s]);
     }
-    return { items, looks };
+    return { items, looks, byLook };
   }
 
   /** The closet list at login (decoder closet-list): a Map closet id -> copies, or null when it does not look like one. */
@@ -76,47 +78,50 @@
    * that order for one frame; shop-more only when the frame was longer than a
    * stock (then it is none). Call `flush` a moment after.
    */
-  class StockFrames {
-    constructor(onStock) {
-      this.onStock = onStock;
-      this.parts = null;
-    }
-    push(name, d, at) {
-      if (name === "shop-a") {
-        this.flush();
-        this.parts = { a: d, b: null, c: null, at };
-      } else if (name === "shop-b" && this.parts && !this.parts.b) this.parts.b = d;
-      else if (name === "shop-c" && this.parts?.b && !this.parts.c) this.parts.c = d;
-      else if (name === "shop-more") this.parts = null;
-    }
-    flush() {
-      const p = this.parts;
-      this.parts = null;
-      if (p?.a && p.b && p.c) this.onStock(p);
-    }
-  }
-
   /**
-   * One tab's stock from the three parts: {tab, tabName, at, refresh, offers:
-   * [{offer, item, price, original, discount}]}; null when anything is off.
+   * One tab's stock from the Black Cloud shop's frame (decoder "shop": tab,
+   * count, the rest as hex): {tab, tabName, at, refresh, offers: [{offer,
+   * item, price, original, discount, soldOut}]}; null when it isn't one.
+   * Each offer is offer u32, item u32, left to buy u64 (1, or 0 once
+   * bought), discount u8, currency u8 (Kinah), list price u64, price u64.
+   * Offers are found by their prices (the price is the list price at the
+   * discount), not at fixed places: a byte the game puts between offers, or
+   * a new one, doesn't lose the tab. Then the time the stock changes.
    */
-  function stockFrom({ a, b, c, at }) {
-    if (!tabName(a.tab) || a.count !== 10 || a.m36 !== 0x55 || b.m173 !== 0x55 || c.m310 !== 5 || c.tail !== 0) return null;
-    if (!(c.refresh > at && c.refresh <= at + 2 * 3600 * 1000)) return null;
-    const parts = [a, a, a, a, b, b, b, b, c, c];
-    const ids = new Set();
+  function stockFromShop(d, at) {
+    const name = tabName(d?.tab);
+    if (!name || typeof d.body !== "string" || d.body.length % 2 || !/^[0-9a-f]*$/i.test(d.body)) return null;
+    const b = new Uint8Array(d.body.length / 2);
+    for (let i = 0; i < b.length; i++) b[i] = parseInt(d.body.substr(i * 2, 2), 16);
+    const dv = new DataView(b.buffer);
+    const u64 = (o) => Number(dv.getBigUint64(o, true));
+    const count = Number(d.count) || 0;
     const offers = [];
-    for (let n = 0; n < 10; n++) {
-      const e = (k) => parts[n][`e${n}_${k}`];
-      const paid = PAID[e("disc")];
-      const original = e("orig"), price = e("price");
-      if (!(e("offer") > 0) || !(e("item") > 0) || ids.has(e("offer")) || !(e("qty") === 0 || e("qty") === 1) || e("cur") !== KINA || !paid) return null;
-      if (!(original > 0 && original <= 1e9) || !(price > 0) || price !== Math.floor((original * paid) / 100)) return null;
-      ids.add(e("offer"));
-      // Left to buy: 1, or 0 once bought (the game's Sold Out).
-      offers.push({ offer: e("offer"), item: e("item"), price, original, discount: 100 - paid, soldOut: e("qty") === 0 });
+    const ids = new Set();
+    let end = 0;
+    for (let p = 16; p + 18 <= b.length && offers.length < Math.max(count, 1) * 2; p++) {
+      const paid = PAID[b[p]];
+      if (!paid || b[p + 1] !== KINA || p - 16 < end) continue;
+      const original = u64(p + 2), price = u64(p + 10);
+      if (!(original > 0 && original <= 1e9) || !(price > 0) || price !== Math.floor((original * paid) / 100)) continue;
+      const offer = dv.getUint32(p - 16, true), item = dv.getUint32(p - 12, true), left = u64(p - 8);
+      if (!(offer > 0) || !(item > 0) || ids.has(offer) || !(left === 0 || left === 1)) continue;
+      ids.add(offer);
+      offers.push({ offer, item, price, original, discount: 100 - paid, soldOut: left === 0 });
+      end = p + 18;
+      p = end - 1;
     }
-    return { tab: a.tab, tabName: tabName(a.tab), at, refresh: c.refresh, offers };
+    if (!offers.length || (count && offers.length > count)) return null;
+    let refresh = 0;
+    for (let p = end; p + 8 <= b.length; p++) {
+      const v = u64(p);
+      if (v > at && v <= at + 2 * 3600 * 1000) {
+        refresh = v;
+        break;
+      }
+    }
+    if (!refresh) return null;
+    return { tab: d.tab, tabName: name, at, refresh, offers };
   }
 
   /** An offer's skin and whether you have it: "new", "owned" or "unknown" (no closet entry known). */
@@ -356,11 +361,66 @@
     return out;
   }
 
+  // ---------- the Exchange (the players' market) ----------
+  // Prices of skins on the Exchange, by item id: { price, listings, at, from }
+  // ("game": read from the game as you browse it; "list": the hourly price
+  // list, aion2.exchange's prices as Clicktrough copies them). The game's
+  // reading comes first; the list only for what the game hasn't shown.
+
+  /** The player's server in the price list's servers.json: the game's
+   *  number (2305) is its game_server_key, its id 10000 more. */
+  function exchangeServer(doc, gameServerId) {
+    const sid = Number(gameServerId);
+    const list = Array.isArray(doc?.servers) ? doc.servers : Array.isArray(doc) ? doc : [];
+    if (!Number.isFinite(sid) || sid <= 0) return null;
+    const ok = list.filter((s) => Number.isFinite(Number(s?.server_id ?? s?.id)));
+    const s = ok.find((x) => Number(x.game_server_key ?? x.game) === sid) || ok.find((x) => Number(x.server_id ?? x.id) - 10000 === sid);
+    return s ? Number(s.server_id ?? s.id) : null;
+  }
+
+  /** A price list file ({ snapshot, items: { id: [price, listings, ...] } })
+   *  -> the skins' prices: Map item -> { price, listings, at, from: "list" }. */
+  function listPrices(doc, ix) {
+    if (!doc || typeof doc !== "object" || !doc.items || typeof doc.items !== "object") return null;
+    const at = Date.parse(doc.snapshot || "") || Date.parse(doc.copied || "") || 0;
+    const out = new Map();
+    for (const [id, row] of Object.entries(doc.items)) {
+      const item = Number(id);
+      if (!ix.items.has(item) || !Array.isArray(row)) continue;
+      const price = Number(row[0]);
+      if (!(price > 0)) continue;
+      out.set(item, { price, listings: Number(row[1]) > 0 ? Number(row[1]) : null, at, from: "list" });
+    }
+    return out;
+  }
+
+  /** The game's reading first, the list for the rest. */
+  function mergeExchange(game, list) {
+    const out = new Map(list || []);
+    for (const [item, p] of game || []) out.set(item, p);
+    return out;
+  }
+
+  /** The cheapest listing of a look (several items can give one look). */
+  function exchangeOf(look, ix, prices) {
+    let best = null;
+    for (const s of ix.byLook?.get(look) || []) {
+      const p = prices.get(s.item);
+      if (p && (!best || p.price < best.price)) best = { ...p, item: s.item };
+    }
+    return best;
+  }
+
+  /** Worth buying on the Exchange: cheaper than the merchant asks for the
+   *  skin before his discount (he may never offer it). */
+  const goodBuy = (exPrice, merchantPrice) => exPrice > 0 && merchantPrice > 0 && exPrice < merchantPrice;
+
   /** The start of the stock's hour, as a key: which characters have looked since the change. */
   const hourOf = (refresh) => refresh - 3600 * 1000;
 
   const api = { GOAL, GRADES, TABS, WEAPONS, ARMOUR, JEWELS, REFRESH, COMBINE, tabName, kindOf, listPrice, index, closetFrom, addedFrom,
-    StockFrames, stockFrom, statusOf, missing, costs, merchantStats, combine, spares, extraction, bagGear, EXTRACT, advice, extractSettings, combinePlan, PER_COMBINE, CHEAP, MERCHANT, hourOf };
+    stockFromShop, statusOf, missing, costs, merchantStats, combine, spares, extraction, bagGear, EXTRACT, advice, extractSettings, combinePlan, PER_COMBINE, CHEAP, MERCHANT, hourOf,
+    exchangeServer, listPrices, mergeExchange, exchangeOf, goodBuy };
   globalThis.ClosetLogic = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();
