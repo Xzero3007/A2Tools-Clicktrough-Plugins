@@ -52,6 +52,9 @@ pick.
   open world any more, the drops and the Abyss's Kinah still count), and
   the day says what came after the cap. Every **gold item** (Unique and
   higher) with when, from where and in which zone, and its worth.
+  - **Whose** (0.5.1): the character picked at the top, or the **whole
+    account**: every character's days added up (each gold item with its
+    character; how many reached the cap, and the hours to it on average).
   - **Where from**: the zone you are in (the world's zone, permission
     `events:world`; the zone's kind as the meter's `zones.rs` reads the
     game's numbering, its name from the Map's data, `zones.js`). The

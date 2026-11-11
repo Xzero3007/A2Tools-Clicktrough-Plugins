@@ -269,14 +269,56 @@
     if (k === "open" && sum.cap && open) {
       p.kinahHours = (sum.cap.active || 0) / 3_600_000;
       p.kinahToCap = sum.cap.kinah || 0;
+      // The whole account: the characters' hours to their cap, on average.
+      if (sum.account) p.capHours = Number.isFinite(sum.cap.hoursEach) ? sum.cap.hoursEach : null;
     }
     return p;
+  }
+
+  /** The whole account's days: the characters' day summaries ({ name:
+   *  [summaries] }) added up day by day. Per source everything summed;
+   *  each gold item with its character (g[6]); the cap: how many reached
+   *  it of how many played, the hours to it on average, and for Kinah per
+   *  hour each character's open world up to its cap (or all of it when
+   *  the cap wasn't reached). */
+  function mergeSums(byChar) {
+    const days = new Map();
+    for (const [who, list] of Object.entries(byChar || {})) {
+      for (const s of Array.isArray(list) ? list : []) {
+        if (!s || !Number.isFinite(s.day)) continue;
+        const m = days.get(s.day) || { day: s.day, start: null, last: null, firstOpen: null, src: {}, gold: [], chars: 0, capped: 0, capActive: 0, capKinah: 0, capHours: 0, counter: 0 };
+        m.chars++;
+        for (const f of ["start", "firstOpen"]) if (s[f] != null && (m[f] == null || s[f] < m[f])) m[f] = s[f];
+        if (s.last != null && (m.last == null || s.last > m.last)) m.last = s.last;
+        for (const [k, p] of Object.entries(s.src || {})) {
+          const t = (m.src[k] ||= { kinah: 0, active: 0, gold: 0, worth: 0, n: 0 });
+          for (const f of Object.keys(t)) t[f] += p[f] || 0;
+        }
+        for (const g of s.gold || []) m.gold.push([...g.slice(0, 6), who]);
+        const open = s.src?.open || {};
+        if (s.cap) {
+          m.capped++;
+          m.capActive += s.cap.active || 0;
+          m.capKinah += s.cap.kinah || 0;
+          m.capHours += (s.cap.active || 0) / 3_600_000;
+        } else {
+          m.capActive += open.active || 0;
+          m.capKinah += open.kinah || 0;
+        }
+        m.counter += s.counter ?? open.kinah ?? 0;
+        days.set(s.day, m);
+      }
+    }
+    return [...days.values()].sort((a, b) => a.day - b.day).map((m) => {
+      const { capped, capActive, capKinah, capHours, ...rest } = m;
+      return { ...rest, account: true, capped, cap: capActive ? { active: capActive, kinah: capKinah, hoursEach: capped ? capHours / capped : null } : null };
+    });
   }
   const METRICS = {
     kinah: { label: "Kina per hour", value: (p) => (p.kinahHours ? p.kinahToCap / p.kinahHours : p.hours ? p.kinah / p.hours : null) },
     gold: { label: "Gold items per hour", value: (p) => (p.hours ? p.gold / p.hours : null) },
     worth: { label: "Item worth per hour", value: (p) => (p.hours ? p.worth / p.hours : null) },
-    toCap: { label: "Hours to the Kina cap", value: (p) => (p.kinahHours ? p.kinahHours : null), open: true },
+    toCap: { label: "Hours to the Kina cap", value: (p) => (p.capHours !== undefined ? p.capHours : p.kinahHours ? p.kinahHours : null), open: true },
   };
   /** The days that count for a source: [{ day, hours, value, gold }]. */
   function points(sums, k, metric) {
@@ -422,6 +464,6 @@
   globalThis.InventoryDays = Object.freeze({
     SOURCES, NAMES, KEYS, METRICS, MIN_DAYS, MIN_GOLD, MIN_HOURS, RECENT_DAYS, GOLD,
     dayOf, dayName, zoneName, zoneSource, isGold, newDay, normalize, addItems, addCounter, keyUsed, settle, summary, isEmpty,
-    part, points, trend, change, goldChange, readiness, goldByHour, pT,
+    part, mergeSums, points, trend, change, goldChange, readiness, goldByHour, pT,
   });
 })();

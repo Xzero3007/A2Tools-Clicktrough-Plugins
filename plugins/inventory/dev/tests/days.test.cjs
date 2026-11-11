@@ -150,3 +150,28 @@ test("statistics: readiness, trend and change", () => {
   // The t distribution: t = 2.086 with 20 degrees of freedom is p = 0.05.
   assert.ok(Math.abs(F.pT(2.086, 20) - 0.05) < 0.001);
 });
+
+test("the whole account: the characters' days added up", () => {
+  const D0 = F.dayOf(T0);
+  const a = [{ day: D0, start: T0, last: T0 + 9e6, src: { open: { kinah: 1_000_000, active: 4 * 3_600_000, gold: 2, worth: 100, n: 50 } }, cap: { at: T0 + 8e6, active: 4 * 3_600_000, kinah: 1_000_000 }, counter: 1_000_000, gold: [[T0, GOLD_SWORD, 1, "open", OPEN, 50_000]] }];
+  const b = [
+    { day: D0, start: T0 + 1e6, last: T0 + 5e6, src: { open: { kinah: 300_000, active: 2 * 3_600_000, gold: 1, worth: 40, n: 20 }, abyss: { kinah: 9000, active: 3_600_000, gold: 0, worth: 5, n: 3 } }, cap: null, counter: 300_000, gold: [] },
+    { day: D0 + 86_400_000, src: { open: { kinah: 1_000_000, active: 6 * 3_600_000, gold: 0, worth: 0, n: 1 } }, cap: { active: 6 * 3_600_000, kinah: 1_000_000 }, counter: 1_000_000, gold: [] },
+  ];
+  const m = F.mergeSums({ Anna: a, Bert: b });
+  assert.equal(m.length, 2);
+  const d = m[0];
+  assert.equal(d.chars, 2);
+  assert.equal(d.capped, 1);
+  assert.equal(d.src.open.kinah, 1_300_000);
+  assert.equal(d.src.open.gold, 3);
+  assert.equal(d.src.abyss.kinah, 9000);
+  assert.equal(d.counter, 1_300_000);
+  assert.deepEqual(d.gold[0].slice(-1), ["Anna"]);
+  // Kina per hour: Anna up to her cap, Bert's open world (no cap): 1.3M in 6 h.
+  const p = F.part(d, "open");
+  assert.equal(Math.round(F.METRICS.kinah.value(p)), Math.round(1_300_000 / 6));
+  // Hours to the cap: on average of those who reached it.
+  assert.equal(F.METRICS.toCap.value(p), 4);
+  assert.equal(F.METRICS.toCap.value(F.part(m[1], "open")), 6);
+});

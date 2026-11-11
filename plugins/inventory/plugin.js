@@ -39,6 +39,7 @@
     lastLimits: null, // the key of the character whose limits were kept last
     statSource: "open", // Farm days: the source the statistics are about ("all" or days.js SOURCES)
     statMetric: "kinah", // Farm days: kinah, gold, worth, toCap
+    farmWho: null, // Farm days: null the character looked at, "all" the whole account
   };
   const HISTORY = 40; // earlier sessions kept
   const SOURCE_NAMES = { all: "All", gathered: "Gathered", loot: "Loot", reward: "Rewards", other: "Other" };
@@ -687,13 +688,28 @@
   const metricText = (metric, v) => (v == null ? "—" : metric === "gold" ? v.toFixed(2) : metric === "toCap" ? `${v.toFixed(1)} h` : C.short(v));
   /** The days of the character looked at, today's as it is now. */
   function farmSums() {
+    if (settings.farmWho === "all") {
+      // The whole account: every character seen, added up day by day.
+      const keys = [...new Set([...chars.map((c) => c.key), currentKey()].filter(Boolean))];
+      const missing = keys.filter((k) => !farmLists.has(k));
+      if (missing.length) {
+        Promise.all(missing.map(loadFarmList)).then(() => settings.tab === "days" && renderDays());
+        return [];
+      }
+      const byChar = {};
+      for (const k of keys) byChar[chars.find((c) => c.key === k)?.name || character?.name || k] = charSums(k);
+      return F.mergeSums(byChar);
+    }
     const key = viewKey();
     if (!key) return [];
     if (!farmLists.has(key)) {
       loadFarmList(key).then(() => settings.tab === "days" && renderDays());
       return [];
     }
-    const list = [...farmLists.get(key)];
+    return charSums(key);
+  }
+  function charSums(key) {
+    const list = [...(farmLists.get(key) || [])];
     if (key === farmKey && farmDay && !F.isEmpty(farmDay)) {
       const i = list.findIndex((x) => x.day === farmDay.day);
       const s = F.summary(farmDay);
@@ -704,6 +720,10 @@
   }
 
   function renderDays() {
+    // Whose: the character looked at (the menu at the top), or all of them.
+    const who = $(".dayWho");
+    const name = chars.find((c) => c.key === viewKey())?.name || character?.name || "This character";
+    who.replaceChildren(el("option", { value: "", text: name, selected: settings.farmWho !== "all" }), el("option", { value: "all", text: "Whole account", selected: settings.farmWho === "all" }));
     const sums = farmSums();
     const today = F.dayOf(Date.now());
     const shown = sums.find((s) => s.day === (dayView ?? today)) || (dayView == null ? null : sums[sums.length - 1]) || null;
@@ -711,7 +731,7 @@
     const pick = $(".dayPick");
     const opts = [...sums].reverse();
     if (!opts.some((s) => s.day === today)) opts.unshift({ day: today });
-    pick.replaceChildren(...opts.map((s) => el("option", { value: String(s.day), text: `${dayLabel(s.day)}${s.day === today ? " (today)" : ""}${s.cap ? " · cap" : ""}`, selected: s.day === (shown?.day ?? today) })));
+    pick.replaceChildren(...opts.map((s) => el("option", { value: String(s.day), text: `${dayLabel(s.day)}${s.day === today ? " (today)" : ""}${s.account ? (s.capped ? ` · ${s.capped} cap${s.capped === 1 ? "" : "s"}` : "") : s.cap ? " · cap" : ""}`, selected: s.day === (shown?.day ?? today) })));
     renderDay(shown);
     renderStats(sums);
   }
@@ -728,7 +748,11 @@
     const open = s.src?.open || {};
     // The Kina cap and the time to it.
     const bits = [];
-    if (s.cap) {
+    if (s.account) {
+      bits.push(el("span", {}, el("b", { text: String(s.chars) }), ` character${s.chars === 1 ? "" : "s"} played`));
+      if (s.capped) bits.push(el("span", {}, el("b", { text: String(s.capped) }), " reached the Kina cap", s.cap?.hoursEach ? [", after ", el("b", { text: span(s.cap.hoursEach * 3_600_000) }), " on average in the open world"] : ""));
+      bits.push(el("span", {}, "Kina toward the caps ", el("b", { text: C.kina(s.counter || 0) })));
+    } else if (s.cap) {
       bits.push(el("span", {}, "Kina cap reached at ", el("b", { text: clockOf(s.cap.at) }), " after ", el("b", { text: hours(s.cap.active) }), " in the open world",
         s.cap.sinceFirst ? ` (${span(s.cap.sinceFirst)} since its first Kina)` : ""));
       const after = { active: (open.active || 0) - (s.cap.active || 0), gold: (open.gold || 0) - (s.cap.gold || 0), worth: (open.worth || 0) - (s.cap.worth || 0) };
@@ -757,10 +781,10 @@
     box.replaceChildren(...(rows.length > 1 ? rows : [el("p", { class: "empty", text: "Nothing came in yet this day." })]));
     // The gold items, newest first.
     const gold = [...(s.gold || [])].sort((a, b) => b[0] - a[0]);
-    goldBox.replaceChildren(...(gold.length ? gold.map(([at, item, n, k, z, w]) => el("li", { class: `g${C.grade(item)}`, title: `${C.name(item)} (${item})` },
+    goldBox.replaceChildren(...(gold.length ? gold.map(([at, item, n, k, z, w, who]) => el("li", { class: `g${C.grade(item)}`, title: `${C.name(item)} (${item})` },
       iconBox(item),
       el("span", { class: "nm" }, el("span", { class: "n", text: `${C.name(item)}${n > 1 ? ` ×${n}` : ""}` }),
-        el("span", { class: "tags" }, el("span", { text: C.GRADES[C.grade(item)] || "" }), el("span", { class: `tag src-${k}`, text: F.NAMES[k] || k }), el("span", { text: F.zoneName(z) }))),
+        el("span", { class: "tags" }, el("span", { text: C.GRADES[C.grade(item)] || "" }), s.account && who ? el("span", { class: "tag", text: who }) : null, el("span", { class: `tag src-${k}`, text: F.NAMES[k] || k }), el("span", { text: F.zoneName(z) }))),
       el("span", { class: "cnt", text: clockOf(at) }),
       el("span", { class: "tot gold", text: w != null ? C.kina(w) : "" }))) : [el("li", { class: "empty", text: "No gold items this day." })]));
   }
@@ -1096,6 +1120,11 @@
   $(".breakPick").addEventListener("change", () => {
     settings.breakMin = Number($(".breakPick").value) || 0;
     saveSettings();
+  });
+  $(".dayWho").addEventListener("change", () => {
+    settings.farmWho = $(".dayWho").value === "all" ? "all" : null;
+    saveSettings();
+    renderDays();
   });
   $(".dayPick").addEventListener("change", () => {
     const v = Number($(".dayPick").value);

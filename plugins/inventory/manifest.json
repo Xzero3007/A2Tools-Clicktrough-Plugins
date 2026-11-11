@@ -1,10 +1,10 @@
 {
   "id": "inventory",
   "name": "Inventory",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "apiVersion": 2,
   "author": "Clicktrough (items and tickets: the game client via SkeeveAN's Aion-DPS-Meter, MIT, and Aion2Data; prices: aion2.exchange)",
-  "description": "Your inventory, character storage and server storage with each item's picture and name, what the sellable ones are worth on your server's market (a fantasy-priced listing at its usual price), the drops of each session by where they came from (gathered, loot, rewards) with your gathering's numbers and the gear broken down, earlier sessions, farm days from reset to reset (the Kinah cap, every gold item with when and where it came from: open world, dungeon, Abyss, Shugo Festival, Dimensional Invasion) with their statistics, and a floater with today's Kinah, the week's Abyss Points and your keys and entry counts.",
+  "description": "Your inventory, character storage and server storage with each item's picture and name, what the sellable ones are worth on your server's market (a fantasy-priced listing at its usual price), the drops of each session by where they came from (gathered, loot, rewards) with your gathering's numbers and the gear broken down, earlier sessions, farm days from reset to reset (the Kinah cap, every gold item with when and where it came from: open world, dungeon, Abyss, Shugo Festival, Dimensional Invasion) with their statistics, per character and for the whole account, and a floater with today's Kinah, the week's Abyss Points and your keys and entry counts.",
   "permissions": [
     "storage",
     "events:character",
