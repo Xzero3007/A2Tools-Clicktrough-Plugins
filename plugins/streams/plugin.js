@@ -32,6 +32,8 @@
     last: {},
     useFreeTube: true,
   };
+  // Above 100 the meter makes the sound louder than the stream (up to 1.25 times).
+  const MAX_VOLUME = 125;
   const SLOT_DEFAULTS = { quality: "1080", volume: 70, mute: false, opacity: 100, size: "m", overlaySize: null };
   // Jellyfin plays the file as it is unless asked otherwise.
   const slotDefaults = (kind) => ({ ...SLOT_DEFAULTS, ...(kind === "jellyfin" ? { quality: "original" } : {}) });
@@ -727,7 +729,7 @@
       sub: stateText(kind),
       paused: !!player.pause,
       muted: !!c.mute,
-      volume: c.volume / 100,
+      volume: c.volume / MAX_VOLUME,
       opacity: c.opacity / 100,
       quality: c.quality,
       controls: jelly
@@ -782,7 +784,7 @@
   }
   function setVolume(kind, v) {
     const c = ss(kind);
-    c.volume = Math.min(100, Math.max(0, Math.round(Number(v) || 0)));
+    c.volume = Math.min(MAX_VOLUME, Math.max(0, Math.round(Number(v) || 0)));
     a2.video.control(slot(kind).widget, "volume", c.volume).catch(() => {});
     if (c.mute) {
       c.mute = false;
@@ -829,7 +831,7 @@
     if ((action === "prev" || action === "next") && kind === "jellyfin") { jfEpisode(action === "prev" ? -1 : 1); return; }
     if (action === "pause") togglePause(kind);
     else if (action === "mute") setMute(kind, !ss(kind).mute);
-    else if (action === "volume" && Number.isFinite(value)) { setVolume(kind, value * 100); saveLater(); }
+    else if (action === "volume" && Number.isFinite(value)) { setVolume(kind, value * MAX_VOLUME); saveLater(); }
     else if (action === "opacity" && Number.isFinite(value)) { setOpacity(kind, value * 100); saveLater(); }
     else if (action === "quality" && typeof value === "string") setQuality(kind, value);
     else if (action === "rewind") a2.video.control(slot(kind).widget, "skip", -10).catch(() => {});
