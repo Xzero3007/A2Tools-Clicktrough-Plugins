@@ -16,13 +16,13 @@ extract and what no longer pays.
   15,000) costs per new skin.
 - **The Closet window** (one window): opening the game's Shop, a tab of
   the Black Cloud shop, or the closet opens it over the game (**Window at
-  the shop**). The game sends a tab's list only the first time it opens in
-  an hour (and after a paid change); opened again, only the Shop's own
-  answer comes, and the window shows the list of this hour from then. On
-  top the skins of the stock you opened last, with their pictures, new ones
-  (gold) first and whose stock it is; below two short lines: the characters
-  of the server not looked at this hour, and what to combine in the closet
-  (the Combine tab has the rest). It goes when you walk off or teleport
+  the shop**); opening the game's Market opens it too. On top the skins of
+  the stock you opened last, with their pictures, new ones (gold) first and
+  whose stock it is; under them **On the Exchange**: the 8 cheapest skins
+  you lack that are listed there (**Buy** in gold where that is below the
+  merchant's price); at the bottom two short lines: the characters of the
+  server not looked at this hour, and what to combine in the closet (the
+  Combine tab has the rest). It goes when you walk off or teleport
   to another zone, after 3 minutes, or with its × (until you come back;
   the × stays while the meter is locked); **Everywhere** (or the
   shirt button in the meter's title) keeps it up all the time. Drag it by

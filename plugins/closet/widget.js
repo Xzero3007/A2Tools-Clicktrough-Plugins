@@ -36,6 +36,25 @@
       return li;
   }
 
+  // A skin you lack listed on the Exchange: "Buy" when below the merchant's price.
+  function exRow(o) {
+    const li = el("li", "new ex");
+    const icon = el("span", `icon g${o.grade || 0}`, o.picture ? null : (o.name || "·")[0]);
+    if (o.picture) {
+      const img = el("img");
+      img.src = o.picture;
+      img.alt = "";
+      icon.append(img);
+    }
+    const text = el("div", "text");
+    text.append(el("div", "name", o.name), el("div", "sub", `${o.slot} · Exchange${o.listings ? ` · ${o.listings} listed` : ""}`));
+    const price = el("div", "price");
+    price.append(el("b", null, kinah(o.price)), el("small", null, o.good ? "below merchant" : ""));
+    li.append(icon, text, price, el("span", `chip${o.good ? " new" : ""}`, o.good ? "Buy" : "New"));
+    li.title = o.good ? "Cheaper on the Exchange than the merchant asks" : "";
+    return li;
+  }
+
   // Top: the merchant's skins you just opened (new first). Below, two short
   // lines: characters not looked at this hour, and what to combine.
   function drawStatus(st) {
@@ -50,7 +69,13 @@
     else info.textContent = `Merchant changes in ${left(st?.next || Date.now())}`;
     info.classList.toggle("good", fresh > 0);
     $(".chars").replaceChildren();
-    $(".rows").replaceChildren(...offers.map(offerRow));
+    const rows = offers.map(offerRow);
+    const ex = st?.exchange;
+    if (ex?.rows?.length) {
+      rows.push(el("li", "section", `On the Exchange: ${ex.total} you lack${ex.total > ex.rows.length ? `, the ${ex.rows.length} cheapest` : ""} · ${ex.from === "game" ? "from the game" : `price list ${clock(ex.at)}`}`));
+      rows.push(...ex.rows.map(exRow));
+    }
+    $(".rows").replaceChildren(...rows);
     const lines = [];
     const not = Array.isArray(st?.notLooked) ? st.notLooked : [];
     if (not.length) lines.push(el("li", "todo", `Not looked this hour: ${not.join(", ")}`));

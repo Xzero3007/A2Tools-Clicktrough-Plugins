@@ -31,13 +31,10 @@
   let bag = null; // the inventory as the meter last saw it: [[slot, item, count]]
 
   // ---------- storage ----------
-  const saveLater = (() => {
-    const timers = {};
-    return (key, value, ms = 500) => {
-      clearTimeout(timers[key]);
-      timers[key] = setTimeout(() => a2.storage.set(key, value).catch(() => {}), ms);
-    };
-  })();
+  // Written at once: the page runs hidden in the plugin dock, where the
+  // desktop's web engine may hold its timers back (Closet 0.2.11 waited on
+  // one for each shop list, and a list was only read when the next came).
+  const saveLater = (key, value) => a2.storage.set(key, value).catch(() => {});
   const saveSettings = () => saveLater("settings", settings);
   const saveCloset = () => saveLater("closet", { ids: closet ? [...closet] : [], at: closetAt });
   const isSkinCount = (n) => n > 0 && n < 100; // larger values are not copies
@@ -151,10 +148,9 @@
   });
   let lastBadStock = 0; // a shop frame that wasn't a stock (the Merchant tab tells)
 
-  // The game sends a tab's list only the first time it opens in an hour (and
-  // after a paid change); opened again, the shop shows what it has and the
-  // list doesn't come. The Shop itself answers each time it opens (61 E2),
-  // so that opens the window too, with the list of this hour.
+  // The Shop answers each time it opens (and so does the Market): that
+  // opens the window too, with this hour's lists and the Exchange prices,
+  // before a tab's list comes.
   let lastShopOpen = 0;
   a2.on("decoded:shop-open", (data, meta) => {
     noteMeta(meta);
@@ -345,18 +341,33 @@
       for (const o of s.offers) {
         const m = L.statusOf(o.item, closet, ix, learned);
         if (!m.skin) continue;
-        const icon = m.skin.icon;
-        if (icon && !pictures.has(icon) && !waiting.has(icon)) {
-          waiting.set(icon, []);
-          queue.push(icon);
-          pump();
-        }
-        offers.push({ name: m.skin.name, slot: m.skin.slot, grade: m.skin.grade, status: m.status, price: o.price, discount: o.discount, tab: s.tabName, soldOut: !!o.soldOut, picture: pictures.get(icon) || null });
+        offers.push({ name: m.skin.name, slot: m.skin.slot, grade: m.skin.grade, status: m.status, price: o.price, discount: o.discount, tab: s.tabName, soldOut: !!o.soldOut, picture: pictureFor(m.skin.icon) });
       }
     }
     const rank = (o) => (o.status === "new" ? 0 : o.status === "unknown" ? 1 : 2);
     offers.sort((x, y) => rank(x) - rank(y) || y.price - x.price);
     return { offers, owner: best.c.name, refresh: Math.min(...best.live.map((s) => s.refresh)) };
+  }
+  // A skin's picture for the window: asked for once, there once loaded.
+  function pictureFor(icon) {
+    if (icon && !pictures.has(icon) && !waiting.has(icon)) {
+      waiting.set(icon, []);
+      queue.push(icon);
+      pump();
+    }
+    return pictures.get(icon) || null;
+  }
+  // The skins you lack that are listed on the Exchange, cheapest first (the
+  // Shop's signal comes when the Market opens too: the window shows both).
+  function exchangeState() {
+    if (!closet) return null;
+    const ex = exchange();
+    if (!ex.size) return null;
+    const listed = L.missing(closet, ix).map((m) => ({ m, e: L.exchangeOf(m.look, ix, ex) })).filter((x) => x.e).sort((a, b) => a.e.price - b.e.price);
+    if (!listed.length) return null;
+    const game = listed.some((x) => x.e.from === "game");
+    return { total: listed.length, from: game ? "game" : "list", at: Math.max(...listed.map((x) => x.e.at || 0)),
+      rows: listed.slice(0, 8).map(({ m, e }) => ({ name: m.name, slot: m.slot, grade: m.grade, price: e.price, listings: e.listings, good: L.goodBuy(e.price, m.price), picture: pictureFor(m.icon) })) };
   }
   // One short line of what to do in the closet (the Combine tab has the rest).
   function todoState() {
@@ -374,7 +385,7 @@
     return { kind: "status", count: count(), goal: L.GOAL, next: nextHour(now), here,
       offers: shop.offers, owner: shop.owner, refresh: shop.refresh,
       notLooked: all.filter((c) => !c.looked).map((c) => c.name), freshElsewhere: all.filter((c) => c.looked && c.fresh && c.name !== shop.owner).map((c) => `${c.name} ${c.fresh}`),
-      todo: todoState() };
+      todo: todoState(), exchange: here || settings.statusAlways ? exchangeState() : null };
   }
   const stateOf = () => statusState();
   function unchecked(now) {
