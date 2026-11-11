@@ -45,7 +45,7 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   the pictures of i.ytimg.com, yt3.ggpht.com, static-cdn.jtvnw.net, and
   Twitch channels or YouTube videos played by mpv in a widget. The
   person's own Jellyfin server in the home network only (`a2.video.jellyfin`,
-  meter patch 0052; the person's decision, 2026-11-11): the meter refuses
+  meter patch 0053; the person's decision, 2026-11-11): the meter refuses
   any address outside it and keeps the address and key itself; nothing of
   the server (address, names, library) goes into this repo.
   Anything else needs the person's yes first, and a meter patch.
