@@ -19,8 +19,9 @@ extract and what no longer pays.
   top the skins of the stock you opened last, with their pictures, new ones
   (gold) first and whose stock it is; below two short lines: the characters
   of the server not looked at this hour, and what to combine in the closet
-  (the Combine tab has the rest). It goes when you walk off, after 3
-  minutes, or with its × (until you come back); **Everywhere** (or the
+  (the Combine tab has the rest). It goes when you walk off or teleport
+  to another zone, after 3 minutes, or with its × (until you come back;
+  the × stays while the meter is locked); **Everywhere** (or the
   shirt button in the meter's title) keeps it up all the time. Drag it by
   its head and size it at its edges while the meter is unlocked, or with
   the size on the Merchant tab. At the shop and the closet it takes the

@@ -43,7 +43,8 @@
     const offers = Array.isArray(st?.offers) ? st.offers : [];
     const fresh = offers.filter((o) => o.status === "new").length;
     const info = $(".info");
-    if (st?.count == null) info.textContent = "Log in with the meter running: the game sends your closet then.";
+    if (st?.error) info.textContent = `Something went wrong: ${st.error}`;
+    else if (st?.count == null) info.textContent = "Log in with the meter running: the game sends your closet then.";
     else if (offers.length) info.textContent = `${st.owner ? `${st.owner}: ` : ""}${fresh ? `${fresh} new for you` : "nothing new for you"} · changes in ${left(st.refresh || st.next)}`;
     else if (st?.here) info.textContent = "Open the shop's tabs (Special, Skins): their skins show here.";
     else info.textContent = `Merchant changes in ${left(st?.next || Date.now())}`;
@@ -99,5 +100,13 @@
     document.body.classList.toggle("locked", locked);
   });
   claim();
-  a2.ready().then(() => a2.widget.post({ type: "ready" }).catch(() => {}));
+  // Never an empty window: until the plugin answers, say so, and ask again.
+  $(".info").textContent = "Waiting for the Closet plugin…";
+  const hello = () => a2.widget.post({ type: "ready" }).catch(() => {});
+  a2.ready().then(hello);
+  let asks = 0;
+  const ask = setInterval(() => {
+    if (last || ++asks > 6) return clearInterval(ask);
+    hello();
+  }, 3000);
 })();

@@ -88,7 +88,17 @@
     dirty();
   });
 
+  let zoneNow = null; // the zone of the last world report
   a2.on("world", (w) => {
+    if (w?.zone != null) {
+      // Another zone than at the shop or the closet (a teleport): you left.
+      if (here && hereZone != null && w.zone !== hereZone) {
+        zoneNow = w.zone;
+        return left();
+      }
+      zoneNow = w.zone;
+      if (here && hereZone == null) hereZone = w.zone;
+    }
     if (!here || !w) return;
     // Only the game's own reports of where you are: the meter's estimate
     // wanders by metres while you stand.
@@ -303,18 +313,37 @@
   // the closet it takes the mouse even with the meter locked, so its list
   // scrolls; it stays put then. Elsewhere a locked window lets clicks through.
   const widgetSize = () => ({ ...sizeOf("status"), unlocked: here });
+  // One open at a time: two at once (two shop tabs told in one moment) made
+  // two windows in the meter, the second empty and impossible to close.
+  // A change asked for while one runs is applied when it is done.
+  let opening = false, again = false;
   async function openWidget() {
+    if (opening) {
+      again = true;
+      return;
+    }
+    opening = true;
     try {
       await a2.widgets.open("status", widgetSize());
       // No lock of its own: the meter's lock is every widget's.
       await a2.widgets.lock(false);
       open.status = true;
-      a2.widgets.send("status", stateOf()).catch(() => {});
+      sendWidgets();
     } catch (e) {
       console.error(e);
+    } finally {
+      opening = false;
+    }
+    if (again) {
+      again = false;
+      applyStatus();
     }
   }
   function closeWidget() {
+    if (opening) {
+      again = true;
+      return;
+    }
     open.status = false;
     a2.widgets.close("status").catch(() => {});
   }
@@ -323,13 +352,22 @@
   let anchor = null; // where you stood when it opened
   let dismissed = false; // closed with its × until you come back
   const statusWanted = () => !dismissed && ((settings.popup && here) || settings.statusAlways);
+  let openedHere = null; // `here` when the window was last opened (its mouse rule)
   function applyStatus() {
-    if (statusWanted()) openWidget();
-    else if (open.status) closeWidget();
+    if (statusWanted()) {
+      if (open.status && openedHere === here) sendWidgets();
+      else {
+        openedHere = here;
+        openWidget();
+      }
+    } else if (open.status || opening) closeWidget();
   }
-  let hereBy = "", hereSince = 0;
+  let hereBy = "", hereSince = 0, hereZone = null;
   function arrived(by = "") {
-    if (!here) dismissed = false;
+    if (!here) {
+      dismissed = false;
+      hereZone = zoneNow;
+    }
     hereBy = by;
     hereSince = Date.now();
     here = true;
@@ -345,7 +383,16 @@
     applyStatus();
   }
   function sendWidgets() {
-    if (open.status) a2.widgets.send("status", stateOf()).catch(() => {});
+    if (!open.status) return;
+    let st;
+    try {
+      st = stateOf();
+    } catch (e) {
+      // Never an empty window: what went wrong, in it.
+      console.error(e);
+      st = { kind: "status", error: String(e?.message || e).slice(0, 200), count: count(), goal: L.GOAL };
+    }
+    a2.widgets.send("status", st).catch(() => {});
   }
   let widgetsSoon = 0;
   function sendWidgetsSoon() {
@@ -366,7 +413,7 @@
         return;
       }
       open.status = true;
-      a2.widgets.send("status", stateOf()).catch(() => {});
+      sendWidgets();
     } else if (data.type === "close") {
       // Gone until you come back to the shop or the closet.
       dismissed = true;

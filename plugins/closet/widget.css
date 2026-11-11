@@ -10,7 +10,8 @@ html, body { height: 100%; margin: 0; background: transparent; overflow: hidden;
 .goal { color: #f2c46b; font-weight: 600; font-variant-numeric: tabular-nums; }
 .close { background: none; border: 0; color: rgba(255, 255, 255, 0.6); font-size: 16px; line-height: 1; padding: 0 2px; cursor: pointer; }
 .close:hover { color: #fff; }
-body.locked .close, body.locked .edge, body.noResize .edge { display: none; }
+/* The × stays while locked: at the shop the window takes the mouse then. */
+body.locked .edge, body.noResize .edge { display: none; }
 body.locked .head { cursor: default; }
 .info { padding: 0 10px 4px; color: rgba(255, 255, 255, 0.55); font-size: 12px; }
 .info.good { color: #f2c46b; }
