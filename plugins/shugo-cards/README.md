@@ -51,7 +51,8 @@ it how often. Kept: your own character's name and server (whose round it was); a
 before the round ends: what lies behind a card is not known while you pick.
 A round that does not read is kept as it came (the last 5) and counted at
 the top; a newer version reads them again when it starts (0.3.1: the
-Dimensional Invasion's rounds, which 0.3.0 could not read).
+Dimensional Invasion's rounds, which 0.3.0 could not read; 0.3.2: rounds
+where a pick's last field took two bytes).
 
 Item names, grades and icons: `data.js` is the Inventory plugin's (SkeeveAN's
 Aion-DPS-Meter, MIT, and Aion2Data; see the NOTICE files), `anomaly.js` the

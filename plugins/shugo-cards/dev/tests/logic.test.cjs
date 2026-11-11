@@ -130,7 +130,7 @@ function build({ event, cards }) {
     for (const p of c.pickers || []) {
       for (let i = 0; i < 11; i++) u8(0);
       const nm = Buffer.from(p.name); varint(nm.length); for (const x of nm) u8(x);
-      u32(16); u32(p.times); u32(0); u8(0);
+      u32(16); u32(p.times); varint(p.tail || 0); u32(0);
     }
   }
   return Buffer.from(out).toString("hex");
@@ -139,7 +139,7 @@ const MAIN = [[210430080, 1], [930100023, 400]];
 const diHex = build({
   event: 22020112,
   cards: [
-    { tag: 0, bonus: [[210540103, 1]], main: MAIN },
+    { tag: 0, bonus: [[210540103, 1]], main: MAIN, pickers: [{ name: "Tester", times: 1, tail: 511 }] },
     { tag: 219, main: MAIN, pickers: [{ name: "Tester", times: 2 }] },
     { tag: 2, main: MAIN },
     { tag: 3, bonus: [[210430080, 1], [210540103, 1], [930100023, 50]], main: MAIN, pickers: [{ name: "Tester", times: 1 }] },
@@ -154,7 +154,7 @@ test("a Dimensional Invasion round reads: a bonus on an unpicked card", () => {
   assert.equal(C.kindOf(r).kind, "di");
   assert.equal(r.cards[1].tag, 219);
   assert.deepEqual(r.cards.map((c) => c.bonus.length), [1, 0, 0, 3, 0]);
-  assert.deepEqual(r.cards.map((c) => c.pickers.length), [0, 1, 0, 1, 0]);
+  assert.deepEqual(r.cards.map((c) => c.pickers.length), [1, 1, 0, 1, 0], "a picker's tail can be a two-byte varint (Shugo, 17:04)");
   const s = C.stats([C.keep(r, 1, "Tester", 1)]);
   assert.deepEqual(s.place.map((p) => p.bonus), [1, 0, 0, 1, 0]);
 });

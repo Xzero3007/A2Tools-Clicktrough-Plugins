@@ -77,8 +77,10 @@
           p += len;
           u32();
           const times = u32();
+          // A varint (0 or 1 mostly; 245 and 511 seen, differing between
+          // the two copies, as the card's tag), then a u32.
+          varint();
           u32();
-          u8();
           if (times < 1 || times > 10) return null;
           pickers.push({ name: nm, times });
         }
