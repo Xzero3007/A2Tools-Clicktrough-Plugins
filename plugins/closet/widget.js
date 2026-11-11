@@ -1,8 +1,7 @@
-// The Closet plugin's widgets, fed by plugin.js and drawn by their state's
-// kind: "shop", the pop-up at the Black Cloud shop (the playing character's
-// skin offers of this hour, new ones first), and "status", the slim floater
-// (count, next change, characters looked or not, what to combine and
-// extract). Dragged by the head, sized at the edges (the plugin keeps the size).
+// The Closet window, fed by plugin.js: the Black Cloud merchant's skins you
+// opened last (new ones first, with pictures), the characters not looked at
+// this hour, and what to combine. Dragged by the head, sized at the edges
+// while the meter is unlocked (the plugin keeps the size).
 (() => {
   const $ = (s) => document.querySelector(s);
   let locked = false;
@@ -19,48 +18,6 @@
     const m = Math.max(0, Math.round((t - Date.now()) / 60000));
     return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
   };
-
-  function adviceRows(st, all) {
-    const list = Array.isArray(st?.advice) ? st.advice : [];
-    const rows = list.filter((a) => all || a.tone !== "bad" || a.kind === "extract").map((a) => {
-      if (a.kind === "plan") {
-        // Combine now (in order), or what to collect first.
-        const li = el("li", `plan ${a.tone}`);
-        li.title = a.why || "";
-        if (a.now.length) {
-          li.append(el("span", "tag good", "Combine now"));
-          a.now.forEach((n, i) => {
-            if (i) li.append(el("span", "num", "→"));
-            li.append(el("b", `g${n.grade}`, `${n.name} ${n.times}×`));
-          });
-        } else li.append(el("span", "tag mid", "Nothing to combine: keep collecting"));
-        for (const c of a.collect) li.append(el("span", "num", `· ${c.name}: collect ${c.more} more`));
-        return li;
-      }
-      if (a.settings) {
-        // The game's Auto Extract grades, ticked as they pay.
-        const li = el("li", "xset");
-        li.title = "The game's Extract Settings, Auto Extract: tick these grades. 1 in N: how many pieces it takes for one skin you lack. Hover a grade for why.";
-        li.append(el("span", "tag good", `Auto Extract ${a.settings.on ? "ON" : "OFF"}`));
-        for (const g of a.settings.grades) {
-          const c = el("span", `box ${g.tick ? "on" : "off"}`);
-          c.title = g.why;
-          c.append(el("i", null, g.tick ? "✓" : ""), el("b", `g${g.grade}`, g.name), el("span", "num", g.hand ? "by hand" : g.every ? `1 in ${g.every}` : "–"));
-          li.append(c);
-        }
-        return li;
-      }
-      // The grade in its colour, the verdict as a tag, then the numbers.
-      const li = el("li", a.tone);
-      li.title = a.why || "";
-      li.append(el("b", `g${a.grade || 0}`, a.name || ""), el("span", `tag ${a.tone}`, a.tag || ""), el("span", "num", a.text));
-      return li;
-    });
-    if (Number.isFinite(st?.bagNew) && st.bagNew > 0) {
-      rows.push(el("li", "good bag", `Extract from your bag: ${st.bagBest.join(", ")}${st.bagNew > st.bagBest.length ? ` and ${st.bagNew - st.bagBest.length} more` : ""}`));
-    }
-    return rows;
-  }
 
   function offerRow(o) {
       const li = el("li", o.status || "");
@@ -79,44 +36,27 @@
       return li;
   }
 
-  function drawShop(st) {
-    $(".title").textContent = st?.who ? `Black Cloud · ${st.who}` : "Black Cloud";
-    const offers = Array.isArray(st?.offers) ? st.offers : [];
-    const fresh = offers.filter((o) => o.status === "new").length;
-    const known = st?.count != null;
-    $(".info").textContent = !known ? "Closet not known yet: log in once with the meter running (until then every skin shows ?)"
-      : !offers.length ? "Open a tab of the shop: its skins show here."
-      : `${fresh ? `${fresh} new for you` : "Nothing new for you"}${st.refresh ? ` · changes at ${clock(st.refresh)}` : ""}`;
-    $(".info").classList.toggle("good", fresh > 0);
-    $(".chars").replaceChildren();
-    $(".rows").replaceChildren(...offers.map(offerRow));
-    $(".advice").replaceChildren(...adviceRows(st, false));
-    const un = Array.isArray(st?.unchecked) ? st.unchecked : [];
-    $(".foot").textContent = un.length ? `Not looked this hour: ${un.join(", ")}` : "";
-    $(".foot").hidden = !un.length;
-  }
-
+  // Top: the merchant's skins you just opened (new first). Below, two short
+  // lines: characters not looked at this hour, and what to combine.
   function drawStatus(st) {
     $(".title").textContent = "Closet";
-    $(".info").textContent = st?.next ? `Merchant changes in ${left(st.next)}` : "";
-    $(".info").classList.remove("good");
-    const chars = Array.isArray(st?.chars) ? st.chars : [];
-    $(".chars").replaceChildren(...chars.map((c) => {
-      const li = el("li", c.looked ? (c.fresh ? "fresh" : "done") : "todo");
-      const what = c.looked ? (c.fresh ? `${c.fresh} new` : "nothing new") : "not looked";
-      li.append(el("span", "mark", c.looked ? "✓" : "○"), el("span", "who", c.name), el("span", "what", c.playing ? `playing · ${what}` : what));
-      return li;
-    }));
-    if (!chars.length) $(".chars").append(el("li", "todo", "Open the Black Cloud shop: your characters show here."));
-    // At the shop: the offers of this hour, new first.
     const offers = Array.isArray(st?.offers) ? st.offers : [];
+    const fresh = offers.filter((o) => o.status === "new").length;
+    const info = $(".info");
+    if (st?.count == null) info.textContent = "Log in with the meter running: the game sends your closet then.";
+    else if (offers.length) info.textContent = `${st.owner ? `${st.owner}: ` : ""}${fresh ? `${fresh} new for you` : "nothing new for you"} · changes in ${left(st.refresh || st.next)}`;
+    else if (st?.here) info.textContent = "Open the shop's tabs (Special, Skins): their skins show here.";
+    else info.textContent = `Merchant changes in ${left(st?.next || Date.now())}`;
+    info.classList.toggle("good", fresh > 0);
+    $(".chars").replaceChildren();
     $(".rows").replaceChildren(...offers.map(offerRow));
-    if (offers.length) {
-      const fresh = offers.filter((o) => o.status === "new").length;
-      $(".info").textContent = `${fresh ? `${fresh} new for you` : "Nothing new for you"} · merchant changes in ${left(st.next)}`;
-      $(".info").classList.toggle("good", fresh > 0);
-    }
-    $(".advice").replaceChildren(...adviceRows(st, true));
+    const lines = [];
+    const not = Array.isArray(st?.notLooked) ? st.notLooked : [];
+    if (not.length) lines.push(el("li", "todo", `Not looked this hour: ${not.join(", ")}`));
+    const elsewhere = Array.isArray(st?.freshElsewhere) ? st.freshElsewhere : [];
+    if (elsewhere.length) lines.push(el("li", "good", `New skins on offer: ${elsewhere.join(", ")}`));
+    if (st?.todo) lines.push(el("li", "", st.todo));
+    $(".advice").replaceChildren(...lines);
     $(".foot").hidden = true;
   }
 
@@ -124,8 +64,7 @@
     last = st;
     $(".goal").textContent = st?.count != null ? `${st.count} / ${st.goal}` : "";
     document.body.dataset.kind = st?.kind || "shop";
-    if (st?.kind === "status") drawStatus(st);
-    else drawShop(st);
+    drawStatus(st);
   }
   // The countdown moves on between the plugin's updates.
   setInterval(() => { if (last?.kind === "status") drawStatus(last); }, 20 * 1000);

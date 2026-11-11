@@ -154,8 +154,8 @@
       const names = fresh.map((o) => ix.items.get(o.item)?.name).filter(Boolean);
       a2.notify(`Black Cloud: ${fresh.length === 1 ? "a skin you lack" : `${fresh.length} skins you lack`} on offer (${names.join(", ")})`).catch(() => {});
     }
-    if (settings.popup) openPopup();
-    arrived();
+    // A frame replayed from earlier (the page started again) opens nothing.
+    if (Date.now() - (stock.at || Date.now()) < 90 * 1000) arrived("shop");
     sendWidgets();
     dirty();
   }
@@ -221,24 +221,17 @@
   // ---------- the pop-up at the shop and the status floater ----------
   // Both are widget.html, drawn by their state's kind. The meter keeps where
   // a widget is; its size is kept here (the widget posts it after a resize).
-  const SIZE = { shop: { width: 360, height: 460, min: [260, 160] }, status: { width: 290, height: 300, min: [200, 90] } };
+  const SIZE = { status: { width: 340, height: 520, min: [220, 120] } };
   const sizeOf = (name) => {
     const s = settings.sizes?.[name] || {}, d = SIZE[name];
     return { width: Math.max(d.min[0], Math.min(900, Math.round(s.width || d.width))), height: Math.max(d.min[1], Math.min(1000, Math.round(s.height || d.height))) };
   };
-  const open = { shop: false, status: false };
-  let popupTimer = 0;
+  const open = { status: false };
 
-  function adviceState() {
-    const { combined, extracted } = advise();
-    const pieces = closet ? L.bagGear(bag, closet, globalThis.CLOSET_DATA, ix) : [];
-    return { advice: closet ? L.advice(combined, extracted) : [], bagNew: bag ? pieces.length : null,
-      bagBest: pieces.slice(0, 3).map((p) => p.name || "a new look") };
-  }
   function charsState(now) {
     const out = [];
     for (const [key, c] of Object.entries(chars)) {
-      if (character && c.serverId !== character.serverId) continue;
+      if (character && c.serverId != null && character.serverId != null && c.serverId !== character.serverId) continue;
       const live = Object.values(c.stocks).filter((s) => s.refresh > now);
       const fresh = live.reduce((n, s) => n + s.offers.filter((o) => L.statusOf(o.item, closet, ix, learned).status === "new").length, 0);
       out.push({ name: c.name, looked: live.length > 0, fresh, playing: !!character && key === charKey(character) });
@@ -247,13 +240,20 @@
   }
   const nextHour = (now) => Math.ceil((now + 1) / 3600000) * 3600000;
 
-  function popupState() {
-    const now = Date.now();
-    const key = character ? charKey(character) : null;
-    const c = key && chars[key];
-    const stocks = c ? Object.values(c.stocks).filter((s) => s.refresh > now).sort((x, y) => x.tab - y.tab) : [];
+  // The offers to show: the stock opened last this hour (all its tabs), with
+  // whose it is. Not by the playing character, so a late or wrong character
+  // never hides what you just opened.
+  function offersState(now) {
+    let best = null;
+    for (const c of Object.values(chars)) {
+      if (character && c.serverId != null && character.serverId != null && c.serverId !== character.serverId) continue;
+      const live = Object.values(c.stocks).filter((s) => s.refresh > now);
+      const at = Math.max(0, ...live.map((s) => s.at || 0));
+      if (live.length && (!best || at > best.at)) best = { c, live, at };
+    }
+    if (!best) return { offers: [], owner: "", refresh: 0 };
     const offers = [];
-    for (const s of stocks) {
+    for (const s of best.live.sort((x, y) => x.tab - y.tab)) {
       for (const o of s.offers) {
         const m = L.statusOf(o.item, closet, ix, learned);
         if (!m.skin) continue;
@@ -266,72 +266,70 @@
         offers.push({ name: m.skin.name, slot: m.skin.slot, grade: m.skin.grade, status: m.status, price: o.price, discount: o.discount, tab: s.tabName, soldOut: !!o.soldOut, picture: pictures.get(icon) || null });
       }
     }
-    offers.sort((x, y) => (x.status === "new" ? 0 : x.status === "unknown" ? 1 : 2) - (y.status === "new" ? 0 : y.status === "unknown" ? 1 : 2) || y.price - x.price);
-    const refresh = stocks.length ? Math.min(...stocks.map((s) => s.refresh)) : 0;
-    return { kind: "shop", who: character?.name || "", count: count(), goal: L.GOAL, offers, refresh, tabs: stocks.map((s) => s.tabName), unchecked: unchecked(now), ...adviceState() };
+    const rank = (o) => (o.status === "new" ? 0 : o.status === "unknown" ? 1 : 2);
+    offers.sort((x, y) => rank(x) - rank(y) || y.price - x.price);
+    return { offers, owner: best.c.name, refresh: Math.min(...best.live.map((s) => s.refresh)) };
+  }
+  // One short line of what to do in the closet (the Combine tab has the rest).
+  function todoState() {
+    if (!closet) return "";
+    const { combined, extracted } = advise();
+    const plan = (L.advice(combined, extracted) || []).find((a) => a.kind === "plan");
+    if (!plan) return "";
+    if (plan.now.length) return `Combine in the closet: ${plan.now.map((n) => `${n.times}× ${n.name}`).join(", then ")}`;
+    return "Nothing to combine yet: keep collecting";
   }
   function statusState() {
     const now = Date.now();
-    // At the shop: the playing character's skin offers on top.
-    const shop = here ? popupState() : null;
-    return { kind: "status", who: character?.name || "", count: count(), goal: L.GOAL, next: nextHour(now), chars: charsState(now),
-      offers: shop?.offers || [], refresh: shop?.refresh || 0, ...adviceState() };
+    const shop = here || settings.statusAlways ? offersState(now) : { offers: [], owner: "", refresh: 0 };
+    const all = charsState(now);
+    return { kind: "status", count: count(), goal: L.GOAL, next: nextHour(now), here,
+      offers: shop.offers, owner: shop.owner, refresh: shop.refresh,
+      notLooked: all.filter((c) => !c.looked).map((c) => c.name), freshElsewhere: all.filter((c) => c.looked && c.fresh && c.name !== shop.owner).map((c) => `${c.name} ${c.fresh}`),
+      todo: todoState() };
   }
-  const stateOf = (name) => (name === "shop" ? popupState() : statusState());
+  const stateOf = () => statusState();
   function unchecked(now) {
     const out = [];
     for (const [key, c] of Object.entries(chars)) {
       if (character && key === charKey(character)) continue;
-      if (character && c.serverId !== character.serverId) continue;
+      if (character && c.serverId != null && character.serverId != null && c.serverId !== character.serverId) continue;
       if (!Object.values(c.stocks).some((s) => s.refresh > now)) out.push(c.name);
     }
     return out.sort();
   }
-  async function openWidget(name) {
+  // One window: it shows at the Black Cloud shop and in the closet (tick
+  // "Window at the shop"), or all the time ("Everywhere"). At the shop and
+  // the closet it takes the mouse even with the meter locked, so its list
+  // scrolls; it stays put then. Elsewhere a locked window lets clicks through.
+  const widgetSize = () => ({ ...sizeOf("status"), unlocked: here });
+  async function openWidget() {
     try {
-      // At the shop and the closet the window takes the mouse even with the
-      // meter locked, so its list scrolls (it still stays put then).
-      await a2.widgets.open(name, { ...sizeOf(name), unlocked: name === "shop" || here });
+      await a2.widgets.open("status", widgetSize());
       // No lock of its own: the meter's lock is every widget's.
       await a2.widgets.lock(false);
-      open[name] = true;
-      a2.widgets.send(name, stateOf(name)).catch(() => {});
+      open.status = true;
+      a2.widgets.send("status", stateOf()).catch(() => {});
     } catch (e) {
       console.error(e);
     }
   }
-  function closeWidget(name) {
-    open[name] = false;
-    a2.widgets.close(name).catch(() => {});
-    if (name === "shop" && statusWanted() && !open.status) openWidget("status");
+  function closeWidget() {
+    open.status = false;
+    a2.widgets.close("status").catch(() => {});
   }
-  function keepPopup() {
-    clearTimeout(popupTimer);
-    popupTimer = setTimeout(() => closeWidget("shop"), Math.max(1, settings.popupMinutes) * 60 * 1000);
-  }
-  function openPopup() {
-    keepPopup();
-    // One window at the shop: with the floater on, the floater shows the
-    // offers itself; the pop-up is for when the floater is off.
-    if (settings.status) {
-      if (open.shop) closeWidget("shop");
-      return;
-    }
-    openWidget("shop");
-  }
-  // The floater shows at the shop and the closet (or always, when ticked so):
-  // opened by the shop's stock or the closet's list, gone when you walk off
-  // or after the pop-up's minutes; the game sends nothing when they close.
   let here = false; // at the shop or the closet now
   let hereTimer = 0;
-  let anchor = null; // where you stood when they opened
-  const statusWanted = () => settings.status && (settings.statusAlways || here);
+  let anchor = null; // where you stood when it opened
+  let dismissed = false; // closed with its × until you come back
+  const statusWanted = () => !dismissed && ((settings.popup && here) || settings.statusAlways);
   function applyStatus() {
-    if (statusWanted()) openWidget("status");
-    else if (open.status) closeWidget("status");
+    if (statusWanted()) openWidget();
+    else if (open.status) closeWidget();
   }
   let hereBy = "", hereSince = 0;
   function arrived(by = "") {
+    if (!here) dismissed = false;
     hereBy = by;
     hereSince = Date.now();
     here = true;
@@ -342,12 +340,12 @@
   }
   function left() {
     here = false;
+    dismissed = false;
     clearTimeout(hereTimer);
-    if (open.shop) closeWidget("shop");
     applyStatus();
   }
   function sendWidgets() {
-    for (const name of ["shop", "status"]) if (open[name]) a2.widgets.send(name, stateOf(name)).catch(() => {});
+    if (open.status) a2.widgets.send("status", stateOf()).catch(() => {});
   }
   let widgetsSoon = 0;
   function sendWidgetsSoon() {
@@ -355,41 +353,42 @@
     widgetsSoon = setTimeout(sendWidgets, 300);
   }
   a2.on("widget-message", ({ name, data }) => {
-    if (!SIZE[name] || !data) return;
+    if (!data) return;
+    // The pop-up of 0.2 is gone: one window now.
+    if (name !== "status") {
+      a2.widgets.close(name).catch(() => {});
+      return;
+    }
     if (data.type === "ready") {
-      // A widget the meter brought back from before (at its start) that this
-      // page did not open: the pop-up belongs to an open shop only, the
-      // floater to its tick.
-      const wanted = open[name] || (name === "status" && statusWanted());
-      if (!wanted) {
-        a2.widgets.close(name).catch(() => {});
+      // A window the meter brought back from before that isn't wanted now.
+      if (!statusWanted()) {
+        closeWidget();
         return;
       }
-      open[name] = true;
-      a2.widgets.send(name, stateOf(name)).catch(() => {});
+      open.status = true;
+      a2.widgets.send("status", stateOf()).catch(() => {});
     } else if (data.type === "close") {
-      clearTimeout(popupTimer);
-      closeWidget(name);
-      if (name === "status") {
-        settings.status = false;
+      // Gone until you come back to the shop or the closet.
+      dismissed = true;
+      if (settings.statusAlways) {
+        settings.statusAlways = false;
         saveSettings();
         dirty();
       }
-    } else if (data.type === "keep" && name === "shop") {
-      keepPopup();
-      if (here) arrived();
-    }
-    else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
-      settings.sizes = { ...(settings.sizes || {}), [name]: { width: Math.round(data.width), height: Math.round(data.height) } };
+      closeWidget();
+    } else if (data.type === "keep") {
+      if (here) arrived(hereBy);
+    } else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
+      settings.sizes = { ...(settings.sizes || {}), status: { width: Math.round(data.width), height: Math.round(data.height) } };
       saveSettings();
       showSizes();
     }
   });
-  // The meter's header button: the status floater on or off.
+  // The meter's header button: the window all the time, or not.
   a2.on("overlay", (data) => {
-    settings.status = !!data?.show;
+    settings.statusAlways = !!data?.show;
+    dismissed = !data?.show;
     saveSettings();
-    if (settings.status) arrived(); // shown now, until you walk off
     applyStatus();
     dirty();
   });
@@ -451,7 +450,6 @@
 
   function renderMerchant() {
     $(".popup").checked = !!settings.popup;
-    $(".statusBox").checked = !!settings.status;
     $(".statusAlways").checked = !!settings.statusAlways;
     showSizes();
     $(".toast").checked = !!settings.toast;
@@ -618,8 +616,7 @@
       render();
     });
   }
-  $(".popup").addEventListener("change", (e) => { settings.popup = e.target.checked; saveSettings(); if (!settings.popup) closeWidget("shop"); });
-  $(".statusBox").addEventListener("change", (e) => { settings.status = e.target.checked; saveSettings(); applyStatus(); });
+  $(".popup").addEventListener("change", (e) => { settings.popup = e.target.checked; saveSettings(); applyStatus(); });
   function showSizes() {
     for (const i of document.querySelectorAll(".size")) if (document.activeElement !== i) i.value = String(sizeOf(i.dataset.w)[i.dataset.k]);
   }
@@ -631,12 +628,12 @@
       settings.sizes = { ...(settings.sizes || {}), [name]: { ...sizeOf(name), [i.dataset.k]: v } };
       saveSettings();
       showSizes();
-      if (open[name]) a2.widgets.open(name, sizeOf(name)).catch(() => {});
+      if (open.status) a2.widgets.open("status", widgetSize()).catch(() => {});
     });
   }
   $(".statusAlways").addEventListener("change", (e) => { settings.statusAlways = e.target.checked; saveSettings(); applyStatus(); });
   $(".toast").addEventListener("change", (e) => { settings.toast = e.target.checked; saveSettings(); });
-  $(".showPopup").addEventListener("click", () => openPopup());
+  $(".showPopup").addEventListener("click", () => { dismissed = false; arrived(hereBy || "shop"); });
   $(".search").addEventListener("input", () => renderMissing());
   for (const k of ["kind", "grade", "order"]) $(`.${k}`).addEventListener("change", (e) => { settings[k] = e.target.value; saveSettings(); renderMissing(); });
   $(".lucky").addEventListener("change", (e) => { settings.lucky = e.target.checked; saveSettings(); renderCombine(); sendWidgets(); });
@@ -665,8 +662,8 @@
     }
     shareCount();
     render();
-    // A pop-up the meter kept from before belongs to no open shop.
-    if (!open.shop) a2.widgets.close("shop").catch(() => {});
+    // The pop-up of 0.2 (a second window) is gone.
+    a2.widgets.close("shop").catch(() => {});
     applyStatus();
     a2.ready?.();
   })();

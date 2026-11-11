@@ -1,10 +1,10 @@
 # Closet (A2Tools plugin)
 
 Your skins against the 700 of the title **Empty Closet**: what the Black Cloud
-Merchant offers each of your characters this hour, marked new or owned; a
-pop-up when you open the shop; every skin you still lack with its picture and
-price, and what the rest costs; a slim status floater; and what to combine
-and extract and what no longer pays.
+Merchant offers each of your characters this hour, marked new or owned; one
+window over the game when you open the shop; every skin you still lack with
+its picture and price, and what the rest costs; and what to combine and
+extract and what no longer pays.
 
 - **Merchant**: each character's offers of this hour (Special and Skins tabs,
   and any other tab with skins), **New** (gold: a skin you lack), **Owned**
@@ -14,30 +14,21 @@ and extract and what no longer pays.
   you open, how often a skin you lack is on offer and what a paid change of
   the stock (the shop's refresh button: 500 Kinah, then 1,000, 2,000 ...
   15,000) costs per new skin.
-- **Pop up at the shop**: opening a tab of the Black Cloud shop opens a small
-  window over the game with that character's skin offers, new ones first,
-  your count, who has not looked yet, and what to combine and extract; it
-  closes after 3 minutes (the game sends nothing when the shop closes) or
-  with its ×. Drag it by its head, size it at its edges and corner or
-  with the sizes on the Merchant tab: the meter keeps where it is, the
-  plugin its size (while the meter's lock is on, the edges are hidden). **Note new skins**: a note
+- **The Closet window** (one window): opening a tab of the Black Cloud
+  shop, or the closet, opens it over the game (**Window at the shop**). On
+  top the skins of the stock you opened last, with their pictures, new ones
+  (gold) first and whose stock it is; below two short lines: the characters
+  of the server not looked at this hour, and what to combine in the closet
+  (the Combine tab has the rest). It goes when you walk off, after 3
+  minutes, or with its × (until you come back); **Everywhere** (or the
+  shirt button in the meter's title) keeps it up all the time. Drag it by
+  its head and size it at its edges while the meter is unlocked, or with
+  the size on the Merchant tab. At the shop and the closet it takes the
+  mouse even with the meter locked, so its list scrolls (a wide
+  scrollbar); it stays put then (meter patch 0064). Elsewhere a locked
+  window lets clicks through to the game. When no picture comes from the
+  icon server, the panel's top line says why. **Note new skins**: a note
   when a skin you lack is on offer.
-- **Status floater** (the tick, or the shirt button in the meter's title):
-  a slim window that stays: your count, when the merchant changes, each
-  character of the server looked at this hour or not (and how many new
-  skins it had), what to combine and extract, and the gear in your bag to
-  extract. Moved and sized like the pop-up. It shows at the Black Cloud shop
-  and in the closet (the game sends the closet when it opens) and goes when
-  you walk off or after 3 minutes; **Everywhere** keeps it up all the time.
-  At the shop it shows the playing character's skin offers itself, so it
-  stays the one window there; the pop-up opens only while the floater is
-  off. Walking off closes the pop-up
-  too. The offers show the skins' pictures large. At the shop and the
-  closet both windows take the mouse even with the meter locked, so their
-  lists scroll (a wide scrollbar); locked, they stay put (meter patch 0064).
-  Elsewhere a locked floater lets clicks through to the game.
-  When no picture comes from the icon server, the panel's top line says
-  why.
 - **Missing**: every skin you lack (one per closet entry) with its picture,
   grade, slot and the merchant's list price, filterable by kind and grade,
   searchable; above, what the skins still needed for 700 cost: the cheapest
@@ -60,8 +51,7 @@ and extract and what no longer pays.
   by hand only the pieces with a new look; each with its chance of a new
   skin a piece, counting the copies that go into combines (a Rare copy can
   climb to Epic), and the sale price up to which extracting beats selling.
-  The floater shows the same ticks.
-- **Combine now**: in the floater and the pop-up, how many combines your
+- **Combine now**: on the Combine tab (and as one line in the window), how many combines your
   spare copies allow per grade, lowest grade first (what climbs feeds the
   next grade), or how many more copies to collect. Waiting gains nothing. Grades in the game's
   colours and names (Epic blue).
@@ -93,7 +83,7 @@ and extract and what no longer pays.
 ## Permissions
 
 `storage` (settings, your closet, the stocks seen), `notify` (a skin you
-lack on offer), `widgets` (the pop-up and the status floater), `share` (the count for the
+lack on offer), `widgets` (the Closet window), `share` (the count for the
 Inventory), `events:character` (whose stock it is), `events:world` (walking off closes the windows), `events:items` (which
 skin was just bought, for the looks it learns, and the gear in your bag), `web:assets.playnccdn.com`
 (the skins' pictures from the game's icon server), and one `decoder:` per

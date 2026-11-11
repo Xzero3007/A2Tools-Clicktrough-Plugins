@@ -21,16 +21,14 @@
 
     <section class="view merchantView">
       <div class="tools">
-        <label class="check" title="Opens a small window with the offers when you open the Black Cloud shop"><input type="checkbox" class="popup" /> Pop up at the shop</label>
+        <label class="check" title="The Closet window opens when you open the Black Cloud shop or the closet, and goes when you walk off"><input type="checkbox" class="popup" /> Window at the shop</label>
+        <label class="check" title="Keep the Closet window up all the time (also the meter's header button)"><input type="checkbox" class="statusAlways" /> Everywhere</label>
         <label class="check" title="A note when a skin you lack is on offer"><input type="checkbox" class="toast" /> Note new skins</label>
-        <label class="check" title="A slim floater with your characters, the next change and what to combine and extract (also the meter's header button)"><input type="checkbox" class="statusBox" /> Status floater</label>
-        <label class="check" title="Off: the floater shows only at the Black Cloud shop and the closet, and goes when you walk off"><input type="checkbox" class="statusAlways" /> Everywhere</label>
-        <button type="button" class="showPopup" title="Open the pop-up now">Pop-up</button>
+        <button type="button" class="showPopup" title="Open the Closet window now">Show window</button>
       </div>
       <div class="tools sizes">
-        <span class="muted">Size (or drag a window's edge or corner):</span>
-        <label>Pop-up <input type="number" class="size" data-w="shop" data-k="width" min="260" max="900" step="10" /> × <input type="number" class="size" data-w="shop" data-k="height" min="160" max="1000" step="10" /></label>
-        <label>Floater <input type="number" class="size" data-w="status" data-k="width" min="200" max="900" step="10" /> × <input type="number" class="size" data-w="status" data-k="height" min="90" max="1000" step="10" /></label>
+        <span class="muted">Window size (or drag its edge or corner while the meter is unlocked):</span>
+        <label><input type="number" class="size" data-w="status" data-k="width" min="220" max="900" step="10" /> × <input type="number" class="size" data-w="status" data-k="height" min="120" max="1000" step="10" /></label>
       </div>
       <p class="unchecked note"></p>
       <div class="chars"></div>
