@@ -210,7 +210,7 @@ Events (`a2.on(name, fn)`):
 | `bossMap`, `abyss` | `feed:boss-timers` | Field bosses of a map the player opened; Abyss artifact holders. |
 | `ping`, `game`, `language`, `theme`, `compact`, `visible` | none | Ping, the game window, Settings' language and colours, the window folded, shown or hidden. |
 | `fps` | `fps` | Frame rate, while asked for with `a2.watchFps(true)`. |
-| `media` | `media` | A control in the meter's player row (`{ action, value }`, meter patch 0049). |
+| `media` | `media` | A control in the meter's player row (`{ action, value, slot }`, meter patches 0049 and 0051). |
 
 Calls: `a2.storage.get/set` (`storage`, a JSON file per key, ≤ 1 MB, key
 `[A-Za-z0-9_-]{1,64}`), `a2.notify` (`notify`), `a2.file(path)` (its own
@@ -221,9 +221,10 @@ character pages), `a2.web.image(url)` (`web:<host>`, the game's icon server
 and NC's portraits, as a data URL),
 `a2.bossTimers` / `a2.abyssSiege` (`feed:boss-timers`, read only; live
 updates and reporting don't exist in this build), `a2.window.*` (`window`),
-`a2.widgets.*` (`widgets`, `resize` is Clicktrough's). `a2.media.set(state)` (`media`, meter patch 0049: what the plugin plays, for
-the meter's player row under its header; `null` when nothing plays; Streams
-and Radio). `<audio>` from the
+`a2.widgets.*` (`widgets`, `resize` is Clicktrough's). `a2.media.set(state, slot)` (`media`, meter patches 0049 and 0051: what the
+plugin plays, for the meter's player row under its header; `null` when
+nothing plays; a slot per player when one plugin plays two, as Streams'
+`twitch` and `youtube`; Streams and Radio). `<audio>` from the
 radio stations' servers (`radio`, meter patch 0043; only the hosts in the
 meter's `RADIO_HOSTS`).
 

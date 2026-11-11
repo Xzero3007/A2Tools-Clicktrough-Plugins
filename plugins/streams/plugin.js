@@ -8,27 +8,29 @@
   const L = globalThis.StreamLists;
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-  const WIDGET = "video";
-  const SIZES = { s: [320, 180], m: [480, 270], l: [640, 360], xl: [800, 450] };
+    const SIZES = { s: [320, 180], m: [480, 270], l: [640, 360], xl: [800, 450] };
 
   const settings = {
     tab: "twitch",
     twitchView: "aion",
     youtubeView: "subs",
-    quality: "1080",
-    volume: 70,
-    mute: false,
-    opacity: 100, // the video's, in percent (20 to 100)
-    size: "m",
-    overlaySize: null, // [w, h] after a corner was dragged
+    // Each kind's player: quality, volume, mute, opacity (percent, 20 to
+    // 100), size, and [w, h] after a corner was dragged.
+    slots: {},
+    last: {},
     useFreeTube: true,
   };
+  const SLOT_DEFAULTS = { quality: "1080", volume: 70, mute: false, opacity: 100, size: "m", overlaySize: null };
+  for (const k of ["twitch", "youtube"]) settings.slots[k] = { ...SLOT_DEFAULTS };
   // Twitch logins; YouTube channels { id, name, thumbnail }.
   const favs = { twitch: [], youtube: [] };
-  // What plays: { kind, id, title, sub } and the player's state.
-  let playing = null;
-  let player = { state: "", title: "", pause: false, buffering: false, error: "" };
-  let overlayOpen = false;
+  // Per kind: what plays ({ kind, id, title, sub }), the player's state,
+  // whether its overlay is open.
+  const slots = {
+    twitch: { widget: "video", playing: null, player: { state: "", title: "", pause: false, buffering: false, error: "" }, open: false },
+    youtube: { widget: "youtube", playing: null, player: { state: "", title: "", pause: false, buffering: false, error: "" }, open: false },
+  };
+  let focus = "twitch";
 
   const save = () => a2.storage.set("settings", settings).catch(() => {});
   const saveFavs = () => a2.storage.set("favourites", favs).catch(() => {});
@@ -105,7 +107,7 @@
 
   function twitchCard(c) {
     const card = el("div", "card");
-    card.classList.toggle("playing", playing?.kind === "twitch" && playing.id === c.login);
+    card.classList.toggle("playing", slots.twitch.playing?.id === c.login);
     const thumb = el("div", "thumb");
     thumb.append(picture(fresh(c.preview)));
     thumb.append(el("span", "badge live", "LIVE"));
@@ -140,7 +142,7 @@
 
   function videoCard(v) {
     const card = el("div", "card");
-    card.classList.toggle("playing", playing?.kind === "youtube" && playing.id === v.id);
+    card.classList.toggle("playing", slots.youtube.playing?.id === v.id);
     const thumb = el("div", "thumb");
     thumb.append(picture(`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`));
     if (v.live) thumb.append(el("span", "badge live", "LIVE"));
@@ -371,205 +373,246 @@
   }
 
   // ---------- playing ----------
-  const overlaySize = () => (Array.isArray(settings.overlaySize) ? settings.overlaySize : SIZES[settings.size] || SIZES.m);
+  // Twitch and YouTube play side by side, each in its own overlay (widget
+  // "video" for Twitch, "youtube" for YouTube) with its own volume, opacity,
+  // quality and size. The bar below shows one of them (both playing: a
+  // switch picks which); the meter's player row shows both.
+  const slot = (kind) => slots[kind];
+  const kindOfWidget = (name) => Object.keys(slots).find((k) => slots[k].widget === name) || null;
+  const idle = () => ({ state: "", title: "", pause: false, buffering: false, error: "" });
+  const ss = (kind) => settings.slots[kind];
+  const overlaySize = (kind) => (Array.isArray(ss(kind).overlaySize) ? ss(kind).overlaySize : SIZES[ss(kind).size] || SIZES.m);
+  const anyPlaying = () => Object.values(slots).some((x) => x.playing);
+  // The kind the bar shows: the one asked for if it plays, else one that does.
+  const shown = () => (slots[focus].playing ? focus : Object.keys(slots).find((k) => slots[k].playing) || focus);
 
-  async function openOverlay() {
-    const [width, height] = overlaySize();
-    await a2.widgets.open(WIDGET, { width, height });
-    overlayOpen = true;
+  async function openOverlay(kind) {
+    const [width, height] = overlaySize(kind);
+    await a2.widgets.open(slot(kind).widget, { width, height });
+    slot(kind).open = true;
   }
 
   async function play(what) {
-    playing = what;
-    player = { state: "loading", title: what.title, pause: false, buffering: false, error: "" };
+    const kind = what.kind;
+    const x = slot(kind);
+    const c = ss(kind);
+    x.playing = what;
+    x.player = { ...idle(), state: "loading", title: what.title };
+    focus = kind;
     drawPlayer();
     redraw();
     try {
-      await openOverlay();
-      tellWidget();
+      await openOverlay(kind);
+      tellWidget(kind);
       // Before it plays: the meter keeps it for the widget's video.
-      await a2.video.control(WIDGET, "opacity", settings.opacity / 100).catch(() => {});
-      await a2.video.play(WIDGET, {
-        [what.kind]: what.id,
-        quality: settings.quality,
-        volume: settings.mute ? 0 : settings.volume,
+      await a2.video.control(x.widget, "opacity", c.opacity / 100).catch(() => {});
+      await a2.video.play(x.widget, {
+        [kind]: what.id,
+        quality: c.quality,
+        volume: c.mute ? 0 : c.volume,
       });
-      if (settings.mute) a2.video.control(WIDGET, "mute", true).catch(() => {});
-      settings.last = what;
+      if (c.mute) a2.video.control(x.widget, "mute", true).catch(() => {});
+      settings.last[kind] = what;
       save();
     } catch (e) {
-      player.state = "error";
-      player.error = String(e?.message || e);
+      x.player.state = "error";
+      x.player.error = String(e?.message || e);
       drawPlayer();
-      tellWidget();
+      tellWidget(kind);
     }
   }
 
-  async function stop() {
-    await a2.video.control(WIDGET, "stop").catch(() => {});
-    playing = null;
-    player = { state: "", title: "", pause: false, buffering: false, error: "" };
-    await a2.widgets.close(WIDGET).catch(() => {});
-    overlayOpen = false;
+  async function stop(kind) {
+    const x = slot(kind);
+    await a2.video.control(x.widget, "stop").catch(() => {});
+    x.playing = null;
+    x.player = idle();
+    await a2.widgets.close(x.widget).catch(() => {});
+    x.open = false;
     drawPlayer();
     redraw();
   }
 
   a2.on("video", (v) => {
-    if (!v || v.widget !== WIDGET || !playing) return;
-    if (v.state) player.state = v.state;
-    if (v.state === "loading" || v.state === "playing") player.error = "";
-    if (v.error) player.error = v.error;
-    if (typeof v.title === "string" && v.title && !/^(https?:|watch\?)/.test(v.title)) player.title = v.title;
-    if (typeof v.pause === "boolean") player.pause = v.pause;
-    if (typeof v.buffering === "boolean") player.buffering = v.buffering;
-    if (typeof v.mute === "boolean") settings.mute = v.mute;
+    const kind = kindOfWidget(v?.widget);
+    if (!kind || !slot(kind).playing) return;
+    const p = slot(kind).player;
+    if (v.state) p.state = v.state;
+    if (v.state === "loading" || v.state === "playing") p.error = "";
+    if (v.error) p.error = v.error;
+    if (typeof v.title === "string" && v.title && !/^(https?:|watch\?)/.test(v.title)) p.title = v.title;
+    if (typeof v.pause === "boolean") p.pause = v.pause;
+    if (typeof v.buffering === "boolean") p.buffering = v.buffering;
+    if (typeof v.mute === "boolean") ss(kind).mute = v.mute;
     drawPlayer();
-    tellWidget();
+    tellWidget(kind);
   });
 
-  function stateText() {
-    if (player.state === "error") return humanError(player.error);
+  function stateText(kind) {
+    const { playing, player } = slot(kind);
+    if (player.state === "error") return humanError(player.error, kind);
     if (player.state === "loading") return "Starting …";
     if (player.state === "ended") return "Ended";
     if (player.buffering) return "Loading …";
     if (player.pause) return "Paused";
-    return playing?.kind === "twitch" ? `Twitch · ${playing.id}` : `YouTube${playing?.sub ? ` · ${playing.sub}` : ""}`;
+    return kind === "twitch" ? `Twitch · ${playing?.id || ""}` : `YouTube${playing?.sub ? ` · ${playing.sub}` : ""}`;
   }
 
   // mpv's and yt-dlp's words, said plainly where we know them.
-  function humanError(e) {
+  function humanError(e, kind) {
     const t = String(e || "");
     if (/yt-dlp is not installed|youtube-dl|ytdl/i.test(t) && /not|fail|found/i.test(t)) return "yt-dlp is missing: sudo pacman -S yt-dlp";
     if (/libmpv|mpv is not installed/i.test(t)) return "mpv is missing: sudo pacman -S mpv";
-    if (/loading failed|unrecognized file format/i.test(t)) return playing?.kind === "twitch" ? "Not live right now, or Twitch didn't give the stream" : "YouTube didn't give this video";
+    if (/loading failed|unrecognized file format/i.test(t)) return kind === "twitch" ? "Not live right now, or Twitch didn't give the stream" : "YouTube didn't give this video";
     return t || "It didn't play";
   }
 
-  function tellWidget() {
-    if (!overlayOpen) return;
-    a2.widgets.send(WIDGET, {
-      title: player.title || playing?.title || "",
-      sub: stateText(),
-      state: player.state,
-      playing: !!playing,
-      failed: player.state === "error",
+  function tellWidget(kind) {
+    const x = slot(kind);
+    if (!x.open) return;
+    a2.widgets.send(x.widget, {
+      title: x.player.title || x.playing?.title || "",
+      sub: stateText(kind),
+      state: x.player.state,
+      playing: !!x.playing,
+      failed: x.player.state === "error",
     }).catch(() => {});
   }
 
-  // The meter's player row (a2.media): what plays, and its controls there.
-  let meterSaid = "";
-  function tellMeter() {
+  // The meter's player row (a2.media): each playing kind in its own slot.
+  const meterSaid = {};
+  function tellMeter(kind) {
+    const { playing, player } = slot(kind);
+    const c = ss(kind);
     const state = playing ? {
-      icon: "tv",
+      icon: kind === "twitch" ? "tv" : "youtube",
       title: player.title || playing.title || "",
-      sub: [playing.kind === "twitch" ? "Twitch" : "YouTube", stateText()].filter(Boolean).join(" · "),
+      sub: stateText(kind),
       paused: !!player.pause,
-      muted: !!settings.mute,
-      volume: settings.volume / 100,
-      opacity: settings.opacity / 100,
-      controls: ["pause", "mute", "volume", "opacity", "stop"],
+      muted: !!c.mute,
+      volume: c.volume / 100,
+      opacity: c.opacity / 100,
+      quality: c.quality,
+      controls: ["pause", "mute", "volume", "opacity", "quality", "stop"],
     } : null;
     const key = JSON.stringify(state);
-    if (key === meterSaid) return;
-    meterSaid = key;
-    a2.media?.set(state).catch(() => {});
+    if (key === meterSaid[kind]) return;
+    meterSaid[kind] = key;
+    a2.media?.set(state, kind).catch(() => {});
   }
 
   function drawPlayer() {
-    tellMeter();
+    for (const kind of Object.keys(slots)) tellMeter(kind);
     const bar = $(".player");
-    bar.hidden = !playing;
-    if (!playing) return;
+    bar.hidden = !anyPlaying();
+    if (!anyPlaying()) return;
+    const kind = shown();
+    const { playing, player } = slot(kind);
+    const c = ss(kind);
+    const both = Object.values(slots).every((x) => x.playing);
+    $(".slotSwitch").hidden = !both;
+    for (const b of $$(".slotSwitch button")) b.setAttribute("aria-pressed", String(b.dataset.slot === kind));
     bar.classList.toggle("on", player.state === "playing" && !player.pause);
     bar.classList.toggle("failed", player.state === "error");
-    $(".nowTitle").textContent = player.title || playing.title;
-    $(".nowState").textContent = stateText();
+    $(".nowTitle").textContent = player.title || playing?.title || "";
+    $(".nowState").textContent = stateText(kind);
     $(".pause").textContent = player.pause ? "▶" : "❚❚";
-    $(".mute").textContent = settings.mute ? "🔇" : "🔊";
-    if (document.activeElement !== $(".volume")) $(".volume").value = String(settings.volume);
-    if (document.activeElement !== $(".opacity")) $(".opacity").value = String(settings.opacity);
-    $(".opacityValue").textContent = `${settings.opacity}%`;
-    $(".quality").value = settings.quality;
-    const size = Array.isArray(settings.overlaySize) ? "" : settings.size;
+    $(".mute").textContent = c.mute ? "🔇" : "🔊";
+    if (document.activeElement !== $(".volume")) $(".volume").value = String(c.volume);
+    if (document.activeElement !== $(".opacity")) $(".opacity").value = String(c.opacity);
+    $(".opacityValue").textContent = `${c.opacity}%`;
+    $(".quality").value = c.quality;
+    const size = Array.isArray(c.overlaySize) ? "" : c.size;
     for (const b of $$(".sizes button")) b.setAttribute("aria-pressed", String(b.dataset.size === size));
   }
 
-  const togglePause = () => a2.video.control(WIDGET, "pause", !player.pause).catch(() => {});
-  function setMute(on) {
-    settings.mute = !!on;
+  const togglePause = (kind) => a2.video.control(slot(kind).widget, "pause", !slot(kind).player.pause).catch(() => {});
+  function setMute(kind, on) {
+    const c = ss(kind);
+    c.mute = !!on;
     save();
-    a2.video.control(WIDGET, "mute", settings.mute).catch(() => {});
-    if (!settings.mute) a2.video.control(WIDGET, "volume", settings.volume).catch(() => {});
+    a2.video.control(slot(kind).widget, "mute", c.mute).catch(() => {});
+    if (!c.mute) a2.video.control(slot(kind).widget, "volume", c.volume).catch(() => {});
     drawPlayer();
   }
-  function setVolume(v) {
-    settings.volume = Math.min(100, Math.max(0, Math.round(Number(v) || 0)));
-    a2.video.control(WIDGET, "volume", settings.volume).catch(() => {});
-    if (settings.mute) {
-      settings.mute = false;
-      a2.video.control(WIDGET, "mute", false).catch(() => {});
+  function setVolume(kind, v) {
+    const c = ss(kind);
+    c.volume = Math.min(100, Math.max(0, Math.round(Number(v) || 0)));
+    a2.video.control(slot(kind).widget, "volume", c.volume).catch(() => {});
+    if (c.mute) {
+      c.mute = false;
+      a2.video.control(slot(kind).widget, "mute", false).catch(() => {});
     }
     drawPlayer();
   }
-  function setOpacity(v) {
-    settings.opacity = Math.min(100, Math.max(20, Math.round(Number(v) || 100)));
-    a2.video.control(WIDGET, "opacity", settings.opacity / 100).catch(() => {});
+  function setOpacity(kind, v) {
+    ss(kind).opacity = Math.min(100, Math.max(20, Math.round(Number(v) || 100)));
+    a2.video.control(slot(kind).widget, "opacity", ss(kind).opacity / 100).catch(() => {});
     drawPlayer();
   }
-  $(".pause").addEventListener("click", togglePause);
-  $(".mute").addEventListener("click", () => setMute(!settings.mute));
-  $(".volume").addEventListener("input", () => setVolume($(".volume").value));
+  function setQuality(kind, q) {
+    if (!["1080", "720", "480", "360", "audio"].includes(q) || ss(kind).quality === q) return;
+    ss(kind).quality = q;
+    save();
+    if (slot(kind).playing) play(slot(kind).playing);
+    else drawPlayer();
+  }
+  $(".pause").addEventListener("click", () => togglePause(shown()));
+  $(".mute").addEventListener("click", () => setMute(shown(), !ss(shown()).mute));
+  $(".volume").addEventListener("input", () => setVolume(shown(), $(".volume").value));
   $(".volume").addEventListener("change", save);
-  $(".opacity").addEventListener("input", () => setOpacity($(".opacity").value));
+  $(".opacity").addEventListener("input", () => setOpacity(shown(), $(".opacity").value));
   $(".opacity").addEventListener("change", save);
-  // The meter's player row: the same as the buttons here.
+  $(".quality").addEventListener("change", () => setQuality(shown(), $(".quality").value));
+  for (const b of $$(".slotSwitch button")) {
+    b.addEventListener("click", () => { focus = b.dataset.slot; drawPlayer(); });
+  }
+  // The meter's player row: the same as the buttons here, for its slot.
   let saveSoon = null;
   const saveLater = () => { clearTimeout(saveSoon); saveSoon = setTimeout(save, 800); };
-  a2.on("media", ({ action, value } = {}) => {
-    if (!playing) return;
-    if (action === "pause") togglePause();
-    else if (action === "mute") setMute(!settings.mute);
-    else if (action === "volume" && Number.isFinite(value)) { setVolume(value * 100); saveLater(); }
-    else if (action === "opacity" && Number.isFinite(value)) { setOpacity(value * 100); saveLater(); }
-    else if (action === "stop") stop();
-  });
-  $(".quality").addEventListener("change", () => {
-    settings.quality = $(".quality").value;
-    save();
-    if (playing) play(playing);
+  a2.on("media", ({ action, value, slot: kind } = {}) => {
+    if (!slots[kind] || !slot(kind).playing) return;
+    if (action === "pause") togglePause(kind);
+    else if (action === "mute") setMute(kind, !ss(kind).mute);
+    else if (action === "volume" && Number.isFinite(value)) { setVolume(kind, value * 100); saveLater(); }
+    else if (action === "opacity" && Number.isFinite(value)) { setOpacity(kind, value * 100); saveLater(); }
+    else if (action === "quality" && typeof value === "string") setQuality(kind, value);
+    else if (action === "stop") stop(kind);
   });
   for (const b of $$(".sizes button")) {
     b.addEventListener("click", () => {
-      settings.size = b.dataset.size;
-      settings.overlaySize = null;
+      const kind = shown();
+      ss(kind).size = b.dataset.size;
+      ss(kind).overlaySize = null;
       save();
       drawPlayer();
-      if (overlayOpen) openOverlay().catch(() => {});
+      if (slot(kind).open) openOverlay(kind).catch(() => {});
     });
   }
-  $(".stop").addEventListener("click", stop);
+  $(".stop").addEventListener("click", () => stop(shown()));
 
-  // The overlay's own buttons and corners.
+  // The overlays' own buttons and corners.
   a2.on("widget-message", ({ name, data }) => {
-    if (name !== WIDGET || !data) return;
-    if (data.type === "close") stop();
-    else if (data.type === "pause") a2.video.control(WIDGET, "pause", !player.pause).catch(() => {});
+    const kind = kindOfWidget(name);
+    if (!kind || !data) return;
+    if (data.type === "close") stop(kind);
+    else if (data.type === "pause") togglePause(kind);
     else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
-      settings.overlaySize = [Math.round(data.width), Math.round(data.height)];
+      ss(kind).overlaySize = [Math.round(data.width), Math.round(data.height)];
       save();
       drawPlayer();
-    } else if (data.type === "hello") tellWidget();
+    } else if (data.type === "hello") tellWidget(kind);
   });
 
-  // The meter's header button for the overlay: on shows the overlay (and
-  // plays the last one again), off stops it.
+  // The meter's header button (the Twitch overlay): on shows it (and plays
+  // the last channel again), off stops it.
   a2.on("overlay", (data) => {
+    const kind = kindOfWidget(data?.widget) || "twitch";
     if (data?.show) {
-      if (settings.last) play(settings.last);
-      else openOverlay().then(tellWidget).catch(() => {});
+      if (settings.last[kind]) play(settings.last[kind]);
+      else openOverlay(kind).then(() => tellWidget(kind)).catch(() => {});
     } else {
-      stop();
+      stop(kind);
     }
   });
 
@@ -655,7 +698,18 @@
 
   (async () => {
     try {
-      Object.assign(settings, (await a2.storage.get("settings")) || {});
+      const saved = (await a2.storage.get("settings")) || {};
+      Object.assign(settings, saved);
+      // 0.2.x kept one player's settings at the top, and one last video.
+      const old = {};
+      for (const k of Object.keys(SLOT_DEFAULTS)) if (k in saved) old[k] = saved[k];
+      if (!settings.slots || typeof settings.slots !== "object") settings.slots = {};
+      if (!settings.last || typeof settings.last !== "object" || settings.last.kind) {
+        const was = saved.last && saved.last.kind ? saved.last : null;
+        settings.last = was ? { [was.kind]: was } : {};
+      }
+      for (const k of Object.keys(slots)) settings.slots[k] = { ...SLOT_DEFAULTS, ...old, ...(settings.slots[k] || {}) };
+      for (const k of Object.keys(SLOT_DEFAULTS)) delete settings[k];
       const f = (await a2.storage.get("favourites")) || {};
       if (Array.isArray(f.twitch)) favs.twitch = f.twitch.filter((x) => L.twitchLogin(x));
       if (Array.isArray(f.youtube)) favs.youtube = f.youtube.filter((c) => c && typeof c.id === "string");
