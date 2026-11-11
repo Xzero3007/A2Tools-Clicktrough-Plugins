@@ -276,3 +276,10 @@ skips the 500 ms wait that lets the login's identity land first.
   first.
 - `pkill -f <pattern>` also kills the shell running it: use
   `pkill -x a2tools-dps-met`.
+- **The harness doesn't show widget races.** Two `a2.widgets.open` of one
+  widget at once made two windows in meters before patch 0067, the second
+  empty and stuck (Closet 0.2.9). Open a widget once and only re-send to it.
+  To see a widget in the real meter with game data: `dev/setup.sh --build`,
+  then in `../ct-src/public/src/js/pluginFrame.js` (never committed) have
+  `calls.ready` `deliver(event, data)` your events for the plugin's `id`
+  after a few seconds, and `run-meter.sh start`.
