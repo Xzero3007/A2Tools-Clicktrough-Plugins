@@ -55,6 +55,13 @@ pick.
   - **Whose** (0.5.1): the character picked at the top, or the **whole
     account**: every character's days added up (each gold item with its
     character; how many reached the cap, and the hours to it on average).
+  - **Where and when** (0.5.2): each stretch of play at one place, from
+    its first gain to its last (a break of 15 minutes or more starts a new
+    one), with the time played, Kinah, worth and gold. The place is the
+    Map's map and region in the open world and the Abyss (with the Map's
+    window or overlay open), else the zone's name. The Drops tab shows the
+    same for its session; the statistics add **By place** over all days:
+    days, hours, Kinah, worth and gold per hour.
   - **Where from**: the zone you are in (the world's zone, permission
     `events:world`; the zone's kind as the meter's `zones.rs` reads the
     game's numbering, its name from the Map's data, `zones.js`). The

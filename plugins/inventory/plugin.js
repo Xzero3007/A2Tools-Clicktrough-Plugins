@@ -124,6 +124,12 @@
     farmDay = F.normalize(doc) || F.newDay(at);
     return farmDay;
   }
+  /** Where you are: the Map's map and region in the open world and the
+   *  Abyss (with its window or overlay open), else the zone's name. */
+  const placeLabel = () => {
+    const k = F.zoneSource(zone);
+    return area && (k === "open" || k === "abyss") ? area : F.zoneName(zone);
+  };
   const priceOf = (item, n) => {
     if (!prices.size) return null;
     const w = C.worth(item, n, prices, settings.fee, hist);
@@ -139,17 +145,17 @@
     const ats = (it?.changes || []).map((c) => c?.[1]).filter(Number.isFinite);
     if (!ats.length) return;
     const at = Math.max(...ats);
-    const z = zone;
+    const z = zone, place = placeLabel();
     farm(async () => {
       if (!(await farmFor(at))) return;
-      farmDay = F.addItems(farmDay, it, z, priceOf);
+      farmDay = F.addItems(farmDay, it, z, priceOf, place);
       farmChanged();
     });
   }
   function farmCharacter(c) {
     if (!c?.name) return;
     const seen = c.seenAt || {};
-    const z = zone;
+    const z = zone, place = placeLabel();
     const kinah = Number(c.kinahToday);
     const kinahAt = Number(seen.kinahToday) || Date.now();
     // The reward keys: one going down is a reward taken.
@@ -165,7 +171,7 @@
     }
     if (!Number.isFinite(kinah) && !used.length) return;
     farm(async () => {
-      if (Number.isFinite(kinah) && (await farmFor(kinahAt))) farmDay = F.addCounter(farmDay, kinah, kinahAt, z);
+      if (Number.isFinite(kinah) && (await farmFor(kinahAt))) farmDay = F.addCounter(farmDay, kinah, kinahAt, z, place);
       for (const [id, at] of used) if (await farmFor(at)) farmDay = F.keyUsed(farmDay, id, at);
       farmChanged();
     });
@@ -540,6 +546,7 @@
     $(".sessionBar").hidden = tab !== "drops";
     $(".sources").hidden = tab !== "drops";
     $(".gatherBox").hidden = true;
+    $(".whereBox").hidden = true;
     const ds = dropSession();
     if (tab === "drops") renderSession(ds);
     // The summary: how many, and what the sellable ones are worth.
@@ -677,6 +684,11 @@
     }
     box.hidden = !lines.length;
     box.replaceChildren(...lines.flat());
+    // Where and when in the session.
+    const wb = $(".whereBox");
+    const where = ds.where || [];
+    wb.hidden = !where.length || settings.source !== "all";
+    if (!wb.hidden) wb.replaceChildren(el("div", { class: "head", text: "Where and when" }), el("div", { class: "dayCard stints" }, ...stintRows(where, false)));
   }
 
   // ---------- farm days: the page ----------
@@ -736,11 +748,24 @@
     renderStats(sums);
   }
 
+  /** Where and when: a row a stint (newest first). */
+  function stintRows(list, account) {
+    const rows = [el("div", { class: "row head" }, el("span", { text: "When" }), el("span", { text: "Where" }), el("span", { text: "Played" }), el("span", { text: "Kina" }), el("span", { text: "Worth" }), el("span", { text: "Gold" }))];
+    for (const x of [...(list || [])].sort((a, b) => b.from - a.from)) {
+      rows.push(el("div", { class: "row", title: `${x.place}: ${clockOf(x.from)} to ${clockOf(x.to)}, ${C.kina(x.n)} items` },
+        el("span", { text: `${clockOf(x.from)}–${clockOf(x.to)}` }),
+        el("span", { class: "pl" }, el("span", { class: "n", text: x.place }), el("span", { class: `tag src-${x.src}`, text: F.NAMES[x.src] || x.src }), account && x.who ? el("span", { class: "tag", text: x.who }) : null),
+        el("span", { text: hours(x.active) }), el("span", { text: C.kina(x.kinah) }), el("span", { class: "gold", text: C.short(x.worth) }), el("span", { class: x.gold ? "g4c" : "", text: String(x.gold || 0) })));
+    }
+    return rows;
+  }
+
   function renderDay(s) {
     const box = $(".dayCard");
     const goldBox = $(".goldList");
     if (!s) {
       $(".dayText").textContent = "";
+      $(".dayStints").replaceChildren(el("p", { class: "empty", text: "Where you played shows here, with when." }));
       box.replaceChildren(el("p", { class: "empty", text: "Nothing yet this day. Gains count from the daily reset (07:00 UTC) to the next, each with where it came from." }));
       goldBox.replaceChildren(el("li", { class: "empty", text: "No gold items this day." }));
       return;
@@ -779,6 +804,9 @@
     }
     if (rows.length > 2) rows.push(el("div", { class: "row total" }, el("span", { text: "All" }), el("span", { text: hours(tot.active) }), el("span", { text: C.kina(tot.kinah) }), el("span", { text: C.kina(tot.n) }), el("span", { class: "gold", text: C.short(tot.worth) }), el("span", { text: String(tot.gold) })));
     box.replaceChildren(...(rows.length > 1 ? rows : [el("p", { class: "empty", text: "Nothing came in yet this day." })]));
+    // Where and when.
+    const st = $(".dayStints");
+    st.replaceChildren(...((s.stints || []).length ? stintRows(s.stints, s.account) : [el("p", { class: "empty", text: "Where you played shows here, with when." })]));
     // The gold items, newest first.
     const gold = [...(s.gold || [])].sort((a, b) => b[0] - a[0]);
     goldBox.replaceChildren(...(gold.length ? gold.map(([at, item, n, k, z, w, who]) => el("li", { class: `g${C.grade(item)}`, title: `${C.name(item)} (${item})` },
@@ -883,6 +911,16 @@
         ready.daysFor10 ? `; for 10 % about ${ready.daysFor10} days` : "", "."));
     }
     $(".verdicts").replaceChildren(...out);
+    // By place, over all days.
+    const places = F.byPlace(sums, metric === "toCap" ? "open" : k).filter((p) => p.hours >= F.MIN_HOURS);
+    const pb = $(".places");
+    pb.hidden = !places.length;
+    if (places.length) {
+      const ph = (v, h) => (h ? v / h : null);
+      pb.replaceChildren(el("div", { class: "row head" }, el("span", { text: `By place (${where})` }), el("span", { text: "Days" }), el("span", { text: "Played" }), el("span", { text: "Kina/h" }), el("span", { text: "Worth/h" }), el("span", { text: "Gold/h" })),
+        ...places.slice(0, 15).map((p) => el("div", { class: "row" }, el("span", { class: "pl", title: p.place }, el("span", { class: "n", text: p.place })), el("span", { text: String(p.days) }), el("span", { text: `${p.hours.toFixed(1)} h` }),
+          el("span", { text: C.short(ph(p.kinah, p.hours)) }), el("span", { class: "gold", text: C.short(ph(p.worth, p.hours)) }), el("span", { text: ph(p.gold, p.hours).toFixed(2) }))));
+    }
     // Gold items by the hour of the day.
     const byHour = F.goldByHour(sums, metric === "toCap" ? "open" : k, (at) => new Date(at).getHours());
     const most = Math.max(...byHour);
@@ -1157,12 +1195,25 @@
   });
   // The zone you are in (the world's): where a farm day's gains came from.
   a2.on("world", (w) => {
-    if (Number(w?.zone) > 0) zone = Number(w.zone);
+    const z = Number(w?.zone);
+    if (!(z > 0) || z === zone) return;
+    // Another zone: the Map's region of the one before no longer holds.
+    if (zone != null) area = null;
+    zone = z;
   });
   a2.on("items", (it) => {
     if (!it || typeof it !== "object") return;
     farmItems(it);
     noteItems(it);
+    // Where and when, in the session (Drops).
+    if (it.changes?.length) {
+      const where = F.trackItems(session.where, it, zone, placeLabel(), priceOf, session.start || 0);
+      if (JSON.stringify(where) !== JSON.stringify(session.where || [])) {
+        session = { ...session, where };
+        saveSession();
+        if (settings.tab === "drops") renderList();
+      }
+    }
   });
   // The game's gathering result (the plugin's decoder): item, amount, bonus.
   a2.on("decoded:gathered", (d, meta) => {

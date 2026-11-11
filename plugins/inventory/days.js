@@ -45,7 +45,7 @@
   function newDay(at) {
     return {
       v: 1, day: dayOf(at), start: null, last: null,
-      src: {}, gold: [], cap: null, counter: null, firstOpen: null,
+      src: {}, gold: [], stints: [], cap: null, counter: null, firstOpen: null,
       zones: {}, // zone id -> gains seen there (for "other")
       recent: [], keys: [], lastSrc: null,
     };
@@ -60,6 +60,7 @@
     out.recent = Array.isArray(d.recent) ? d.recent.map((r) => ({ ...r })) : [];
     out.keys = Array.isArray(d.keys) ? d.keys.map((r) => ({ ...r })) : [];
     out.zones = { ...(d.zones || {}) };
+    out.stints = Array.isArray(d.stints) ? d.stints.filter((x) => x && Number.isFinite(x.from)).map((x) => ({ ...x })) : [];
     out.cap = d.cap ? { ...d.cap } : null;
     out.counter = d.counter ? { ...d.counter } : null;
     return out;
@@ -77,6 +78,70 @@
       d.lastSrc = k;
     }
   }
+  // ---------- where and when ----------
+  // A stint: play at one place without a break of 15 minutes or more, from
+  // its first gain to its last ({ from, to, place, zone, src, active, kinah,
+  // n, worth, gold }). The place is the Map's map and region where it knows
+  // them, else the zone's name.
+  const STINT_GAP = 15 * 60_000;
+  const STINTS = 300;
+  function track(list, at, place, zone, k, gain) {
+    const out = Array.isArray(list) ? list.map((x) => ({ ...x })) : [];
+    if (!Number.isFinite(at)) return out;
+    const label = place || zoneName(zone);
+    let s = out[out.length - 1];
+    if (s && s.place === label && at - s.to <= STINT_GAP && at >= s.from - STINT_GAP) {
+      if (at > s.to) {
+        if (at - s.to < ACTIVE_STEP) s.active += at - s.to;
+        s.to = at;
+      }
+      if (at < s.from) s.from = at;
+    } else {
+      s = { from: at, to: at, place: label, zone: Number(zone) || 0, src: k, active: 0, kinah: 0, n: 0, worth: 0, gold: 0 };
+      out.push(s);
+    }
+    for (const f of ["kinah", "n", "worth", "gold"]) s[f] += gain?.[f] || 0;
+    return out.slice(-STINTS);
+  }
+  const opener = (id) => /^Key:|\b(Chest|Box|Pouch|Bundle|Crate|Coffer|Casket)\b/i.test(C.name(id));
+  /** An items event's gains by frame ([{ at, ups: [{ item, delta }] }]):
+   *  the inventory's, without bought (Kinah spent), crafted or broken-down
+   *  ones (other items than a chest or key used up), bound Kinah left out;
+   *  `keep(at)` picks the frames. */
+  function gains(it, keep = () => true) {
+    const frames = new Map();
+    for (const ch of Array.isArray(it?.changes) ? it.changes : []) {
+      const [, at, container, item, delta] = ch;
+      if (String(container) !== C.INVENTORY || !Number.isFinite(delta) || delta === 0 || !Number.isFinite(at) || !keep(at)) continue;
+      if (!frames.has(at)) frames.set(at, []);
+      frames.get(at).push({ item, delta });
+    }
+    const out = [];
+    for (const [at, list] of [...frames].sort((a, b) => a[0] - b[0])) {
+      if (list.some((c) => c.delta < 0 && (c.item === C.KINA || (!C.currency(c.item) && !opener(c.item))))) continue;
+      const ups = list.filter((c) => c.delta > 0 && c.item !== C.KINA_BOUND);
+      if (ups.length) out.push({ at, ups });
+    }
+    return out;
+  }
+  /** Stints after an items event (the Drops tab's session): every gain. */
+  function trackItems(list, it, zone, place, priceOf, since = 0) {
+    let out = list;
+    for (const { at, ups } of gains(it, (at) => at >= since)) {
+      const g = { kinah: 0, n: 0, worth: 0, gold: 0 };
+      for (const { item, delta } of ups) {
+        if (item === C.KINA) g.kinah += delta;
+        else if (!C.currency(item)) {
+          g.n += delta;
+          g.worth += (priceOf && priceOf(item, delta)) || 0;
+          if (isGold(item)) g.gold += delta;
+        }
+      }
+      out = track(out, at, place, zone, zoneSource(zone), g);
+    }
+    return out;
+  }
+
   const keyAt = (d, at) => d.keys.find((u) => Math.abs(u.at - at) <= KEY_WINDOW)?.src || null;
 
   function addItem(d, k, item, n, at, zone, priceOf) {
@@ -137,23 +202,13 @@
    *  than a chest or key (crafted, broken down) is no drop. Open-world Kinah
    *  comes from the game's own counter toward the cap (`counter`), the other
    *  places' Kinah from the inventory. Returns a new day. */
-  function addItems(day, it, zone, priceOf) {
+  function addItems(day, it, zone, priceOf, place) {
     const d = normalize(day);
-    const frames = new Map();
-    for (const ch of Array.isArray(it?.changes) ? it.changes : []) {
-      const [, at, container, item, delta] = ch;
-      if (String(container) !== C.INVENTORY || !Number.isFinite(delta) || delta === 0 || !Number.isFinite(at) || dayOf(at) !== d.day) continue;
-      if (!frames.has(at)) frames.set(at, []);
-      frames.get(at).push({ item, delta });
-    }
-    const opener = (id) => /^Key:|\b(Chest|Box|Pouch|Bundle|Crate|Coffer|Casket)\b/i.test(C.name(id));
-    for (const [at, list] of [...frames].sort((a, b) => a[0] - b[0])) {
-      if (list.some((c) => c.delta < 0 && (c.item === C.KINA || (!C.currency(c.item) && !opener(c.item))))) continue;
-      const ups = list.filter((c) => c.delta > 0 && c.item !== C.KINA_BOUND);
-      if (!ups.length) continue;
+    for (const { at, ups } of gains(it, (at) => dayOf(at) === d.day)) {
       const k = keyAt(d, at) || zoneSource(zone);
       touch(d, k, at);
       if (k === "other") d.zones[String(Number(zone) || 0)] = (d.zones[String(Number(zone) || 0)] || 0) + 1;
+      const g = { kinah: 0, n: 0, worth: 0, gold: 0 };
       for (const { item, delta } of ups) {
         if (item === C.KINA) {
           // The open world's Kinah: the game's counter (below), unless the
@@ -164,13 +219,22 @@
             if (d.counter) continue;
           }
           s.kinah += delta;
+          g.kinah += delta;
           d.recent.push({ at, item, n: delta, src: k, kinah: delta });
           if (k === "open" && d.firstOpen == null) d.firstOpen = at;
           continue;
         }
+        const before = d.gold.length;
         addItem(d, k, item, delta, at, zone, priceOf);
+        const r = d.recent[d.recent.length - 1];
+        if (!C.currency(item)) {
+          g.n += delta;
+          g.worth += r.w || 0;
+          if (d.gold.length > before) g.gold += delta;
+        }
         if (k === "open" && d.firstOpen == null) d.firstOpen = at;
       }
+      d.stints = track(d.stints, at, place, zone, k, g);
     }
     prune(d);
     return d;
@@ -180,7 +244,7 @@
    *  `zone`: what it grew by counts for the open world; reaching 1,000,000
    *  marks the cap with the open world's numbers at that moment (the farm
    *  goes on after it: drops still count, Kinah from the Abyss too). */
-  function addCounter(day, value, at, zone) {
+  function addCounter(day, value, at, zone, place) {
     const d = normalize(day);
     if (!Number.isFinite(value) || !Number.isFinite(at) || dayOf(at) !== d.day) return d;
     const s = src(d, "open");
@@ -197,6 +261,7 @@
     } else if (value > d.counter.last && open) {
       s.kinah += value - d.counter.last;
       touch(d, "open", at);
+      d.stints = track(d.stints, at, place, zone, "open", { kinah: value - d.counter.last });
       if (d.firstOpen == null) d.firstOpen = at;
     }
     d.counter = { first: d.counter ? d.counter.first : value, last: Math.max(value, d.counter?.last ?? 0), at };
@@ -249,7 +314,7 @@
     const d = normalize(day);
     const src = {};
     for (const [k, s] of Object.entries(d.src)) src[k] = { kinah: s.kinah, active: s.active, gold: s.gold, worth: s.worth, n: s.n };
-    return { day: d.day, start: d.start, last: d.last, firstOpen: d.firstOpen, cap: d.cap, counter: d.counter?.last ?? null, src, gold: d.gold.map((g) => [...g]) };
+    return { day: d.day, start: d.start, last: d.last, firstOpen: d.firstOpen, cap: d.cap, counter: d.counter?.last ?? null, src, gold: d.gold.map((g) => [...g]), stints: d.stints.map((x) => ({ ...x })) };
   }
   const isEmpty = (d) => !d || (!Object.values(d.src || {}).some((s) => s.n || s.kinah) && !d.cap);
 
@@ -295,6 +360,7 @@
           for (const f of Object.keys(t)) t[f] += p[f] || 0;
         }
         for (const g of s.gold || []) m.gold.push([...g.slice(0, 6), who]);
+        for (const x of s.stints || []) (m.stints ||= []).push({ ...x, who });
         const open = s.src?.open || {};
         if (s.cap) {
           m.capped++;
@@ -311,7 +377,7 @@
     }
     return [...days.values()].sort((a, b) => a.day - b.day).map((m) => {
       const { capped, capActive, capKinah, capHours, ...rest } = m;
-      return { ...rest, account: true, capped, cap: capActive ? { active: capActive, kinah: capKinah, hoursEach: capped ? capHours / capped : null } : null };
+      return { ...rest, stints: (rest.stints || []).sort((a, b) => a.from - b.from), account: true, capped, cap: capActive ? { active: capActive, kinah: capKinah, hoursEach: capped ? capHours / capped : null } : null };
     });
   }
   const METRICS = {
@@ -454,6 +520,23 @@
     return out;
   }
 
+  /** Over the days, per place (a stint's place): hours played, Kinah,
+   *  worth and gold, and the days it was played on; for a source or "all". */
+  function byPlace(sums, k) {
+    const out = new Map();
+    for (const s of sums) {
+      for (const x of s.stints || []) {
+        if (k !== "all" && x.src !== k) continue;
+        const p = out.get(x.place) || { place: x.place, src: x.src, hours: 0, kinah: 0, worth: 0, gold: 0, n: 0, days: new Set() };
+        p.hours += (x.active || 0) / 3_600_000;
+        for (const f of ["kinah", "worth", "gold", "n"]) p[f] += x[f] || 0;
+        p.days.add(s.day);
+        out.set(x.place, p);
+      }
+    }
+    return [...out.values()].map((p) => ({ ...p, days: p.days.size })).sort((a, b) => b.hours - a.hours);
+  }
+
   /** Gold drops by the hour of the day (local time) and by source: [24]. */
   function goldByHour(sums, k, hourOf) {
     const out = Array.from({ length: 24 }, () => 0);
@@ -464,6 +547,6 @@
   globalThis.InventoryDays = Object.freeze({
     SOURCES, NAMES, KEYS, METRICS, MIN_DAYS, MIN_GOLD, MIN_HOURS, RECENT_DAYS, GOLD,
     dayOf, dayName, zoneName, zoneSource, isGold, newDay, normalize, addItems, addCounter, keyUsed, settle, summary, isEmpty,
-    part, mergeSums, points, trend, change, goldChange, readiness, goldByHour, pT,
+    part, mergeSums, track, trackItems, gains, byPlace, points, trend, change, goldChange, readiness, goldByHour, pT,
   });
 })();

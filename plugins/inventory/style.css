@@ -134,3 +134,12 @@ li.sellable .tot { color: var(--gold-t); font-weight: 600; }
 .hourBars span { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
 .hourBars i { display: block; background: rgba(224,165,38,.6); border-radius: 2px 2px 0 0; min-height: 1px; }
 .hourBars small { font-size: 9px; color: var(--faint); text-align: left; height: 11px; }
+.dayCard.stints .row { grid-template-columns: 78px minmax(0, 3.2fr) .7fr .9fr .8fr .4fr; }
+.dayCard.places .row { grid-template-columns: minmax(0, 2.4fr) .5fr .8fr .9fr .9fr .7fr; }
+.dayCard .pl { display: flex; gap: 5px; align-items: center; min-width: 0; }
+.dayCard .pl .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dayCard .pl .tag { font-size: 10.5px; flex: none; }
+.dayCard.places { margin-top: 10px; }
+.whereBox { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.whereBox .head { color: var(--text); font-weight: 600; margin: 0 0 4px; }
+.whereBox .dayCard { max-height: 160px; overflow: auto; }

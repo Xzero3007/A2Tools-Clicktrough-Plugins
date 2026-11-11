@@ -175,3 +175,27 @@ test("the whole account: the characters' days added up", () => {
   assert.equal(F.METRICS.toCap.value(p), 4);
   assert.equal(F.METRICS.toCap.value(F.part(m[1], "open")), 6);
 });
+
+test("where and when: a stint a place, a new one after a break", () => {
+  let d = F.newDay(T0);
+  d = F.addItems(d, gain(T0, MEAT, 1), OPEN, price, "Eltnen · Mirage Valley");
+  d = F.addItems(d, gain(T0 + 120_000, GOLD_SWORD, 1), OPEN, price, "Eltnen · Mirage Valley");
+  d = F.addCounter(d, 0, T0, OPEN, "Eltnen · Mirage Valley");
+  d = F.addCounter(d, 20_000, T0 + 180_000, OPEN, "Eltnen · Mirage Valley");
+  d = F.addItems(d, gain(T0 + 600_000, MEAT, 2), DUNGEON, price);
+  // Back to the same place after 20 minutes: a new stint.
+  d = F.addItems(d, gain(T0 + 1_800_000, MEAT, 1), OPEN, price, "Eltnen · Mirage Valley");
+  const st = d.stints;
+  assert.equal(st.length, 3);
+  assert.deepEqual([st[0].place, st[0].from, st[0].to, st[0].active, st[0].n, st[0].gold, st[0].kinah, st[0].src],
+    ["Eltnen · Mirage Valley", T0, T0 + 180_000, 180_000, 2, 1, 20_000, "open"]);
+  assert.equal(st[0].worth, 50_100);
+  assert.deepEqual([st[1].place, st[1].src, st[1].n], ["Fire Temple", "dungeon", 2]);
+  assert.equal(F.summary(d).stints.length, 3);
+  const bp = F.byPlace([F.summary(d)], "all");
+  assert.equal(bp[0].place, "Eltnen · Mirage Valley");
+  assert.equal(bp[0].n, 3);
+  // The Drops tab's session: every gain, Kinah from the inventory.
+  const w = F.trackItems([], { changes: [[1, T0, 1, C.KINA, 500], [2, T0, 1, MEAT, 1]] }, ABYSS, "Abyss · Lower", price);
+  assert.deepEqual([w[0].place, w[0].src, w[0].kinah, w[0].n], ["Abyss · Lower", "abyss", 500, 1]);
+});
