@@ -79,4 +79,7 @@ h3:first-child { margin-top: 2px; }
 .nowTitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nowState { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .volume { width: 90px; }
+.opacityBox { display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,.7); font-size: 12px; }
+.opacity { width: 70px; }
+.opacityValue { min-width: 32px; font-variant-numeric: tabular-nums; }
 .pause, .mute { min-width: 32px; }

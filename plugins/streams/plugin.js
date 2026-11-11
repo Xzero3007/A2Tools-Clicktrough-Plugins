@@ -18,6 +18,7 @@
     quality: "1080",
     volume: 70,
     mute: false,
+    opacity: 100, // the video's, in percent (20 to 100)
     size: "m",
     overlaySize: null, // [w, h] after a corner was dragged
     useFreeTube: true,
@@ -386,6 +387,8 @@
     try {
       await openOverlay();
       tellWidget();
+      // Before it plays: the meter keeps it for the widget's video.
+      await a2.video.control(WIDGET, "opacity", settings.opacity / 100).catch(() => {});
       await a2.video.play(WIDGET, {
         [what.kind]: what.id,
         quality: settings.quality,
@@ -465,6 +468,8 @@
     $(".pause").textContent = player.pause ? "▶" : "❚❚";
     $(".mute").textContent = settings.mute ? "🔇" : "🔊";
     if (document.activeElement !== $(".volume")) $(".volume").value = String(settings.volume);
+    if (document.activeElement !== $(".opacity")) $(".opacity").value = String(settings.opacity);
+    $(".opacityValue").textContent = `${settings.opacity}%`;
     $(".quality").value = settings.quality;
     const size = Array.isArray(settings.overlaySize) ? "" : settings.size;
     for (const b of $$(".sizes button")) b.setAttribute("aria-pressed", String(b.dataset.size === size));
@@ -488,6 +493,12 @@
     drawPlayer();
   });
   $(".volume").addEventListener("change", save);
+  $(".opacity").addEventListener("input", () => {
+    settings.opacity = Math.min(100, Math.max(20, Number($(".opacity").value) || 100));
+    a2.video.control(WIDGET, "opacity", settings.opacity / 100).catch(() => {});
+    drawPlayer();
+  });
+  $(".opacity").addEventListener("change", save);
   $(".quality").addEventListener("change", () => {
     settings.quality = $(".quality").value;
     save();

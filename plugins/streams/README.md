@@ -17,8 +17,9 @@ Twitch and YouTube while you play, in a small video overlay over the game.
   it into the overlay), **above the game**, and **while the meter is locked
   clicks go through it**. Unlocked, the pointer on it shows the title,
   pause and ×; drag it to move it, drag a corner to resize it. Sizes S, M,
-  L, XL, quality (1080p down to 360p, or sound only), pause, mute and
-  volume are at the bottom of the window. The **TV button** in the meter's
+  L, XL, quality (1080p down to 360p, or sound only), pause, mute,
+  volume and the video's opacity (◐, 20 to 100 %: the game shows through
+  it) are at the bottom of the window. The **TV button** in the meter's
   title shows the overlay (and plays the last one again) or stops it.
 - Favourites and settings stay in the plugin's storage on this computer.
 
