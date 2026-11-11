@@ -21,6 +21,7 @@ test("Twitch users and streams in one shape, live ones first by viewers", () => 
   assert.deepStrictEqual(streams.map((s) => s.login), ["b", "a"]);
   assert.deepStrictEqual(L.twitchList({ user: null }), []);
   assert.strictEqual(L.twitchList({ searchFor: { channels: { items: [{ login: "z" }] } } })[0].login, "z");
+  assert.deepStrictEqual(L.twitchList({ currentUser: { follows: { edges: [{ node: { login: "a", stream: null } }, { node: { login: "b", stream: { viewersCount: 5 } } }] } } }).map((c) => c.login), ["b", "a"]);
 });
 
 test("a YouTube feed's videos, newest first, Shorts marked", () => {

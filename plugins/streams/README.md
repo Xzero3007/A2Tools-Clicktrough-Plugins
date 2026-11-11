@@ -8,7 +8,17 @@ video overlays over the game: each in its own, several at once if you like.
   others below as offline), **AION 2** (the live AION 2 streams with the
   most viewers), **All live**, and a **search** (a channel's name; Enter
   on an exact name finds that channel too). ☆ on a card keeps the channel
-  in your favourites. No Twitch account.
+  in your favourites. **Followed** (0.7.0): the channels you follow on
+  Twitch, once signed in with your twitch.tv `auth-token` (the plugin says
+  where to find it; the meter keeps it in `twitch.json` in its own folder
+  and sends it to Twitch alone; Sign out deletes it).
+- **Twitch without the ad breaks** (0.7.0, meter patch 0061): with
+  Streamlink installed (`sudo pacman -S streamlink`, as Streamlink Twitch
+  GUI uses it), Twitch plays through Streamlink, which leaves Twitch's ad
+  breaks out of the stream (a short pause instead). Signed in, Streamlink
+  sends your token along: with Turbo or a subscription, Twitch sends no
+  ads at all. Without Streamlink, Twitch plays through yt-dlp, ads and
+  all; the status line says which.
 - **YouTube**: **Subscriptions** (the newest videos of your FreeTube
   subscriptions, read from FreeTube's own file on this computer, its own
   folder or its Flatpak's, and of the channels you added; one channel or
@@ -78,7 +88,8 @@ video overlays over the game: each in its own, several at once if you like.
   "watched" are right in every Jellyfin app; ✓ on a card marks it watched.
 - Favourites and settings stay in the plugin's storage on this computer.
 
-**Needs** `mpv` and `yt-dlp` installed (`sudo pacman -S mpv yt-dlp`); the
+**Needs** `mpv` and `yt-dlp` installed (`sudo pacman -S mpv yt-dlp`), and
+`streamlink` for Twitch without the ad breaks; the
 plugin says so when one is missing.
 
 **What goes out**: the meter reads Twitch's public list of channels and
@@ -86,6 +97,7 @@ streams (gql.twitch.tv, read only), a YouTube channel's public feed of
 its newest videos (www.youtube.com/feeds/videos.xml) and the pictures from
 YouTube's and Twitch's picture servers; YouTube's search and the videos
 themselves go through yt-dlp and mpv, as your own mpv would play them. Only
-search words, channel names and video ids are sent; no account, no sign-in,
-no links to any website (meter patch 0047). Jellyfin: only your own
+search words, channel names and video ids are sent; no links to any website
+(meter patch 0047). The only sign-in is Twitch's, if you want the followed
+channels: your token goes to Twitch alone (meter patch 0061). Jellyfin: only your own
 server in your home network (meter patch 0053), nothing else.

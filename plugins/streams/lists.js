@@ -37,6 +37,7 @@
     if (Array.isArray(data?.users)) out = data.users.map(twitchUser);
     else if (data?.user !== undefined) out = [twitchUser(data.user)];
     else if (Array.isArray(data?.searchFor?.channels?.items)) out = data.searchFor.channels.items.map(twitchUser);
+    else if (Array.isArray(data?.currentUser?.follows?.edges)) out = data.currentUser.follows.edges.map((e) => twitchUser(e?.node));
     else {
       const edges = data?.game ? data.game.streams?.edges : data?.streams?.edges;
       if (Array.isArray(edges)) out = edges.map((e) => twitchStream(e?.node));

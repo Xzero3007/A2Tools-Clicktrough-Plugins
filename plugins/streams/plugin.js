@@ -241,6 +241,18 @@
 
   // ---------- Twitch ----------
   const twitch = { list: [], query: "", at: 0, error: "", busy: false };
+  // The meter's Twitch account (twitch.tv's auth-token, kept by the meter)
+  // and whether Streamlink plays Twitch (no ad breaks). undefined: not asked yet.
+  const twAcc = { user: undefined, streamlink: null };
+  async function loadTwitchAccount() {
+    try {
+      const a = await a2.video.twitch("account");
+      twAcc.user = a?.user || null;
+      twAcc.streamlink = !!a?.streamlink;
+    } catch {
+      twAcc.user = null;
+    }
+  }
   async function loadTwitch() {
     const view = settings.twitchView;
     twitch.busy = true;
@@ -248,7 +260,9 @@
     status("twitch");
     try {
       let data;
-      if (view === "favs") data = favs.twitch.length ? await a2.video.twitch("channels", favs.twitch) : { users: [] };
+      if (twAcc.user === undefined) await loadTwitchAccount();
+      if (view === "followed") data = twAcc.user ? await a2.video.twitch("followed") : { users: [] };
+      else if (view === "favs") data = favs.twitch.length ? await a2.video.twitch("channels", favs.twitch) : { users: [] };
       else if (view === "aion") data = await a2.video.twitch("live", "AION 2");
       else if (view === "all") data = await a2.video.twitch("live", null);
       else {
@@ -280,6 +294,20 @@
     const list = twitch.list;
     const live = list.filter((c) => c.live);
     const off = list.filter((c) => !c.live);
+    if (settings.twitchView === "followed") {
+      if (!twAcc.user) return;
+      const who = el("div", "twAccount muted", `Signed in as ${twAcc.user.displayName || twAcc.user.login} · the channels you follow`);
+      const out = el("button", "twLogout", "Sign out");
+      out.type = "button";
+      out.addEventListener("click", async () => {
+        await a2.video.twitch("logout").catch(() => {});
+        twAcc.user = null;
+        twitch.list = [];
+        redraw();
+      });
+      who.append(out);
+      box.append(who);
+    }
     if (settings.twitchView === "favs" && !favs.twitch.length) {
       box.append(el("div", "empty", "No favourites yet. Find a channel (the search, AION 2, All live) and click its ☆, or type a channel's name in the search and press Enter."));
       return;
@@ -631,6 +659,11 @@
     const t = String(e || "");
     if (/yt-dlp is not installed|(youtube-dl|yt-dlp|ytdl)\S* (was )?not found/i.test(t)) return "yt-dlp is missing: sudo pacman -S yt-dlp";
     if (/libmpv|mpv is not installed/i.test(t)) return "mpv is missing: sudo pacman -S mpv";
+    if (/^Streamlink:/.test(t)) {
+      if (/no playable streams|offline|not live/i.test(t)) return "Not live right now";
+      if (/401|unauthori[sz]ed/i.test(t)) return "Twitch didn't take your sign-in: sign in again (Followed)";
+      return t;
+    }
     // yt-dlp's own reasons (the meter passes on what it said through mpv).
     if (/javascript runtime|js.?runtime|\bdeno\b|n challenge|signature/i.test(t)) return "yt-dlp needs a JavaScript runtime for YouTube now: sudo pacman -S deno (and update yt-dlp)";
     if (/sign in to confirm|not a bot/i.test(t)) return "YouTube wants a sign-in to prove you're not a bot (it does this to some networks); try again later";
@@ -1100,6 +1133,23 @@
     }
   }
 
+  $(".twLogin").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const state = $(".twLoginState");
+    state.classList.remove("error");
+    state.textContent = "Signing in …";
+    try {
+      twAcc.user = await a2.video.twitch("login", f.token.value);
+      f.token.value = "";
+      state.textContent = "";
+      redraw();
+      loadTwitch();
+    } catch (err) {
+      state.classList.add("error");
+      state.textContent = String(err?.message || err);
+    }
+  });
   $(".jfLogin").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.target;
@@ -1439,7 +1489,11 @@
       box.textContent = tracker.error ? `Couldn't search: ${tracker.error}` : tracker.busy ? "Looking for new videos …"
         : tracker.at ? `English, German and Turkish titles · looked ${new Date(tracker.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}, every 30 minutes` : "";
     }
-    else if (tab === "twitch" && twitch.at) box.textContent = `${twitch.list.filter((c) => c.live).length} live · updated ${new Date(twitch.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    else if (tab === "twitch" && twitch.at) {
+      const sl = twAcc.streamlink === true ? " · Streamlink plays it, without the ad breaks"
+        : twAcc.streamlink === false ? " · Streamlink isn't installed, so Twitch's ads play (sudo pacman -S streamlink)" : "";
+      box.textContent = `${twitch.list.filter((c) => c.live).length} live · updated ${new Date(twitch.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${sl}`;
+    }
     else box.textContent = "";
   }
 
@@ -1454,6 +1508,7 @@
         if (b.dataset.view === "search") b.hidden = view !== "search";
       }
       status(tab);
+      if (tab === "twitch") $(".twLogin").hidden = !(settings.tab === "twitch" && view === "followed" && twAcc.user === null);
     }
     const box = $(`.pane[data-pane="${settings.tab}"] .list`);
     const scroll = document.scrollingElement.scrollTop;

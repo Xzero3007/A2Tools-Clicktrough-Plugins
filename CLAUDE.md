@@ -50,7 +50,10 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   person's own Jellyfin server in the home network only (`a2.video.jellyfin`,
   meter patch 0053; the person's decision, 2026-11-11): the meter refuses
   any address outside it and keeps the address and key itself; nothing of
-  the server (address, names, library) goes into this repo.
+  the server (address, names, library) goes into this repo. Twitch
+  through the person's Streamlink when installed, and the Twitch sign-in
+  (twitch.tv's auth-token, kept by the meter in `twitch.json`, sent to
+  Twitch alone; meter patch 0061, the person's decision, 2026-11-11).
   Anything else needs the person's yes first, and a meter patch.
 - **This repo is public. No network analysis goes in here**: no write-ups of
   what the game's traffic holds, no packet captures, no logs. Those go in

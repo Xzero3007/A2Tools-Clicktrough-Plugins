@@ -109,6 +109,7 @@ h3:first-child { margin-top: 2px; }
 .jfLogin input, .jfMain input[type=text] { background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 5px 8px; color: #fff; }
 .jfLoginRow { display: flex; align-items: center; gap: 10px; }
 .jfLoginState.error { color: #ff8a7a; }
+.twAccount { display: flex; align-items: center; gap: 10px; margin: 2px 2px 8px; font-size: 12px; }
 .jfOptions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 2px 6px; }
 .jfOptions label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .jfOptions input { accent-color: var(--a2-accent, #e0a526); margin: 0; }

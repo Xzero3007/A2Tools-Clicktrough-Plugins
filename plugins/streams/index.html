@@ -15,7 +15,7 @@
     <section class="pane" data-pane="twitch">
       <div class="controls">
         <span class="seg views" role="group" aria-label="What to show">
-          <button type="button" data-view="favs">Favourites</button><button type="button" data-view="aion">AION 2</button><button type="button" data-view="all">All live</button><button type="button" data-view="search" hidden>Search</button>
+          <button type="button" data-view="favs">Favourites</button><button type="button" data-view="followed">Followed</button><button type="button" data-view="aion">AION 2</button><button type="button" data-view="all">All live</button><button type="button" data-view="search" hidden>Search</button>
         </span>
         <form class="searchForm" data-for="twitch">
           <input type="search" class="search" placeholder="Search a channel, or its name to play" autocomplete="off" spellcheck="false" />
@@ -23,6 +23,13 @@
         <button type="button" class="refresh" title="Get the list again">Update</button>
       </div>
       <div class="status muted"></div>
+      <!-- Not signed in: twitch.tv's auth-token, for the followed channels. -->
+      <form class="twLogin jfLogin" hidden autocomplete="off">
+        <p class="muted">Sign in with your Twitch account's auth-token to see the channels you follow here. Streamlink gets it too: with Turbo, or on channels you subscribe to, Twitch then plays without ads. The token stays on this PC (the meter's own folder) and goes to Twitch alone.</p>
+        <p class="muted">Where to find it: open twitch.tv in your browser, signed in, press F12, then Storage (Firefox) or Application (Brave, Chrome) → Cookies → twitch.tv, and copy the value of <b>auth-token</b> (30 letters and digits).</p>
+        <label>auth-token <input type="password" name="token" spellcheck="false" /></label>
+        <div class="jfLoginRow"><button type="submit">Sign in</button><span class="twLoginState jfLoginState muted"></span></div>
+      </form>
       <div class="list"></div>
     </section>
 
