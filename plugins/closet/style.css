@@ -1,6 +1,6 @@
 /* The host window paints the panel; the page stays transparent. Neutral
-   colours as the meter's, gold for what you lack; no blue anywhere (the
-   grades in the game's colours: Epic blue, as the game's extract settings). */
+   colours as the meter's, gold for what you lack; the grades in the
+   game's colours (Epic blue, as the game's extract settings). */
 [hidden] { display: none !important; }
 :root {
   --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);

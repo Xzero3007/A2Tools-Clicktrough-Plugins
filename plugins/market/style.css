@@ -108,7 +108,7 @@ tr:hover .mapBtn, .mapBtn:focus-visible { opacity: 1; }
 
 /* All listings and Anomalies: the item's picture and grade colour (as the
    Inventory plugin's), the anomaly signs, the course. */
-:root { --g1: #c8ccd2; --g2: #7fdc9a; --g3: #c39bff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8; }
+:root { --g1: #c8ccd2; --g2: #7fdc9a; --g3: #4fa8ff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8; }
 .g1 { --gc: var(--g1); } .g2 { --gc: var(--g2); } .g3 { --gc: var(--g3); } .g4 { --gc: var(--g4); }
 .g5 { --gc: var(--g5); } .g6 { --gc: var(--g6); } .g7 { --gc: var(--g7); }
 td.item > .cell { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-width: 0; }

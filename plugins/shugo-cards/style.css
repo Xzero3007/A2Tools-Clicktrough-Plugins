@@ -1,12 +1,12 @@
 /* The host window paints the panel; the page stays transparent. Neutral
-   colours as the meter's, gold for gold items and value; no blue anywhere
-   (the game's Legend grade, blue in the game, is purple here). */
+   colours as the meter's, gold for gold items and value; blue only for
+   the game's Legend grade, in the game's blue (as the Closet's). */
 [hidden] { display: none !important; }
 :root {
   --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
   --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035);
   --gold: var(--a2-accent, #e0a526); --gold-t: #f2c46b;
-  --g1: #c8ccd2; --g2: #7fdc9a; --g3: #c39bff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8;
+  --g1: #c8ccd2; --g2: #7fdc9a; --g3: #4fa8ff; --g4: #f2c46b; --g5: #ffb066; --g6: #ff7a6b; --g7: #7fe0c8;
 }
 html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
 body { padding: 8px 10px 10px; box-sizing: border-box; }

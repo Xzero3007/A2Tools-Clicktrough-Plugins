@@ -1,5 +1,5 @@
 /* The pop-up and the status floater: a dark card like the meter's,
-   transparent around it. New skins gold; owned ones dimmed; no blue. */
+   transparent around it. New skins gold; owned ones dimmed. */
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; background: transparent; overflow: hidden;
   font: 12.5px/1.3 "Segoe UI", system-ui, sans-serif; color: rgba(255, 255, 255, 0.92); }

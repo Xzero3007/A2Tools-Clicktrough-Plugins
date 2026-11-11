@@ -1,11 +1,11 @@
 /* The host window paints the panel; the page stays transparent. Neutral
-   colours as the meter's, gold for what to aim at; no blue anywhere (the
-   game's Legend grade, blue in the game, is purple here). */
+   colours as the meter's, gold for what to aim at; blue only for the
+   game's Legend grade, in the game's blue (as the Closet's). */
 [hidden] { display: none !important; }
 :root {
   --text: rgba(255,255,255,.9); --muted: rgba(255,255,255,.55); --faint: rgba(255,255,255,.35);
   --line: rgba(255,255,255,.1); --card: rgba(255,255,255,.035); --gold: #f2c46b; --good: #7fdc9a; --bad: #ff8a7a;
-  --g-common: #c8ccd2; --g-rare: #7fdc9a; --g-legend: #c39bff; --g-unique: #f2c46b; --g-special: #ff9a7a;
+  --g-common: #c8ccd2; --g-rare: #7fdc9a; --g-legend: #4fa8ff; --g-unique: #f2c46b; --g-special: #ff9a7a;
 }
 html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
 body { padding: 8px 10px 12px; box-sizing: border-box; }

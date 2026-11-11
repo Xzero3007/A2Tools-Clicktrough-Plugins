@@ -12,12 +12,15 @@ with its own CLAUDE.md: work on the meter happens there, not here.
   **English**: UI texts, READMEs, code comments, commit messages, issues.
 - Uses the meter on an Arch-based Linux with KDE and updates it through the
   **green button** in the meter's title. Sends screenshots from the game.
-- **No blue in any UI** (buttons, highlights, links): neutral whites and greys,
-  gold, red, purple are fine. Data colours that match an existing plugin are
+- **Colours**: the UI keeps its scheme: neutral whites and greys, gold, red,
+  purple. **Blue only for blue items**: the game's grade 3 (Legend, the
+  Closet's "Epic") is drawn in the game's blue, #4fa8ff, wherever an item's
+  grade is coloured (`--g3` / `--g-legend`; the person's decision,
+  2026-11-11). Data colours that match an existing plugin are
   fine (Pet Finder's genus colours). The build's accent is gold (meter patch 0033:
   Settings colours "Gold", the default; `--ct-accent` #e0a526 in the meter):
   a plugin gets it as `var(--a2-accent)`, so a control's state uses that,
-  never a fixed blue. Values coloured as the game does (combat power's cyan)
+  not a fixed colour. Values coloured as the game does (combat power's cyan)
   stay.
 - Wants results and a short, plain explanation of what changed and what to do,
   not a log of the work.
