@@ -96,12 +96,15 @@
   /** A round to keep: the pickers' names become "you" or not (only yours is
    *  compared; no name is kept). `me`: the playing character's name or null
    *  (then a picker counts as you: the board is your own). */
-  function keep(round, at, me) {
+  function keep(round, at, me, server = null) {
     if (!round) return null;
     return {
       key: round.key,
       at,
       event: round.event,
+      // Your character that played it (yours only; the board is yours).
+      who: me || null,
+      server: Number.isFinite(Number(server)) && server != null ? Number(server) : null,
       cards: round.cards.map((c) => {
         let mine = 0, others = 0;
         for (const pk of c.pickers) {
@@ -131,6 +134,21 @@
     const m = new Date(Number(round?.at) || 0).getMinutes();
     return { kind: m >= 20 && m < 50 ? "di" : "shugo", sure: false };
   }
+  /** A character's key (server and name), "" for rounds before 0.3.0. */
+  const charKey = (r) => (r?.who ? `${r.server ?? ""}:${r.who}` : "");
+  /** Your characters seen in the rounds: [{ key, name, n }], most rounds first. */
+  function characters(rounds) {
+    const m = new Map();
+    for (const r of rounds) {
+      const k = charKey(r);
+      const c = m.get(k) || { key: k, name: r.who || "", n: 0 };
+      c.n++;
+      m.set(k, c);
+    }
+    return [...m.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  }
+  /** One character's rounds ("all": the whole account). */
+  const ofChar = (rounds, key) => (key == null || key === "all" ? rounds : rounds.filter((r) => charKey(r) === key));
   /** The rounds of one event ("shugo", "di"), or all ("all"). */
   const only = (rounds, which, chosen = {}) => (which === "shugo" || which === "di" ? rounds.filter((r) => kindOf(r, chosen).kind === which) : rounds);
 
@@ -326,7 +344,7 @@
   };
 
   globalThis.ShugoCalc = Object.freeze({
-    GRADES, PLACES, NEED_STRONG, NEED_MODERATE, EVENTS, KINDS, kindOf, only, name, grade, icon, gold, currency,
+    GRADES, PLACES, NEED_STRONG, NEED_MODERATE, EVENTS, KINDS, kindOf, only, charKey, characters, ofChar, name, grade, icon, gold, currency,
     parseRound, keep, worth, cardWorth, pChi4, test, advise, stats, readServers, serverOf, readCopy, kina, short,
   });
 })();

@@ -14,7 +14,7 @@
   // Rounds that did not read: their frame is kept (a few) to be looked at.
   const KEEP_ODD = 5;
 
-  let settings = { tab: "round", server: null, kind: "all", kinds: {} }; // kinds: event number -> "shugo" | "di"
+  let settings = { tab: "round", server: null, kind: "all", kinds: {}, char: "all" }; // kinds: event number -> "shugo" | "di"
   let rounds = [];
   let odd = [];
   let character = null;
@@ -148,14 +148,31 @@
   const kinahText = (w) => (w.priced ? `${w.guess ? "≈ " : ""}${C.short(w.kinah)}` : "—");
 
   // The rounds of the event picked above (All, Shugo, Dimensional Invasion).
-  const picked = () => C.only(rounds, settings.kind, settings.kinds);
+  // The character picked, while it has rounds here; else the whole account.
+  const charPicked = () => (settings.char !== "all" && rounds.some((r) => C.charKey(r) === settings.char) ? settings.char : "all");
+  const mineOnly = () => C.ofChar(rounds, charPicked());
+  const picked = () => C.only(mineOnly(), settings.kind, settings.kinds);
   function renderTop() {
     const s = server();
     const list = picked();
     const what = settings.kind === "all" ? "" : ` (${C.KINDS[settings.kind]})`;
     $(".count").textContent = list.length ? `${list.length} round${list.length === 1 ? "" : "s"}${what} since ${when(list[0].at)}${odd.length ? ` · ${odd.length} not read` : ""}` : `No round yet${what}`;
-    for (const b of document.querySelectorAll(".kinds button")) {
-      const n = C.only(rounds, b.dataset.kind, settings.kinds).length;
+    // Whose rounds: the whole account or one character.
+    const chars = C.characters(rounds);
+    const sel = $(".who");
+    sel.replaceChildren(
+      el("option", { value: "all" }, `All characters ${rounds.length}`),
+      ...chars.map((c) => el("option", { value: c.key }, `${c.name || "Before 0.3.0 (no character)"} ${c.n}`)),
+    );
+    sel.value = charPicked();
+    $(".who").addEventListener("change", (e) => {
+    settings.char = e.target.value;
+    shown = null;
+    saveSettings();
+    render();
+  });
+  for (const b of document.querySelectorAll(".kinds button")) {
+      const n = C.only(mineOnly(), b.dataset.kind, settings.kinds).length;
       b.textContent = `${b.dataset.kind === "all" ? "All" : C.KINDS[b.dataset.kind]} ${n}`;
       b.setAttribute("aria-pressed", String(b.dataset.kind === settings.kind));
     }
@@ -203,6 +220,8 @@
       render();
     };
     kindBox.replaceChildren(
+      ...[
+      r.who ? el("span", { class: "muted", text: `${r.who} · ` }) : null,
       el("span", { class: "kindName", text: C.KINDS[k.kind] }),
       k.sure ? null : el("span", { class: "muted", text: " (guessed by the time; event " + r.event + ")" }),
       settings.kinds[r.event] || !C.EVENTS[r.event]
@@ -216,6 +235,7 @@
             }),
           )
         : null,
+      ].filter(Boolean),
     );
     const ws = r.cards.map((c) => C.cardWorth(c, prices, hist));
     const best = Math.max(...ws.map((w) => w.kinah));
@@ -407,11 +427,13 @@
       }
       return;
     }
-    const kept = C.keep(parsed, at, character?.name || null);
+    // Who played: the meter stamps the event with the character of then.
+    const who = meta?.character?.name ? meta.character : character;
+    const kept = C.keep(parsed, at, who?.name || null, who?.serverId ?? null);
     const k = rounds.findIndex((r) => r.key === kept.key);
     if (k >= 0) {
       // The second copy (or a replay): only the picks may have changed.
-      rounds[k] = { ...kept, at: rounds[k].at };
+      rounds[k] = { ...kept, at: rounds[k].at, who: kept.who || rounds[k].who || null, server: kept.who ? kept.server : rounds[k].server ?? null };
     } else {
       rounds = [...rounds, kept].slice(-KEEP);
       shown = null;

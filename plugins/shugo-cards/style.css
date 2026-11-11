@@ -21,6 +21,9 @@ h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: v
 .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .count { font-weight: 600; }
 .kinds { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
+.kinds select { font: inherit; font-size: 12px; color: var(--text); background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); border-radius: 12px; padding: 1px 8px; max-width: 220px; }
+.kinds select:focus { outline: none; border-color: rgba(255,255,255,.45); }
+.kinds select option { background: #1c1f24; color: #fff; }
 .kinds button { border-radius: 12px; padding: 1px 10px; font-size: 12px; color: var(--muted); }
 .kinds button[aria-pressed="true"] { color: #fff; border-color: var(--gold); background: rgba(224,165,38,.16); }
 .kindOf { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -2px 0 8px; font-size: 12px; }

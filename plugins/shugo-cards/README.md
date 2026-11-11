@@ -6,6 +6,9 @@ game shows what lay behind every card, picked or not; this plugin keeps each
 round and adds them up, so you see over time where the gold lies and whether
 any card is better than another.
 
+- **Whose rounds** (0.3.0): **All characters** (the whole account) or one
+  of your characters, each with its count; rounds from before 0.3.0 have no
+  character and count only for the account. Combined with the event below.
 - **All / Shugo / Dimensional Invasion** (above the tabs, with each one's
   count): every tab, the statistics and the tip go by the rounds picked here,
   both events together or each alone. A round names its event by number:
@@ -45,7 +48,7 @@ have no Kinah value.
 **How**: the plugin's decoder `round` takes the round's end (frame `0A 57`)
 whole (the meter's `rest` field, patch 0042) and `calc.js` reads it: the
 cards in their places, each with its bonus layers, its items, and who picked
-it how often. Only "you" or "someone else" is kept, no names. Nothing comes
+it how often. Kept: your own character's name and server (whose round it was); another picker only as "someone else", no names. Nothing comes
 before the round ends: what lies behind a card is not known while you pick.
 A round that does not read is kept as it came (the last 5) and counted at
 the top.

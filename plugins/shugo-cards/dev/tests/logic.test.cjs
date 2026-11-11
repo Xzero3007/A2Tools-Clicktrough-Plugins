@@ -30,8 +30,8 @@ test("a round reads: five cards, the bonus layer, the picks", () => {
   assert.equal(r.cards[4].main[0][0], 210430080);
   const k = C.keep(r, 1000, "Tester");
   assert.deepEqual(k.cards.map((c) => c.mine), [0, 2, 0, 1, 0]);
-  assert.ok(!JSON.stringify(k).includes("Tester"), "no name is kept");
   const other = C.keep(r, 1000, "Someone");
+  assert.ok(!JSON.stringify(other).includes("Tester"), "no other player's name is kept");
   assert.deepEqual(other.cards.map((c) => c.others || 0), [0, 2, 0, 1, 0]);
 });
 
@@ -100,4 +100,16 @@ test("which event: a known number, the person's choice, else a guess by the time
   assert.equal(C.only(rounds, "shugo").length, 1);
   assert.equal(C.only(rounds, "di").length, 2);
   assert.equal(C.only(rounds, "shugo", { 99: "shugo" }).length, 3);
+});
+
+test("per character and for the account", () => {
+  const hex = fs.readFileSync(path.join(__dirname, "round-frames.txt"), "utf8").split("\n")[1].slice(6).toLowerCase();
+  const k = C.keep(C.parseRound(hex), 1000, "Tester", 2305);
+  assert.equal(k.who, "Tester");
+  assert.equal(k.server, 2305);
+  const rounds = [{ ...k, key: "a" }, { ...k, key: "b", who: "Other" }, { ...k, key: "c" }, { key: "old", at: 1, cards: [] }];
+  assert.deepEqual(C.characters(rounds).map((c) => [c.name, c.n]), [["Tester", 2], ["", 1], ["Other", 1]]);
+  assert.equal(C.ofChar(rounds, "all").length, 4);
+  assert.equal(C.ofChar(rounds, "2305:Tester").length, 2);
+  assert.equal(C.ofChar(rounds, "").length, 1);
 });
