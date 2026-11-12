@@ -276,6 +276,14 @@ skips the 500 ms wait that lets the login's identity land first.
   first.
 - `pkill -f <pattern>` also kills the shell running it: use
   `pkill -x a2tools-dps-met`.
+- **A message to a widget is at most 64 KB** (`a2.widgets.send`; the meter
+  refuses a larger one, and the widget keeps what it had or stays on its
+  "Waiting"). The game's pictures (`a2.web.image`, data URLs) are large:
+  send each in a message of its own, never in the widget's state (Closet
+  0.2.14's window stayed empty in the game). The sessions' machines can't
+  reach the icon server, so a test there has no pictures: have the dev hook
+  in `pluginFrame.js` answer `calls["web.image"]` with a picture of real
+  size (a 14 KB PNG) to see it.
 - **The harness doesn't show widget races.** Two `a2.widgets.open` of one
   widget at once made two windows in meters before patch 0067, the second
   empty and stuck (Closet 0.2.9). Open a widget once and only re-send to it.

@@ -6,6 +6,9 @@
   const $ = (s) => document.querySelector(s);
   let locked = false;
   let last = null;
+  // The skins' pictures, each sent by the plugin in a message of its own.
+  const pictures = new Map();
+  const pictureOf = (o) => o.picture || (o.icon && pictures.get(o.icon)) || null;
   const el = (tag, cls, text) => {
     const n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -21,10 +24,11 @@
 
   function offerRow(o) {
       const li = el("li", o.status || "");
-      const icon = el("span", `icon g${o.grade || 0}`, o.picture ? null : (o.name || "·")[0]);
-      if (o.picture) {
+      const src = pictureOf(o);
+      const icon = el("span", `icon g${o.grade || 0}`, src ? null : (o.name || "·")[0]);
+      if (src) {
         const img = el("img");
-        img.src = o.picture;
+        img.src = src;
         img.alt = "";
         icon.append(img);
       }
@@ -39,10 +43,11 @@
   // A skin you lack listed on the Exchange: "Buy" when below the merchant's price.
   function exRow(o) {
     const li = el("li", "new ex");
-    const icon = el("span", `icon g${o.grade || 0}`, o.picture ? null : (o.name || "·")[0]);
-    if (o.picture) {
+    const src = pictureOf(o);
+    const icon = el("span", `icon g${o.grade || 0}`, src ? null : (o.name || "·")[0]);
+    if (src) {
       const img = el("img");
-      img.src = o.picture;
+      img.src = src;
       img.alt = "";
       icon.append(img);
     }
@@ -119,7 +124,17 @@
       a2.widget.post({ type: "resized", width: size.width, height: size.height }).catch(() => {});
     }
   });
-  a2.on("widget", (data) => draw(data));
+  let redraw = 0;
+  a2.on("widget", (data) => {
+    if (data?.kind === "picture") {
+      if (typeof data.icon === "string" && typeof data.picture === "string") pictures.set(data.icon, data.picture);
+      // Several come at once: draw once for them.
+      clearTimeout(redraw);
+      redraw = setTimeout(() => { if (last?.kind === "status") drawStatus(last); }, 60);
+      return;
+    }
+    draw(data);
+  });
   a2.on("locked", (on) => {
     locked = !!on;
     document.body.classList.toggle("locked", locked);

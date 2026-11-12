@@ -269,7 +269,7 @@
         pictures.set(icon, typeof data === "string" ? data : null);
         for (const img of waiting.get(icon) || []) if (data) img.src = data;
         waiting.delete(icon);
-        if (data) sendWidgetsSoon();
+        if (data) pictureLoaded(icon);
         pump();
       });
     }
@@ -341,21 +341,22 @@
       for (const o of s.offers) {
         const m = L.statusOf(o.item, closet, ix, learned);
         if (!m.skin) continue;
-        offers.push({ name: m.skin.name, slot: m.skin.slot, grade: m.skin.grade, status: m.status, price: o.price, discount: o.discount, tab: s.tabName, soldOut: !!o.soldOut, picture: pictureFor(m.skin.icon) });
+        offers.push({ name: m.skin.name, slot: m.skin.slot, grade: m.skin.grade, status: m.status, price: o.price, discount: o.discount, tab: s.tabName, soldOut: !!o.soldOut, icon: wantPicture(m.skin.icon) });
       }
     }
     const rank = (o) => (o.status === "new" ? 0 : o.status === "unknown" ? 1 : 2);
     offers.sort((x, y) => rank(x) - rank(y) || y.price - x.price);
     return { offers, owner: best.c.name, refresh: Math.min(...best.live.map((s) => s.refresh)) };
   }
-  // A skin's picture for the window: asked for once, there once loaded.
-  function pictureFor(icon) {
+  // A skin's picture for the window: asked for once; the window gets it in
+  // a message of its own once loaded (sendPictures).
+  function wantPicture(icon) {
     if (icon && !pictures.has(icon) && !waiting.has(icon)) {
       waiting.set(icon, []);
       queue.push(icon);
       pump();
     }
-    return pictures.get(icon) || null;
+    return icon || null;
   }
   // The skins you lack that are listed on the Exchange, cheapest first (the
   // Shop's signal comes when the Market opens too: the window shows both).
@@ -367,7 +368,7 @@
     if (!listed.length) return null;
     const game = listed.some((x) => x.e.from === "game");
     return { total: listed.length, from: game ? "game" : "list", at: Math.max(...listed.map((x) => x.e.at || 0)),
-      rows: listed.slice(0, 8).map(({ m, e }) => ({ name: m.name, slot: m.slot, grade: m.grade, price: e.price, listings: e.listings, good: L.goodBuy(e.price, m.price), picture: pictureFor(m.icon) })) };
+      rows: listed.slice(0, 8).map(({ m, e }) => ({ name: m.name, slot: m.slot, grade: m.grade, price: e.price, listings: e.listings, good: L.goodBuy(e.price, m.price), icon: wantPicture(m.icon) })) };
   }
   // One short line of what to do in the closet (the Combine tab has the rest).
   function todoState() {
@@ -446,6 +447,7 @@
   // tells what happened).
   const windowWhy = () => {
     if (lastOpenError) return `could not open: ${lastOpenError}`;
+    if (open.status && lastSendError) return `open, but the meter refused its list: ${lastSendError}`;
     if (open.status) return here ? "open (at the shop or the closet)" : "open (Everywhere)";
     if (dismissed) return "closed with its × until you leave the shop";
     if (here && settings.shopWindow === false) return "off: tick Window at the shop";
@@ -480,6 +482,14 @@
     clearTimeout(hereTimer);
     applyStatus();
   }
+  // The meter takes at most 64 KB a message to a window, and the game's
+  // pictures are large: 0.2.14 sent them in the window's state, which then
+  // went over and was refused, and the window stayed empty or old. Now the
+  // state names a picture (its icon) and each picture goes in a message of
+  // its own, once to each window page (it says "ready" when it starts).
+  const MAX_MESSAGE = 60000;
+  const picturesSent = new Set();
+  let lastSendError = "";
   function sendWidgets() {
     if (!open.status) return;
     let st;
@@ -490,7 +500,34 @@
       console.error(e);
       st = { kind: "status", error: String(e?.message || e).slice(0, 200), count: count(), goal: L.GOAL };
     }
-    a2.widgets.send("status", st).catch(() => {});
+    if (JSON.stringify(st).length > MAX_MESSAGE) {
+      st = { kind: "status", error: "the window's list is too long", count: count(), goal: L.GOAL };
+    }
+    a2.widgets.send("status", st).then(() => {
+      lastSendError = "";
+    }, (e) => {
+      lastSendError = String(e?.message || e).slice(0, 120);
+      if (settings.tab === "merchant") dirty();
+    });
+    sendPictures(st);
+  }
+  // A picture that loads after its row was sent goes to the window at once
+  // (no timer: the plugin's page sits hidden in the dock).
+  let shownIcons = new Set();
+  function pictureLoaded(icon) {
+    if (open.status && shownIcons.has(icon)) sendPictures({ offers: [{ icon }] });
+  }
+  function sendPictures(st) {
+    const icons = [...(st.offers || []), ...(st.exchange?.rows || [])].map((o) => o.icon);
+    if (st.kind === "status") shownIcons = new Set(icons);
+    for (const icon of new Set(icons)) {
+      const picture = icon && pictures.get(icon);
+      if (!picture || picturesSent.has(icon)) continue;
+      picturesSent.add(icon);
+      // One too large on its own stays a letter.
+      if (picture.length > MAX_MESSAGE) continue;
+      a2.widgets.send("status", { kind: "picture", icon, picture }).catch(() => picturesSent.delete(icon));
+    }
   }
   let widgetsSoon = 0;
   function sendWidgetsSoon() {
@@ -510,6 +547,8 @@
         closeWidget();
         return;
       }
+      // A new window page: it has none of the pictures yet.
+      picturesSent.clear();
       open.status = true;
       sendWidgets();
     } else if (data.type === "close") {
