@@ -56,6 +56,11 @@
       groups.set(x.key, { key: x.key, label: x.label, grade: 4, perBox: x.perBox, perBoxLo: x.perBox, items: x.names.map((n) => [null, n, null]), extra: true });
       for (const n of x.names) byName.set(`${n}|4`, x.key);
     }
+    // A group whose chances add up to about one or more comes from pools
+    // that drop every box and roll several times (Fire Temple Hard's
+    // Legend gear: about 8 pieces a box, the table's chances add up to
+    // 3.6): the table's "at least once" can't say how many. Rate only.
+    for (const g of groups.values()) if (!g.extra && g.perBoxLo > 0.9) g.unrated = true;
     const list = [...groups.values()].sort((a, b) => b.grade - a.grade || (a.key < b.key ? -1 : 1));
     RATES[zone] = { name, level: mode, energy: BOX, zoneAssumed: true, groups: list, byId, byName, version: TABLE.gameVersion || null };
   }
@@ -215,12 +220,14 @@
   }
   function verdicts(t, rate) {
     if (!rate) return null;
-    const rows = rate.groups.map((g) => ({ key: g.key, label: g.label, grade: g.grade, ...compare(t.found[g.key] || 0, t.boxes, perBox(g), perBoxLo(g)) }));
+    const rows = rate.groups.map((g) => g.unrated
+      ? { key: g.key, label: g.label, grade: g.grade, unrated: true, found: t.found[g.key] || 0, boxes: t.boxes, rate: t.boxes ? (t.found[g.key] || 0) / t.boxes : null, verdict: "rate" }
+      : { key: g.key, label: g.label, grade: g.grade, ...compare(t.found[g.key] || 0, t.boxes, perBox(g), perBoxLo(g)) });
     // Gold and up together: the drops that count most (the summary's row).
-    const gold = rate.groups.filter((g) => g.grade >= 4);
+    const gold = rate.groups.filter((g) => g.grade >= 4 && !g.unrated);
     const sum = (f) => gold.reduce((s, g) => s + f(g), 0);
     if (gold.length > 1) rows.push({ key: "gold", label: "Unique and up, together", grade: 4, main: true, ...compare(sum((g) => t.found[g.key] || 0), t.boxes, sum(perBox), sum(perBoxLo)) });
-    else (rows.find((r) => r.grade >= 4) || rows[0]).main = true;
+    else (rows.find((r) => r.grade >= 4 && !r.unrated) || rows.find((r) => !r.unrated) || rows[0]).main = true;
     return rows;
   }
   const weekOf = (at) => WEEK_RESET + Math.floor((at - WEEK_RESET) / WEEK_MS) * WEEK_MS;

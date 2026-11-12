@@ -110,6 +110,11 @@ pick.
   ending in 1 Normal, the others Hard) and shown with each dungeon.
   `python3 -I dev/make_dungeon_rates.py <rates.json> > dungeon-rates.js`
   writes the table.
+  0.6.3: a group whose chances add up to about one or more (Legend gear
+  in the Hard modes: about 8 pieces a box in Fire Temple Hard, from pools
+  that drop every box and roll several times) shows **your count a box
+  only** ("Rate only"): the table can't say how many to expect, and a
+  verdict said "above" for nothing.
   0.6.2: each grade (Rare, Legend, Unique ...) with **a dot in the item's
   colour** after it, here and in the item lists.
 - **Limits**: Kinah gained today (of 1,000,000), the week's Abyss Points (of

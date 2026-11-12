@@ -35,6 +35,8 @@ test("the rate table: the game's, Fire Temple Hard as its window shows it", () =
   assert.ok(Math.abs(D.perBox(by["Unique-gear"]) - 0.15) < 0.002, `${D.perBox(by["Unique-gear"])}`);
   assert.ok(Math.abs(D.perBox(by.wrath) - 0.06) < 1e-12);
   assert.ok(by["Legend-gear"].perBox > 3, "the Corrupted Judicator set: more than 3 pieces a box");
+  assert.equal(by["Legend-gear"].unrated, true, "it drops every box, several times: no expected count");
+  assert.equal(!!by["Unique-gear"].unrated, false);
   assert.equal(D.groupOf(r, CLAYMORE), "Unique-gear", "by name: the window's other id");
   assert.equal(D.groupOf(r, 310130051), "Unique-gear");
   assert.equal(D.groupOf(r, 310330053), "Unique-gear", "the ring");

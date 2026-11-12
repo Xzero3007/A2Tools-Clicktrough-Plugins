@@ -986,7 +986,7 @@
   }
 
   // ---------- dungeon drops ----------
-  const VERDICT = { in: ["In range", "ok"], above: ["Above the range", "above"], below: ["Below the range", "below"], none: ["No boxes yet", "wait"] };
+  const VERDICT = { in: ["In range", "ok"], above: ["Above the range", "above"], below: ["Below the range", "below"], none: ["No boxes yet", "wait"], rate: ["Rate only", "wait"] };
   const pctBox = (x) => (x == null ? "—" : `${(x * 100).toFixed(x < 0.1 ? 1 : 0)} %`);
   /** The runs of the character looked at, or of every character (the account). */
   function runsShown() {
@@ -1017,6 +1017,13 @@
   }
   function verdictRow(v, label, title) {
     const [text, cls] = VERDICT[v.verdict] || VERDICT.none;
+    if (v.unrated) {
+      return el("div", { class: "row", title: title || "" },
+        labelWithDot(label, v.grade),
+        el("span", { text: v.boxes ? `${v.found} (${(v.rate || 0).toFixed(1)})` : String(v.found), title: v.boxes ? `${v.found} in ${v.boxes} boxes: ${(v.rate || 0).toFixed(2)} a box` : "" }),
+        el("span", { text: "—" }), el("span", { text: "—" }),
+        el("span", { class: `vd ${cls}`, title: "These come from reward pools that drop every box and roll several times; the game's table gives only each item's chance to drop at least once, not how many: no expected count to compare with" }, text));
+    }
     return el("div", { class: `row${v.main && v.key === "gold" ? " total" : ""}`, title: title || "" },
       labelWithDot(label, v.grade),
       el("span", { text: `${v.found} (${pctBox(v.rate)})`, title: v.boxes ? `${v.found} in ${v.boxes} boxes: ${pctBox(v.rate)} a box; 95 % sure your real rate lies between ${pctBox(v.rateLo)} and ${pctBox(v.rateHi)}` : "" }),
