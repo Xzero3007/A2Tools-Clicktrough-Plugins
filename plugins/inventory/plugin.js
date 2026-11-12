@@ -236,6 +236,8 @@
     }
   }
 
+  /** A grade's name with a dot in the item's colour after it. */
+  const gradeTag = (grade, rest = "") => el("span", { class: "grade" }, C.GRADES[grade] || "", el("i", { class: `dot g${grade}`, "aria-hidden": "true" }), rest);
   const el = (tag, props = {}, ...kids) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(props)) {
@@ -634,7 +636,7 @@
       if (group && group !== lastGroup) out.push(el("li", { class: "group", text: group }));
       lastGroup = group;
       const tags = el("span", { class: "tags" });
-      if (C.GRADES[r.grade]) tags.append(el("span", { text: C.GRADES[r.grade] }));
+      if (C.GRADES[r.grade]) tags.append(gradeTag(r.grade));
       if (r.sellable) tags.append(el("span", { class: "tag sell", title: `On the market: ${r.listings} listed${r.sold != null ? `, ${r.sold} sold in 28 days` : ""}`, text: "Sellable" }));
       else if (r.bound) tags.append(el("span", { class: "tag", text: "Bound" }));
       if (r.odd) tags.append(el("span", { class: "tag odd", title: `The lowest listing, ${C.kina(r.listed)}, is far above the usual price: ${globalThis.MarketAnomaly.reason(r.odd, C.kina)}. Counted at ${C.kina(r.unit)} each.`, text: "Usual price" }));
@@ -862,7 +864,7 @@
     goldBox.replaceChildren(...(gold.length ? gold.map(([at, item, n, k, z, w, who]) => el("li", { class: `g${C.grade(item)}`, title: `${C.name(item)} (${item})` },
       iconBox(item),
       el("span", { class: "nm" }, el("span", { class: "n", text: `${C.name(item)}${n > 1 ? ` ×${n}` : ""}` }),
-        el("span", { class: "tags" }, el("span", { text: C.GRADES[C.grade(item)] || "" }), s.account && who ? el("span", { class: "tag", text: who }) : null, el("span", { class: `tag src-${k}`, text: F.NAMES[k] || k }), el("span", { text: F.zoneName(z) }))),
+        el("span", { class: "tags" }, C.GRADES[C.grade(item)] ? gradeTag(C.grade(item)) : null, s.account && who ? el("span", { class: "tag", text: who }) : null, el("span", { class: `tag src-${k}`, text: F.NAMES[k] || k }), el("span", { text: F.zoneName(z) }))),
       el("span", { class: "cnt", text: clockOf(at) }),
       el("span", { class: "tot gold", text: w != null ? C.kina(w) : "" }))) : [el("li", { class: "empty", text: "No gold items this day." })]));
   }
@@ -1007,10 +1009,16 @@
     }
     return runLists.get(key) || [];
   }
+  /** A drop group's name, the dot after its grade (put on when it has none). */
+  function labelWithDot(label, grade) {
+    const name = C.GRADES[grade];
+    if (!name) return el("span", { text: label });
+    return label.startsWith(name) ? el("span", {}, gradeTag(grade, label.slice(name.length))) : el("span", {}, label, " ", gradeTag(grade));
+  }
   function verdictRow(v, label, title) {
     const [text, cls] = VERDICT[v.verdict] || VERDICT.none;
     return el("div", { class: `row${v.main && v.key === "gold" ? " total" : ""}`, title: title || "" },
-      el("span", { text: label }),
+      labelWithDot(label, v.grade),
       el("span", { text: `${v.found} (${pctBox(v.rate)})`, title: v.boxes ? `${v.found} in ${v.boxes} boxes: ${pctBox(v.rate)} a box; 95 % sure your real rate lies between ${pctBox(v.rateLo)} and ${pctBox(v.rateHi)}` : "" }),
       el("span", { text: v.expectedLo < v.expected * 0.97 ? `${v.expectedLo.toFixed(1)}–${v.expected.toFixed(1)}` : `${v.expected.toFixed(1)} (${pctBox(v.chance)})`,
         title: v.expectedLo < v.expected * 0.97 ? `${pctBox(v.chanceLo)} to ${pctBox(v.chance)} a box, times ${v.boxes} boxes: the game's table gives each item's chance to drop at least once a box, not how often` : `The game's chance a box: ${pctBox(v.chance)}, times ${v.boxes} boxes` }),
@@ -1066,7 +1074,7 @@
         el("div", { class: "dayCard" }, ...d.last.map((r) => el("div", { class: "row" },
           el("span", { text: `${dayLabel(r.from)} ${clockOf(r.from)}${account && r.who ? ` · ${r.who}` : ""}` }),
           el("span", { text: r.boxes ? `${r.boxes} box${r.boxes === 1 ? "" : "es"}` : r.energy ? `${r.energy} energy` : "no box" }),
-          el("span", { class: "pl" }, ...Object.entries(r.items).map(([id, n]) => el("span", { class: `tag g${C.grade(Number(id))}`, title: C.name(Number(id)), text: `${C.name(Number(id))}${n > 1 ? ` ×${n}` : ""}` }))))))));
+          el("span", { class: "pl" }, ...Object.entries(r.items).map(([id, n]) => el("span", { class: `tag g${C.grade(Number(id))}`, title: `${C.name(Number(id))} (${C.GRADES[C.grade(Number(id))] || ""})` }, el("i", { class: `dot g${C.grade(Number(id))}`, "aria-hidden": "true" }), ` ${C.name(Number(id))}${n > 1 ? ` ×${n}` : ""}`))))))));
       return el("div", { class: "dungeon" }, ...parts);
     }));
   }

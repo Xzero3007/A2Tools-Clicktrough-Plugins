@@ -110,6 +110,8 @@ pick.
   ending in 1 Normal, the others Hard) and shown with each dungeon.
   `python3 -I dev/make_dungeon_rates.py <rates.json> > dungeon-rates.js`
   writes the table.
+  0.6.2: each grade (Rare, Legend, Unique ...) with **a dot in the item's
+  colour** after it, here and in the item lists.
 - **Limits**: Kinah gained today (of 1,000,000), the week's Abyss Points (of
   the week's limit), and the keys and entry counts the game keeps (Shugo
   Festival keys, Nightmare, Dimensional Invasion, the daily dungeons, the

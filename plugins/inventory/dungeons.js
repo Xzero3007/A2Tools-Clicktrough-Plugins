@@ -27,7 +27,7 @@
   const TABLE = globalThis.INVENTORY_DUNGEON_RATES || { dungeons: {}, zones: {} };
   const EXTRA = {
     "Fire Temple|Hard": [
-      { key: "wrath", label: "Wrathful Mind, Will, Ego (pool 5)", perBox: 0.06, names: ["Wrathful Mind", "Wrathful Will", "Wrathful Ego"] },
+      { key: "wrath", label: "Unique Wrathful Mind, Will, Ego (pool 5)", perBox: 0.06, names: ["Wrathful Mind", "Wrathful Will", "Wrathful Ego"] },
     ],
   };
   const GRADE_NO = Object.fromEntries(C.GRADES.map((g, i) => [g, i]));
