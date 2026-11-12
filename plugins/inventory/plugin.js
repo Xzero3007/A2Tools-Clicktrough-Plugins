@@ -187,6 +187,55 @@
     });
   }
 
+  // ---------- dungeon runs ----------
+  // Each visit of a dungeon with the Odyle Energy spent there and the gold
+  // items that came in (dungeons.js), per character, against the game's
+  // drop rates.
+  const D = globalThis.InventoryDungeons;
+  const runLists = new Map(); // character key -> runs, oldest first
+  let energyLast = null; // { key, value }: the Odyle Energy last seen
+  let runQ = Promise.resolve();
+  const runKey = (key) => `d${key}`;
+  async function loadRuns(key) {
+    if (!key || runLists.has(key)) return;
+    let list = null;
+    try {
+      list = await a2.storage.get(runKey(key));
+    } catch {}
+    if (!runLists.has(key)) runLists.set(key, Array.isArray(list) ? list : []);
+  }
+  const runTimers = new Map();
+  function saveRuns(key) {
+    clearTimeout(runTimers.get(key));
+    runTimers.set(key, setTimeout(() => a2.storage.set(runKey(key), runLists.get(key) || []).catch(() => {}), 2000));
+  }
+  /** Changes the runs of the one playing with `fn(runs)`, in order. */
+  function runs(fn) {
+    const key = currentKey();
+    if (!key) return;
+    runQ = runQ.then(async () => {
+      await loadRuns(key);
+      const before = runLists.get(key);
+      const next = fn(before);
+      if (JSON.stringify(next) === JSON.stringify(before)) return;
+      runLists.set(key, next);
+      saveRuns(key);
+      if (settings.tab === "days") renderDays();
+    }).catch((e) => console.error(e));
+  }
+  function runEnergy(c) {
+    const key = currentKey();
+    const value = D.energyOf(c);
+    if (!key || value == null) return;
+    const before = energyLast?.key === key ? energyLast.value : null;
+    energyLast = { key, value };
+    if (before != null && value < before) {
+      const at = Number(c.seenAt?.contentCounts?.[D.ENERGY]) || Date.now();
+      const z = zone;
+      runs((l) => D.spend(l, z, before - value, at));
+    }
+  }
+
   const el = (tag, props = {}, ...kids) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(props)) {
@@ -746,6 +795,7 @@
     pick.replaceChildren(...opts.map((s) => el("option", { value: String(s.day), text: `${dayLabel(s.day)}${s.day === today ? " (today)" : ""}${s.account ? (s.capped ? ` · ${s.capped} cap${s.capped === 1 ? "" : "s"}` : "") : s.cap ? " · cap" : ""}`, selected: s.day === (shown?.day ?? today) })));
     renderDay(shown);
     renderStats(sums);
+    renderDungeons();
   }
 
   /** Where and when: a row a stint (newest first). */
@@ -931,6 +981,89 @@
         el("div", { class: "hourBars" }, ...byHour.map((n, h) => el("span", { title: `${String(h).padStart(2, "0")}:00 to ${String((h + 1) % 24).padStart(2, "0")}:00: ${n}` },
           el("i", { style: `height:${(n / most) * 100}%` }), el("small", { text: h % 3 ? "" : String(h) })))));
     }
+  }
+
+  // ---------- dungeon drops ----------
+  const VERDICT = { in: ["In range", "ok"], above: ["Above the range", "above"], below: ["Below the range", "below"], none: ["No boxes yet", "wait"] };
+  const pctBox = (x) => (x == null ? "—" : `${(x * 100).toFixed(x < 0.1 ? 1 : 0)} %`);
+  /** The runs of the character looked at, or of every character (the account). */
+  function runsShown() {
+    if (settings.farmWho === "all") {
+      const keys = [...new Set([...chars.map((c) => c.key), currentKey()].filter(Boolean))];
+      const missing = keys.filter((k) => !runLists.has(k));
+      if (missing.length) {
+        Promise.all(missing.map(loadRuns)).then(() => settings.tab === "days" && renderDays());
+        return null;
+      }
+      const out = {};
+      for (const k of keys) out[chars.find((c) => c.key === k)?.name || character?.name || k] = runLists.get(k) || [];
+      return out;
+    }
+    const key = viewKey();
+    if (!key) return [];
+    if (!runLists.has(key)) {
+      loadRuns(key).then(() => settings.tab === "days" && renderDays());
+      return null;
+    }
+    return runLists.get(key) || [];
+  }
+  function verdictRow(v, label, title) {
+    const [text, cls] = VERDICT[v.verdict] || VERDICT.none;
+    return el("div", { class: `row${v.key === "all" ? " total" : ""}`, title: title || "" },
+      el("span", { text: label }),
+      el("span", { text: `${v.found} (${pctBox(v.rate)})`, title: v.boxes ? `${v.found} in ${v.boxes} boxes: ${pctBox(v.rate)} a box; 95 % sure your real rate lies between ${pctBox(v.rateLo)} and ${pctBox(v.rateHi)}` : "" }),
+      el("span", { text: `${v.expected.toFixed(1)} (${pctBox(v.chance)})`, title: `The game's chance a box: ${pctBox(v.chance)}, times ${v.boxes} boxes` }),
+      el("span", { text: v.boxes ? `${v.lo}–${v.hi}` : "—", title: "95 of 100 players with as many boxes find this many" }),
+      el("span", { class: `vd ${cls}${v.sure ? "" : " prelim"}`, title: `${v.boxes ? pText(v.p) : ""}${v.sure ? "" : ` · still a hint: about ${v.need} more boxes until ${D.MIN_EXPECTED} drops are to expect`}` }, text));
+  }
+  function renderDungeons() {
+    const box = $(".dungeons");
+    const list = runsShown();
+    if (list == null) return;
+    const all = D.summarize(list);
+    if (!all.length) {
+      box.replaceChildren(el("p", { class: "empty", text: "Your dungeon runs show here: each visit with the Odyle Energy spent (40 a reward box) and what dropped, against the game's own drop rates." }));
+      return;
+    }
+    const account = settings.farmWho === "all";
+    box.replaceChildren(...all.map((d) => {
+      const t = d.total;
+      const parts = [el("div", { class: "dhead" },
+        el("b", { text: d.name }), d.level ? el("span", { class: "tag", text: d.level }) : null,
+        el("span", { class: "muted", text: `zone ${d.zone}` }),
+        el("span", { class: "dnums" }, el("b", { text: String(t.runs) }), ` run${t.runs === 1 ? "" : "s"} · `, el("b", { text: String(t.boxes) }), ` box${t.boxes === 1 ? "" : "es"} (${C.kina(t.energy)} Odyle Energy) · `,
+          el("b", { class: t.gold ? "g4c" : "", text: String(t.gold) }), ` gold item${t.gold === 1 ? "" : "s"}`,
+          t.boxless ? ` · ${t.boxless} visit${t.boxless === 1 ? "" : "s"} without a box` : ""))];
+      if (d.rows) {
+        const head = el("div", { class: "row head" }, el("span", { text: "Drops" }), el("span", { text: "You (a box)" }), el("span", { text: "Expected" }), el("span", { text: "Range" }), el("span", { text: "Verdict" }));
+        parts.push(el("div", { class: "dayCard dgrid" }, head, ...d.rows.map((v) => verdictRow(v, v.pool ? `${v.label} (pool ${v.pool})` : v.label))));
+        // Now: the last 7 days.
+        if (d.recent) {
+          const v = d.recent.rows.find((x) => x.key === "all");
+          const [text, cls] = VERDICT[v.verdict];
+          parts.push(el("div", { class: "dline" }, el("span", { class: "head", text: "Last 7 days:" }), ` ${v.found} in ${v.boxes} boxes (${pctBox(v.rate)} a box, expected ${pctBox(v.chance)}): `, el("b", { class: `vd ${cls}${v.sure ? "" : " prelim"}`, text }), ` (${pText(v.p)})`));
+        }
+        // Week by week.
+        if (d.weeks.length > 1 || (d.weeks.length && !d.recent)) {
+          parts.push(el("div", { class: "dayCard dweeks" }, el("div", { class: "row head" }, el("span", { text: "Week from" }), el("span", { text: "Boxes" }), el("span", { text: "Found" }), el("span", { text: "Expected" }), el("span", { text: "Verdict" })),
+            ...d.weeks.slice(0, 12).map((w) => {
+              const v = w.all;
+              const [text, cls] = VERDICT[v?.verdict || "none"];
+              return el("div", { class: "row" }, el("span", { text: dayLabel(w.week) }), el("span", { text: String(w.total.boxes) }), el("span", { text: v ? `${v.found} (${pctBox(v.rate)})` : "—" }),
+                el("span", { text: v ? `${v.expected.toFixed(1)}` : "—" }), el("span", { class: `vd ${cls}${v?.sure ? "" : " prelim"}`, title: v ? pText(v.p) : "", text }));
+            })));
+        }
+      } else {
+        parts.push(el("div", { class: "dline muted", text: `Gold items: ${t.boxes ? (t.gold / t.boxes).toFixed(2) : "—"} a box. The game's drop rates for this dungeon are not in the plugin yet: send the "Obtainable Rewards" window of each boss and they are added.` }));
+      }
+      // The last runs, to see what each one brought.
+      parts.push(el("details", { class: "druns" }, el("summary", { text: "Last runs" }),
+        el("div", { class: "dayCard" }, ...d.last.map((r) => el("div", { class: "row" },
+          el("span", { text: `${dayLabel(r.from)} ${clockOf(r.from)}${account && r.who ? ` · ${r.who}` : ""}` }),
+          el("span", { text: r.boxes ? `${r.boxes} box${r.boxes === 1 ? "" : "es"}` : r.energy ? `${r.energy} energy` : "no box" }),
+          el("span", { class: "pl" }, ...Object.entries(r.items).map(([id, n]) => el("span", { class: `tag g${C.grade(Number(id))}`, title: C.name(Number(id)), text: `${C.name(Number(id))}${n > 1 ? ` ×${n}` : ""}` }))))))));
+      return el("div", { class: "dungeon" }, ...parts);
+    }));
   }
 
   // ---------- limits and the floater ----------
@@ -1178,9 +1311,17 @@
   // ---------- from the meter ----------
   a2.on("character", async (c) => {
     const before = character?.serverId;
+    const keyBefore = currentKey();
     character = c || null;
     if (character?.name && currentKey() !== farmKey) keyCounts.clear();
     farmCharacter(character);
+    // Another character: the run of the one before ends, this one's starts
+    // where it is.
+    if (character?.name && currentKey() !== keyBefore && zone != null) {
+      const z = zone;
+      runs((l) => D.enter(l, z, Date.now()));
+    }
+    runEnergy(character);
     if (character?.name) {
       await loadStock(currentKey());
       await loadKept(currentKey());
@@ -1200,11 +1341,16 @@
     // Another zone: the Map's region of the one before no longer holds.
     if (zone != null) area = null;
     zone = z;
+    runs((l) => D.enter(l, z, Date.now()));
   });
   a2.on("items", (it) => {
     if (!it || typeof it !== "object") return;
     farmItems(it);
     noteItems(it);
+    if (it.changes?.length) {
+      const z = zone;
+      runs((l) => D.addItems(l, z, it));
+    }
     // Where and when, in the session (Drops).
     if (it.changes?.length) {
       const where = F.trackItems(session.where, it, zone, placeLabel(), priceOf, session.start || 0);

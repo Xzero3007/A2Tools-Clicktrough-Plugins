@@ -143,3 +143,22 @@ li.sellable .tot { color: var(--gold-t); font-weight: 600; }
 .whereBox { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
 .whereBox .head { color: var(--text); font-weight: 600; margin: 0 0 4px; }
 .whereBox .dayCard { max-height: 160px; overflow: auto; }
+.dungeon { margin: 0 0 12px; }
+.dungeon .dhead { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; margin: 0 2px 4px; font-size: 12px; }
+.dungeon .dhead > b { font-size: 13px; }
+.dungeon .dnums { color: var(--muted); }
+.dungeon .dnums b { color: var(--text); font-weight: 600; }
+.dayCard.dgrid .row { grid-template-columns: minmax(0, 2.2fr) 1fr 1fr .7fr 1.1fr; }
+.dayCard.dweeks { margin-top: 6px; }
+.dayCard.dweeks .row { grid-template-columns: 1.2fr .6fr 1fr .7fr 1.1fr; }
+.dungeon .dline { font-size: 12px; color: var(--muted); margin: 5px 2px 0; }
+.dungeon .dline .head { color: var(--text); font-weight: 600; }
+.vd.ok { color: #a8ecbd; }
+.vd.above { color: var(--gold-t); }
+.vd.below { color: #ff7a6b; }
+.vd.wait { color: var(--muted); }
+.vd.prelim { opacity: .6; }
+.druns { margin-top: 5px; font-size: 12px; }
+.druns summary { cursor: pointer; color: var(--muted); }
+.druns .row { grid-template-columns: 1.3fr .7fr minmax(0, 3fr); }
+.druns .row > span:last-child { text-align: left; flex-wrap: wrap; }
