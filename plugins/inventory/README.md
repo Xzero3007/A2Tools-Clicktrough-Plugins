@@ -86,24 +86,30 @@ pick.
     missing and shows a trend only as a hint.
 - **Dungeon drops** (0.6.0): each **run** (a visit of a dungeon) with the
   **reward boxes** taken (40 Odyle Energy spent there a box; the game's
-  count of Odyle Energy going down, `events:character`) and the gold items
-  that came in, per character or for the whole account. Where the plugin
-  has **the game's own drop rates** (its "Obtainable Rewards" window, AION
-  2 Global; so far **Fire Temple Hard**), each reward pool's drops against
-  them: a box rolls every boss's pools, so Fire Temple Hard expects 15 %
-  Enraged Kromede gear a box (pool 1: Kromede's Desire 7.5 %, Red Spark
-  Ignus and Black Smoke Murute 3.75 % each), 6 % Wrathful Mind, Will or
-  Ego (pool 5: 3.6 + 1.2 + 1.2 %) and 2.5 % Kromede Wings or an artwork
-  (pool 4: 1.5 + 0.5 + 0.5 %). For each: your count and rate a box, what
-  was to expect, the **range** 95 of 100 players with as many boxes land
-  in, and the **verdict** (in range, above or below it: more than luck,
-  an exact Poisson test, p < 5 %; faint while fewer than 5 drops are to
-  expect), all of them together, the **last 7 days**, **week by week**
-  (from the weekly reset), and the last runs with what each brought. A
-  dungeon without rates shows its runs, boxes and gold a box. Which zone is
-  which difficulty is assumed from the game's numbering (Fire Temple Hard:
-  600023) and shown with each dungeon. The rates are in `dungeons.js`
-  (`RATES`), the item groups by name.
+  count of Odyle Energy going down, `events:character`) and the gold and
+  rated items that came in, per character or for the whole account.
+  Against **the game's own drop rates** (0.6.1: AION 2 Global, the game's
+  reward tables, game version 2026.10.28; `dungeon-rates.js`): Fire
+  Temple, Krao Cave, Urugugu Canyon, Ferocious Horn Den (Normal and Hard),
+  Draupnir and Vakron Sky Island (Hard), Abyssal Forge: Ludra. A box rolls
+  every boss's pools; the table gives each item's chance to drop at least
+  once a box, and an item the game drops more often elsewhere is not in a
+  dungeon's table (Fire Temple Hard's Wrathful Mind, Will and Ego are
+  added from the game's Obtainable Rewards window: 3.6 + 1.2 + 1.2 %). The
+  items go in groups by grade (Unique gear, Unique collectibles, Legend
+  gear ...; hover a row for its items and chances), each with your count
+  and rate a box, what was to expect (a range where the table can't say
+  how often a common item drops in one box: between one roll and three
+  bosses' rolls), the **range** 95 of 100 players with as many boxes land
+  in, and the **verdict** (in range, above or below it: more than luck, an
+  exact Poisson test, p < 5 %; faint while fewer than 5 drops are to
+  expect); **Unique and up together**, the **last 7 days** and **week by
+  week** (from the weekly reset); the last runs with what each brought. A
+  dungeon or mode without rates shows its runs, boxes and gold a box. Which
+  zone is which mode is taken from the game's numbering (a dungeon's id
+  ending in 1 Normal, the others Hard) and shown with each dungeon.
+  `python3 -I dev/make_dungeon_rates.py <rates.json> > dungeon-rates.js`
+  writes the table.
 - **Limits**: Kinah gained today (of 1,000,000), the week's Abyss Points (of
   the week's limit), and the keys and entry counts the game keeps (Shugo
   Festival keys, Nightmare, Dimensional Invasion, the daily dungeons, the

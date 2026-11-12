@@ -13,29 +13,56 @@
   const WEEK_RESET = Date.UTC(2026, 0, 7, 7); // a Wednesday, 07:00 UTC: the game's weekly reset
   const RECENT_MS = 7 * 86_400_000;
 
-  // The game's drop rates, as its "Obtainable Rewards" window shows them
-  // (AION 2 Global; the person's screenshots). Each group: the items it
-  // holds (by name, bound copies too) and each boss's chance a reward box
-  // that one of them drops (the pool's chance times its rolls). A box holds
-  // every boss's pools. Zone: the game's dungeon id; which id is which
-  // difficulty is assumed (the last digit, 3 = Hard) until a run says it.
-  const RATES = {
-    600023: {
-      name: "Fire Temple", level: "Hard", energy: BOX, asOf: "2026-11-12", zoneAssumed: true,
-      bosses: ["Kromede's Desire", "Red Spark Ignus", "Black Smoke Murute"],
-      groups: [
-        { key: "gear", label: "Enraged Kromede gear", pool: 1, chances: [7.5, 3.75, 3.75],
-          items: /^Enraged Kromede (Claymore|Sword|Silver Dagger|Longbow|Spellbook|Jewel|Warhammer|Rod|Necklace|Earrings)$/ },
-        { key: "wrath", label: "Wrathful Mind, Will, Ego", pool: 5, chances: [3.6, 1.2, 1.2],
-          items: /^Wrathful (Mind|Will|Ego)( \(Bound\))?$/ },
-        { key: "art", label: "Kromede Wings, artworks", pool: 4, chances: [1.5, 0.5, 0.5],
-          items: /^(Sealed Kromede Wings|Artwork: (Wrathful )?Fire Temple)$/ },
-      ],
-    },
+  // The game's drop rates (AION 2 Global, its own reward tables:
+  // dungeon-rates.js): per dungeon and mode the chance a reward box (one
+  // clear: every boss's pools) drops each item at least once. The items
+  // go in groups by grade, gear or other; a group's expected count a box
+  // is its items' added up, each item's as if its chance were three bosses'
+  // between the chance (one roll) and three bosses' rolls (a little more
+  // for common items: 0.42 for 36 %): the table says no more. A count
+  // inside either model's range is in range. An item the game drops more often elsewhere is not in a
+  // dungeon's table. Added from the game's "Obtainable Rewards" window
+  // (the person's screenshots): Fire Temple Hard's Wrathful Mind, Will and
+  // Ego (pool 5: 3.6 + 1.2 + 1.2 %), which the table leaves out.
+  const TABLE = globalThis.INVENTORY_DUNGEON_RATES || { dungeons: {}, zones: {} };
+  const EXTRA = {
+    "Fire Temple|Hard": [
+      { key: "wrath", label: "Wrathful Mind, Will, Ego (pool 5)", perBox: 0.06, names: ["Wrathful Mind", "Wrathful Will", "Wrathful Ego"] },
+    ],
   };
+  const GRADE_NO = Object.fromEntries(C.GRADES.map((g, i) => [g, i]));
+  const GEAR = new Set(["Weapons", "Armor", "Accessories"]);
+  const bare = (n) => String(n || "").replace(/\s*\((Bound|Event)\)\s*$/i, "");
+  const each = (p) => 3 * (1 - Math.pow(1 - Math.min(p, 0.999999), 1 / 3));
+  const RATES = {};
+  for (const [zone, [name, mode]] of Object.entries(TABLE.zones || {})) {
+    const rows = TABLE.dungeons?.[name]?.[mode];
+    if (!rows) continue;
+    const groups = new Map();
+    const byId = new Map(), byName = new Map();
+    for (const [id, item, grade, cat] of rows) {
+      const gear = GEAR.has(cat);
+      const key = `${grade}-${gear ? "gear" : "other"}`;
+      if (!groups.has(key)) groups.set(key, { key, label: `${grade} ${gear ? "gear" : cat === "Materials" ? "materials" : "collectibles and more"}`, grade: GRADE_NO[grade] || 0, perBox: 0, perBoxLo: 0, items: [] });
+      const p = rows.find((r) => r[0] === id)[4];
+      const g = groups.get(key);
+      g.perBox += each(p);
+      g.perBoxLo += p;
+      g.items.push([id, item, p]);
+      byId.set(id, key);
+      byName.set(`${bare(item)}|${GRADE_NO[grade] || 0}`, key);
+    }
+    for (const x of EXTRA[`${name}|${mode}`] || []) {
+      groups.set(x.key, { key: x.key, label: x.label, grade: 4, perBox: x.perBox, perBoxLo: x.perBox, items: x.names.map((n) => [null, n, null]), extra: true });
+      for (const n of x.names) byName.set(`${n}|4`, x.key);
+    }
+    const list = [...groups.values()].sort((a, b) => b.grade - a.grade || (a.key < b.key ? -1 : 1));
+    RATES[zone] = { name, level: mode, energy: BOX, zoneAssumed: true, groups: list, byId, byName, version: TABLE.gameVersion || null };
+  }
   const rateOf = (zone) => RATES[String(zone)] || null;
-  const perBox = (g) => g.chances.reduce((t, c) => t + c, 0) / 100;
-  const groupOf = (rate, item) => (rate ? rate.groups.find((g) => g.items.test(C.name(item)))?.key || null : null);
+  const perBox = (g) => g.perBox;
+  const perBoxLo = (g) => g.perBoxLo ?? g.perBox;
+  const groupOf = (rate, item) => (rate ? rate.byId.get(Number(item)) || rate.byName.get(`${bare(C.name(item))}|${C.grade(item)}`) || null : null);
   const isDungeon = (zone) => F.zoneSource(zone) === "dungeon";
   /** The Odyle Energy a character has (what is left and what is extra). */
   function energyOf(character) {
@@ -153,15 +180,16 @@
     return [lower, upper];
   }
   const MIN_EXPECTED = 5; // a verdict means something once 5 drops are expected
-  /** `found` drops in `n` boxes at `chance` a box: what was to expect, the
-   *  range 95 % of players land in, and whether you are in it. */
-  function compare(found, n, chance) {
-    const lam = n * chance;
-    const [lo, hi] = [quantile(lam, 0.025), quantile(lam, 0.975)];
-    const p = pValue(found, lam);
+  /** `found` drops in `n` boxes at `chance` a box (or between `chanceLo`
+   *  and `chance`): what was to expect, the range 95 % of players land in,
+   *  and whether you are in it. */
+  function compare(found, n, chance, chanceLo = chance) {
+    const lam = n * chance, lamLo = n * Math.min(chanceLo, chance);
+    const [lo, hi] = [quantile(lamLo, 0.025), quantile(lam, 0.975)];
+    const p = found < lamLo ? pValue(found, lamLo) : found > lam ? pValue(found, lam) : 1;
     const [mLo, mHi] = meanRange(found);
     const verdict = !n ? "none" : p < 0.05 ? (found > lam ? "above" : "below") : "in";
-    return { found, boxes: n, chance, expected: lam, lo, hi, p, verdict, rate: n ? found / n : null, rateLo: n ? mLo / n : null, rateHi: n ? mHi / n : null, sure: lam >= MIN_EXPECTED, need: lam >= MIN_EXPECTED ? 0 : Math.ceil(MIN_EXPECTED / chance) - n };
+    return { found, boxes: n, chance, chanceLo: Math.min(chanceLo, chance), expected: lam, expectedLo: lamLo, lo, hi, p, verdict, rate: n ? found / n : null, rateLo: n ? mLo / n : null, rateHi: n ? mHi / n : null, sure: lam >= MIN_EXPECTED, need: lam >= MIN_EXPECTED ? 0 : Math.ceil(MIN_EXPECTED / chance) - n };
   }
   /** What the runs `list` hold: boxes, runs, energy, gold, and each group's drops. */
   function tally(list, rate) {
@@ -187,10 +215,12 @@
   }
   function verdicts(t, rate) {
     if (!rate) return null;
-    const rows = rate.groups.map((g) => ({ key: g.key, label: g.label, pool: g.pool, ...compare(t.found[g.key] || 0, t.boxes, perBox(g)) }));
-    const all = rate.groups.reduce((s, g) => s + perBox(g), 0);
-    const found = rate.groups.reduce((s, g) => s + (t.found[g.key] || 0), 0);
-    rows.push({ key: "all", label: "All of these", ...compare(found, t.boxes, all) });
+    const rows = rate.groups.map((g) => ({ key: g.key, label: g.label, grade: g.grade, ...compare(t.found[g.key] || 0, t.boxes, perBox(g), perBoxLo(g)) }));
+    // Gold and up together: the drops that count most (the summary's row).
+    const gold = rate.groups.filter((g) => g.grade >= 4);
+    const sum = (f) => gold.reduce((s, g) => s + f(g), 0);
+    if (gold.length > 1) rows.push({ key: "gold", label: "Unique and up, together", grade: 4, main: true, ...compare(sum((g) => t.found[g.key] || 0), t.boxes, sum(perBox), sum(perBoxLo)) });
+    else (rows.find((r) => r.grade >= 4) || rows[0]).main = true;
     return rows;
   }
   const weekOf = (at) => WEEK_RESET + Math.floor((at - WEEK_RESET) / WEEK_MS) * WEEK_MS;
@@ -224,7 +254,7 @@
         recent: recent.boxes ? { total: recent, rows: verdicts(recent, rate) } : null,
         weeks: [...weeks].sort((a, b) => b[0] - a[0]).map(([week, l]) => {
           const wt = tally(l, rate);
-          return { week, total: wt, all: rate && wt.boxes ? verdicts(wt, rate).find((x) => x.key === "all") : null };
+          return { week, total: wt, all: rate && wt.boxes ? verdicts(wt, rate).find((x) => x.main) : null };
         }).filter((w) => w.total.runs),
         last: list.slice(-10).reverse().map((r) => ({ from: r.from, to: r.to, boxes: boxes(r), energy: r.energy || 0, gold: r.gold || 0, items: { ...r.items }, who: r.who || null })),
         latest: list[list.length - 1].from,
@@ -234,7 +264,7 @@
   }
 
   globalThis.InventoryDungeons = Object.freeze({
-    RATES, ENERGY, BOX, MIN_EXPECTED, rateOf, perBox, groupOf, isDungeon, energyOf,
+    RATES, ENERGY, BOX, MIN_EXPECTED, rateOf, perBox, perBoxLo, groupOf, isDungeon, energyOf,
     enter, spend, addItems, boxes, summarize, compare, tally, quantile, pValue, cdf, meanRange, weekOf,
   });
 })();

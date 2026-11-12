@@ -1009,10 +1009,11 @@
   }
   function verdictRow(v, label, title) {
     const [text, cls] = VERDICT[v.verdict] || VERDICT.none;
-    return el("div", { class: `row${v.key === "all" ? " total" : ""}`, title: title || "" },
+    return el("div", { class: `row${v.main && v.key === "gold" ? " total" : ""}`, title: title || "" },
       el("span", { text: label }),
       el("span", { text: `${v.found} (${pctBox(v.rate)})`, title: v.boxes ? `${v.found} in ${v.boxes} boxes: ${pctBox(v.rate)} a box; 95 % sure your real rate lies between ${pctBox(v.rateLo)} and ${pctBox(v.rateHi)}` : "" }),
-      el("span", { text: `${v.expected.toFixed(1)} (${pctBox(v.chance)})`, title: `The game's chance a box: ${pctBox(v.chance)}, times ${v.boxes} boxes` }),
+      el("span", { text: v.expectedLo < v.expected * 0.97 ? `${v.expectedLo.toFixed(1)}–${v.expected.toFixed(1)}` : `${v.expected.toFixed(1)} (${pctBox(v.chance)})`,
+        title: v.expectedLo < v.expected * 0.97 ? `${pctBox(v.chanceLo)} to ${pctBox(v.chance)} a box, times ${v.boxes} boxes: the game's table gives each item's chance to drop at least once a box, not how often` : `The game's chance a box: ${pctBox(v.chance)}, times ${v.boxes} boxes` }),
       el("span", { text: v.boxes ? `${v.lo}–${v.hi}` : "—", title: "95 of 100 players with as many boxes find this many" }),
       el("span", { class: `vd ${cls}${v.sure ? "" : " prelim"}`, title: `${v.boxes ? pText(v.p) : ""}${v.sure ? "" : ` · still a hint: about ${v.need} more boxes until ${D.MIN_EXPECTED} drops are to expect`}` }, text));
   }
@@ -1029,32 +1030,36 @@
     box.replaceChildren(...all.map((d) => {
       const t = d.total;
       const parts = [el("div", { class: "dhead" },
-        el("b", { text: d.name }), d.level ? el("span", { class: "tag", text: d.level }) : null,
+        el("b", { text: d.name }), d.level ? el("span", { class: "tag", text: d.level, title: "The mode is taken from the game's zone number: tell it if it is wrong" }) : null,
         el("span", { class: "muted", text: `zone ${d.zone}` }),
         el("span", { class: "dnums" }, el("b", { text: String(t.runs) }), ` run${t.runs === 1 ? "" : "s"} · `, el("b", { text: String(t.boxes) }), ` box${t.boxes === 1 ? "" : "es"} (${C.kina(t.energy)} Odyle Energy) · `,
           el("b", { class: t.gold ? "g4c" : "", text: String(t.gold) }), ` gold item${t.gold === 1 ? "" : "s"}`,
           t.boxless ? ` · ${t.boxless} visit${t.boxless === 1 ? "" : "s"} without a box` : ""))];
       if (d.rows) {
         const head = el("div", { class: "row head" }, el("span", { text: "Drops" }), el("span", { text: "You (a box)" }), el("span", { text: "Expected" }), el("span", { text: "Range" }), el("span", { text: "Verdict" }));
-        parts.push(el("div", { class: "dayCard dgrid" }, head, ...d.rows.map((v) => verdictRow(v, v.pool ? `${v.label} (pool ${v.pool})` : v.label))));
+        parts.push(el("div", { class: "dayCard dgrid" }, head, ...d.rows.map((v) => {
+          const g = d.rate.groups.find((x) => x.key === v.key);
+          const tip = g ? g.items.map(([, n, p]) => (p != null ? `${n}: ${pctBox(p)}` : n)).join("\n") + (g.extra ? "\n(the game's Obtainable Rewards window)" : "") : "";
+          return verdictRow(v, v.label, tip ? `The game's chance a box, each at least once:\n${tip}` : "");
+        })));
         // Now: the last 7 days.
         if (d.recent) {
-          const v = d.recent.rows.find((x) => x.key === "all");
+          const v = d.recent.rows.find((x) => x.main);
           const [text, cls] = VERDICT[v.verdict];
-          parts.push(el("div", { class: "dline" }, el("span", { class: "head", text: "Last 7 days:" }), ` ${v.found} in ${v.boxes} boxes (${pctBox(v.rate)} a box, expected ${pctBox(v.chance)}): `, el("b", { class: `vd ${cls}${v.sure ? "" : " prelim"}`, text }), ` (${pText(v.p)})`));
+          parts.push(el("div", { class: "dline" }, el("span", { class: "head", text: "Last 7 days" }), ` (${v.label.replace(", together", "")}): ${v.found} in ${v.boxes} boxes (${pctBox(v.rate)} a box, expected ${v.chanceLo < v.chance * 0.97 ? `${pctBox(v.chanceLo)}–` : ""}${pctBox(v.chance)}): `, el("b", { class: `vd ${cls}${v.sure ? "" : " prelim"}`, text }), ` (${pText(v.p)})`));
         }
         // Week by week.
         if (d.weeks.length > 1 || (d.weeks.length && !d.recent)) {
-          parts.push(el("div", { class: "dayCard dweeks" }, el("div", { class: "row head" }, el("span", { text: "Week from" }), el("span", { text: "Boxes" }), el("span", { text: "Found" }), el("span", { text: "Expected" }), el("span", { text: "Verdict" })),
+          parts.push(el("div", { class: "dayCard dweeks" }, el("div", { class: "row head" }, el("span", { text: "Week from" }), el("span", { text: "Boxes" }), el("span", { text: d.rows.find((x) => x.main)?.grade >= 4 ? "Unique+" : "Found" }), el("span", { text: "Expected" }), el("span", { text: "Verdict" })),
             ...d.weeks.slice(0, 12).map((w) => {
               const v = w.all;
               const [text, cls] = VERDICT[v?.verdict || "none"];
               return el("div", { class: "row" }, el("span", { text: dayLabel(w.week) }), el("span", { text: String(w.total.boxes) }), el("span", { text: v ? `${v.found} (${pctBox(v.rate)})` : "—" }),
-                el("span", { text: v ? `${v.expected.toFixed(1)}` : "—" }), el("span", { class: `vd ${cls}${v?.sure ? "" : " prelim"}`, title: v ? pText(v.p) : "", text }));
+                el("span", { text: v ? (v.expectedLo < v.expected * 0.97 ? `${v.expectedLo.toFixed(1)}–${v.expected.toFixed(1)}` : v.expected.toFixed(1)) : "—" }), el("span", { class: `vd ${cls}${v?.sure ? "" : " prelim"}`, title: v ? pText(v.p) : "", text }));
             })));
         }
       } else {
-        parts.push(el("div", { class: "dline muted", text: `Gold items: ${t.boxes ? (t.gold / t.boxes).toFixed(2) : "—"} a box. The game's drop rates for this dungeon are not in the plugin yet: send the "Obtainable Rewards" window of each boss and they are added.` }));
+        parts.push(el("div", { class: "dline muted", text: `Gold items: ${t.boxes ? (t.gold / t.boxes).toFixed(2) : "—"} a box. The game's drop rates for this dungeon and mode are not in the plugin.` }));
       }
       // The last runs, to see what each one brought.
       parts.push(el("details", { class: "druns" }, el("summary", { text: "Last runs" }),

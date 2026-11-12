@@ -5,7 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const dir = process.env.PLUGIN_DIR || path.join(__dirname, "..", "..");
-for (const f of ["data.js", "anomaly.js", "calc.js", "zones.js", "days.js", "dungeons.js"]) require(path.join(dir, f));
+for (const f of ["data.js", "anomaly.js", "calc.js", "zones.js", "days.js", "dungeon-rates.js", "dungeons.js"]) require(path.join(dir, f));
 const C = globalThis.InventoryCalc;
 const D = globalThis.InventoryDungeons;
 
@@ -17,22 +17,31 @@ const MEAT = 610531001; // Common
 const T0 = Date.UTC(2026, 10, 12, 9, 0, 0);
 const gain = (at, item, n) => ({ changes: [[1, at, 1, item, n]] });
 
-test("the rate table: Fire Temple Hard as the game shows it", () => {
+test("the rate table: the game's, Fire Temple Hard as its window shows it", () => {
   const r = D.rateOf(FT_HARD);
   assert.equal(r.name, "Fire Temple");
-  assert.equal(r.groups.length, 3);
-  const by = Object.fromEntries(r.groups.map((g) => [g.key, D.perBox(g)]));
-  assert.ok(Math.abs(by.gear - 0.15) < 1e-12);
-  assert.ok(Math.abs(by.wrath - 0.06) < 1e-12);
-  assert.ok(Math.abs(by.art - 0.025) < 1e-12);
-  assert.equal(D.groupOf(r, CLAYMORE), "gear");
-  assert.equal(D.groupOf(r, 310130051), "gear", "the necklace's other id");
-  assert.equal(D.groupOf(r, 310330037), null, "the ring is no Hard drop");
+  assert.equal(r.level, "Hard");
+  assert.equal(D.rateOf(FT_OTHER).level, "Normal");
+  assert.equal(D.rateOf(600031), null, "Draupnir Normal: its drops are all better elsewhere");
+  assert.equal(D.rateOf(600082).name, "Abyssal Forge: Ludra");
+  const by = Object.fromEntries(r.groups.map((g) => [g.key, g]));
+  // The window: pool 1 is 7.5 % (Kromede's Desire) + 3.75 % twice, its
+  // weights 8 × 5.747285 %, 13.792054 %, 17.241853 % and the ring's rest.
+  const kromede = by["Unique-gear"].items.filter(([, n]) => /^Enraged Kromede/.test(n));
+  assert.equal(kromede.length, 11, "the ring is in pool 1 too");
+  const claymore = kromede.find(([, n]) => n === "Enraged Kromede Claymore")[2];
+  const fromWindow = 1 - (1 - 0.075 * 0.05747285) * (1 - 0.0375 * 0.05747285) ** 2;
+  assert.ok(Math.abs(claymore - fromWindow) < 1e-7, `${claymore} ${fromWindow}`);
+  assert.ok(Math.abs(D.perBox(by["Unique-gear"]) - 0.15) < 0.002, `${D.perBox(by["Unique-gear"])}`);
+  assert.ok(Math.abs(D.perBox(by.wrath) - 0.06) < 1e-12);
+  assert.ok(by["Legend-gear"].perBox > 3, "the Corrupted Judicator set: more than 3 pieces a box");
+  assert.equal(D.groupOf(r, CLAYMORE), "Unique-gear", "by name: the window's other id");
+  assert.equal(D.groupOf(r, 310130051), "Unique-gear");
+  assert.equal(D.groupOf(r, 310330053), "Unique-gear", "the ring");
   assert.equal(D.groupOf(r, EGO), "wrath");
   assert.equal(D.groupOf(r, 630511013), "wrath", "a bound copy");
-  assert.equal(D.groupOf(r, WINGS), "art");
-  assert.equal(D.groupOf(r, 514310203), "art", "Artwork: Wrathful Fire Temple");
-  assert.equal(D.rateOf(FT_OTHER), null);
+  assert.equal(D.groupOf(r, WINGS), "Unique-other");
+  assert.equal(D.groupOf(r, MEAT), null);
   assert.equal(D.energyOf({ contentCounts: { 60000001: [600, 40] } }), 640);
   assert.equal(D.energyOf({}), null);
 });
@@ -101,21 +110,27 @@ test("the summary: per dungeon, all, the last 7 days, week by week", () => {
   // A dungeon without rates.
   runs = D.enter(runs, FT_OTHER, T0 + 10_000);
   runs = D.spend(runs, FT_OTHER, 40, T0 + 11_000);
+  runs = D.enter(runs, 600031, T0 + 12_000);
+  runs = D.spend(runs, 600031, 40, T0 + 13_000);
   const s = D.summarize(runs, T0 + 20_000);
-  assert.equal(s.length, 2);
+  assert.equal(s.length, 3);
+  assert.equal(s.find((x) => x.zone === 600031).rows, null, "no rates: no verdict");
   const ft = s.find((x) => x.zone === FT_HARD);
   assert.equal(ft.total.runs, 20);
   assert.equal(ft.total.boxes, 40);
-  const gear = ft.rows.find((r) => r.key === "gear");
+  const gear = ft.rows.find((r) => r.key === "Unique-gear");
   assert.equal(gear.found, 5);
-  assert.ok(Math.abs(gear.expected - 6) < 1e-9);
+  assert.ok(Math.abs(gear.expected - 40 * D.perBox(D.rateOf(FT_HARD).groups.find((g) => g.key === "Unique-gear"))) < 1e-9);
   assert.equal(gear.verdict, "in");
-  assert.equal(ft.rows.find((r) => r.key === "all").found, 5);
+  assert.equal(ft.rows.find((r) => r.main).found, 5);
+  // A count between the two models (one roll, three bosses') is in range.
+  assert.equal(D.compare(38, 100, 0.42, 0.364).verdict, "in");
+  assert.equal(D.compare(22, 100, 0.42, 0.364).verdict, "below");
   assert.ok(ft.recent.total.boxes > 0 && ft.recent.total.boxes < 40);
   assert.ok(ft.weeks.length >= 2);
   assert.equal(ft.weeks.reduce((t, w) => t + w.total.boxes, 0), 40);
   const other = s.find((x) => x.zone === FT_OTHER);
-  assert.equal(other.rows, null);
+  assert.equal(other.rows.length > 1, true, "Fire Temple Normal has the game's rates too");
   assert.equal(other.total.boxes, 1);
   // The account: each run with whose it is.
   const acc = D.summarize({ A: runs, B: runs }, T0 + 20_000);
