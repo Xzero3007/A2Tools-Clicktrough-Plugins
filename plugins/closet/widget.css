@@ -8,6 +8,11 @@ html, body { height: 100%; margin: 0; background: transparent; overflow: hidden;
 .head { display: flex; align-items: center; gap: 8px; padding: 6px 10px 3px; cursor: move; user-select: none; }
 .title { flex: 1; font-size: 12px; color: rgba(255, 255, 255, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .goal { color: #f2c46b; font-weight: 600; font-variant-numeric: tabular-nums; }
+.views { display: flex; gap: 3px; }
+.views button { background: none; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 9px; color: rgba(255, 255, 255, 0.6);
+  font: inherit; font-size: 11px; line-height: 16px; padding: 0 8px; cursor: pointer; }
+.views button:hover { color: #fff; }
+.views button.on { background: var(--a2-accent, #e0a526); border-color: var(--a2-accent, #e0a526); color: #1a1408; font-weight: 700; }
 .close { background: none; border: 0; color: rgba(255, 255, 255, 0.6); font-size: 16px; line-height: 1; padding: 0 2px; cursor: pointer; }
 .close:hover { color: #fff; }
 /* The × stays while locked: at the shop the window takes the mouse then. */
@@ -104,3 +109,8 @@ li.new .name { color: #f2c46b; font-weight: 600; }
 .advice li.todo { color: #f2c46b; display: block; }
 .advice li.good { color: #f2c46b; font-weight: 600; display: block; }
 .advice li:not(.todo):not(.good) { display: block; }
+/* Big pictures in the window (0.3.0): easier to tell the skins apart. */
+.rows li { grid-template-columns: 72px minmax(0, 1fr) auto 46px; height: 82px; gap: 10px; }
+.rows li .icon { width: 72px; height: 72px; border-radius: 8px; font-size: 18px; }
+.rows li .name { font-size: 13px; }
+.rows li .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

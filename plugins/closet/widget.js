@@ -6,9 +6,32 @@
   const $ = (s) => document.querySelector(s);
   let locked = false;
   let last = null;
-  // The skins' pictures, each sent by the plugin in a message of its own.
+  // The skins' pictures, sent by the plugin in messages of their own: a kept
+  // small copy whole, a picture from the icon server in parts.
   const pictures = new Map();
+  const parts = new Map(); // icon -> { n, got: [], count }
   const pictureOf = (o) => o.picture || (o.icon && pictures.get(o.icon)) || null;
+  // A small copy (144 px, on the window's colour) for the plugin to keep.
+  function keepSmall(icon, src) {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = c.height = 144;
+        const g = c.getContext("2d");
+        g.fillStyle = "#212328";
+        g.fillRect(0, 0, 144, 144);
+        const k = Math.max(144 / img.naturalWidth, 144 / img.naturalHeight);
+        const w = img.naturalWidth * k, h = img.naturalHeight * k;
+        g.drawImage(img, (144 - w) / 2, (144 - h) / 2, w, h);
+        const data = c.toDataURL("image/jpeg", 0.88);
+        if (data.startsWith("data:image/jpeg") && data.length <= 30000) a2.widget.post({ type: "thumb", icon, data }).catch(() => {});
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    img.src = src;
+  }
   const el = (tag, cls, text) => {
     const n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -60,10 +83,29 @@
     return li;
   }
 
+  // The Exchange tab: every skin you lack that is listed there, cheapest first.
+  function drawExchange(st) {
+    const ex = st?.exchange || { total: 0, rows: [] };
+    const rows = Array.isArray(ex.rows) ? ex.rows : [];
+    const info = $(".info");
+    const good = rows.filter((o) => o.good).length;
+    if (st?.error) info.textContent = `Something went wrong: ${st.error}`;
+    else if (!rows.length) info.textContent = ex.note || "None of the skins you lack is on the Exchange now.";
+    else info.textContent = `${ex.total} you lack on the Exchange${ex.total > rows.length ? `, the ${rows.length} cheapest` : ""}${good ? ` · ${good} below the merchant` : ""} · ${ex.from === "game" ? "from the game" : `price list ${clock(ex.at)}`}`;
+    info.classList.toggle("good", good > 0);
+    $(".chars").replaceChildren();
+    $(".rows").replaceChildren(...rows.map(exRow));
+    $(".advice").replaceChildren();
+    $(".foot").hidden = true;
+  }
+
   // Top: the merchant's skins you just opened (new first). Below, two short
   // lines: characters not looked at this hour, and what to combine.
   function drawStatus(st) {
     $(".title").textContent = "Closet";
+    const view = st?.view === "exchange" ? "exchange" : "shop";
+    for (const b of document.querySelectorAll(".views button")) b.classList.toggle("on", b.dataset.view === view);
+    if (view === "exchange") return drawExchange(st);
     const offers = Array.isArray(st?.offers) ? st.offers : [];
     const fresh = offers.filter((o) => o.status === "new").length;
     const info = $(".info");
@@ -127,7 +169,21 @@
   let redraw = 0;
   a2.on("widget", (data) => {
     if (data?.kind === "picture") {
-      if (typeof data.icon === "string" && typeof data.picture === "string") pictures.set(data.icon, data.picture);
+      const icon = data.icon;
+      if (typeof icon !== "string") return;
+      if (typeof data.picture === "string") pictures.set(icon, data.picture);
+      else if (typeof data.data === "string" && Number.isInteger(data.part) && Number.isInteger(data.parts) && data.part >= 0 && data.part < data.parts) {
+        let p = parts.get(icon);
+        if (!p || p.n !== data.parts) parts.set(icon, (p = { n: data.parts, got: [], count: 0 }));
+        if (p.got[data.part] == null) p.count++;
+        p.got[data.part] = data.data;
+        if (p.count < p.n) return;
+        parts.delete(icon);
+        const full = p.got.join("");
+        if (!full.startsWith("data:image/")) return;
+        pictures.set(icon, full);
+        keepSmall(icon, full);
+      } else return;
       // Several come at once: draw once for them.
       clearTimeout(redraw);
       redraw = setTimeout(() => { if (last?.kind === "status") drawStatus(last); }, 60);
@@ -135,6 +191,12 @@
     }
     draw(data);
   });
+  for (const b of document.querySelectorAll(".views button")) {
+    b.addEventListener("click", () => {
+      if (last) draw({ ...last, view: b.dataset.view });
+      a2.widget.post({ type: "view", view: b.dataset.view }).catch(() => {});
+    });
+  }
   a2.on("locked", (on) => {
     locked = !!on;
     document.body.classList.toggle("locked", locked);

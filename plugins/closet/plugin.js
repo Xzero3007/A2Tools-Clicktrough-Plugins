@@ -12,7 +12,7 @@
 
   // shopWindow: the Closet window at the shop and the closet (0.2.11 on;
   // the older "popup" tick meant the old second window and is not read).
-  const settings = { tab: "merchant", shopWindow: true, popup: true, toast: true, popupMinutes: 3, status: false, statusAlways: false, sizes: {}, kind: "all", grade: "all", order: "price", lucky: false };
+  const settings = { tab: "merchant", shopWindow: true, popup: true, toast: true, popupMinutes: 3, status: false, statusAlways: false, windowView: "shop", sizes: {}, kind: "all", grade: "all", order: "price", lucky: false };
   let closet = null; // Map closet id -> copies
   let closetAt = 0;
   let chars = {}; // key -> { name, serverId, stocks: { tab: stock } }
@@ -245,9 +245,31 @@
   const waiting = new Map(); // icon -> [img]
   const queue = [];
   const pictureStats = { ok: 0, failed: 0, error: "" };
+  // A picture that didn't come is asked for again after 5 minutes.
+  const failedAt = new Map();
+  const retry = (icon) => {
+    if (icon && pictures.get(icon) === null && Date.now() - (failedAt.get(icon) || 0) > 5 * 60 * 1000) {
+      pictures.delete(icon);
+      failedAt.delete(icon);
+    }
+  };
+  // Small copies (144 px) of the pictures, made by the window and kept: the
+  // window and the page show them at once, without loading.
+  const thumbs = new Map(); // icon -> data URL
+  const THUMB_KEYS = 8;
+  const thumbKey = (icon) => {
+    let h = 0;
+    for (const ch of icon) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return h % THUMB_KEYS;
+  };
+  function saveThumbs(k) {
+    const out = {};
+    for (const [icon, d] of thumbs) if (thumbKey(icon) === k) out[icon] = d;
+    a2.storage.set(`thumbs-${k}`, out).catch(() => {});
+  }
   let loading = 0;
   function pump() {
-    while (loading < 4 && queue.length) {
+    while (loading < 6 && queue.length) {
       const icon = queue.shift();
       loading++;
       // The icon server has most as .png; a few only as .webp.
@@ -260,6 +282,8 @@
           return data;
         }, (e) => {
           pictureStats.failed++;
+          // One the server doesn't have is not asked for again.
+          failedAt.set(icon, /no such picture/.test(String(e?.message || e)) ? Infinity : Date.now());
           pictureStats.error = String(e?.message || e || "unknown").slice(0, 90);
           if (!pictureStats.ok) dirty();
           return null;
@@ -279,7 +303,9 @@
     if (!icon) return box;
     const img = document.createElement("img");
     img.alt = "";
+    retry(icon);
     if (pictures.get(icon)) img.src = pictures.get(icon);
+    else if (thumbs.has(icon)) img.src = thumbs.get(icon);
     else if (!pictures.has(icon)) {
       if (!waiting.has(icon)) {
         waiting.set(icon, []);
@@ -351,24 +377,27 @@
   // A skin's picture for the window: asked for once; the window gets it in
   // a message of its own once loaded (sendPictures).
   function wantPicture(icon) {
-    if (icon && !pictures.has(icon) && !waiting.has(icon)) {
+    if (!icon) return null;
+    retry(icon);
+    if (!thumbs.has(icon) && !pictures.has(icon) && !waiting.has(icon)) {
       waiting.set(icon, []);
-      queue.push(icon);
+      queue.unshift(icon); // the window's before the page's
       pump();
     }
-    return icon || null;
+    return icon;
   }
   // The skins you lack that are listed on the Exchange, cheapest first (the
   // Shop's signal comes when the Market opens too: the window shows both).
-  function exchangeState() {
-    if (!closet) return null;
+  function exchangeState(limit = 8) {
+    const none = (note) => ({ total: 0, rows: [], note, at: exList?.at || 0 });
+    if (!closet) return none("Log in with the meter running: the game sends your closet then.");
     const ex = exchange();
-    if (!ex.size) return null;
+    if (!ex.size) return none(exError ? `No Exchange prices: ${exError}.` : exBusy || !exList ? "The Exchange prices are loading." : "No Exchange prices for your server.");
     const listed = L.missing(closet, ix).map((m) => ({ m, e: L.exchangeOf(m.look, ix, ex) })).filter((x) => x.e).sort((a, b) => a.e.price - b.e.price);
-    if (!listed.length) return null;
+    if (!listed.length) return none("None of the skins you lack is on the Exchange now.");
     const game = listed.some((x) => x.e.from === "game");
-    return { total: listed.length, from: game ? "game" : "list", at: Math.max(...listed.map((x) => x.e.at || 0)),
-      rows: listed.slice(0, 8).map(({ m, e }) => ({ name: m.name, slot: m.slot, grade: m.grade, price: e.price, listings: e.listings, good: L.goodBuy(e.price, m.price), icon: wantPicture(m.icon) })) };
+    return { total: listed.length, from: game ? "game" : "list", at: Math.max(...listed.map((x) => x.e.at || 0)), note: "",
+      rows: listed.slice(0, limit).map(({ m, e }) => ({ name: m.name, slot: m.slot, grade: m.grade, price: e.price, listings: e.listings, good: L.goodBuy(e.price, m.price), icon: wantPicture(m.icon) })) };
   }
   // One short line of what to do in the closet (the Combine tab has the rest).
   function todoState() {
@@ -381,12 +410,14 @@
   }
   function statusState() {
     const now = Date.now();
+    const view = settings.windowView === "exchange" ? "exchange" : "shop";
     const shop = here || settings.statusAlways ? offersState(now) : { offers: [], owner: "", refresh: 0 };
     const all = charsState(now);
     return { kind: "status", count: count(), goal: L.GOAL, next: nextHour(now), here,
       offers: shop.offers, owner: shop.owner, refresh: shop.refresh,
       notLooked: all.filter((c) => !c.looked).map((c) => c.name), freshElsewhere: all.filter((c) => c.looked && c.fresh && c.name !== shop.owner).map((c) => `${c.name} ${c.fresh}`),
-      todo: todoState(), exchange: here || settings.statusAlways ? exchangeState() : null };
+      todo: todoState(), view,
+      exchange: view === "exchange" ? exchangeState(150) : here || settings.statusAlways ? exchangeState(8) : null };
   }
   const stateOf = () => statusState();
   function unchecked(now) {
@@ -500,6 +531,9 @@
       console.error(e);
       st = { kind: "status", error: String(e?.message || e).slice(0, 200), count: count(), goal: L.GOAL };
     }
+    while (JSON.stringify(st).length > MAX_MESSAGE && st.exchange?.rows?.length > 8) {
+      st.exchange.rows = st.exchange.rows.slice(0, Math.floor(st.exchange.rows.length * 0.8));
+    }
     if (JSON.stringify(st).length > MAX_MESSAGE) {
       st = { kind: "status", error: "the window's list is too long", count: count(), goal: L.GOAL };
     }
@@ -517,16 +551,29 @@
   function pictureLoaded(icon) {
     if (open.status && shownIcons.has(icon)) sendPictures({ offers: [{ icon }] });
   }
+  // A kept small copy goes in one message. A picture from the icon server
+  // is larger than a message can be (the game's are): it goes in parts, and
+  // the window puts it together and sends back a small copy to keep.
+  const PART = 48000;
   function sendPictures(st) {
     const icons = [...(st.offers || []), ...(st.exchange?.rows || [])].map((o) => o.icon);
     if (st.kind === "status") shownIcons = new Set(icons);
     for (const icon of new Set(icons)) {
-      const picture = icon && pictures.get(icon);
-      if (!picture || picturesSent.has(icon)) continue;
+      if (!icon || picturesSent.has(icon)) continue;
+      const small = thumbs.get(icon);
+      const full = pictures.get(icon);
+      if (!small && !full) continue;
       picturesSent.add(icon);
-      // One too large on its own stays a letter.
-      if (picture.length > MAX_MESSAGE) continue;
-      a2.widgets.send("status", { kind: "picture", icon, picture }).catch(() => picturesSent.delete(icon));
+      const failed = () => picturesSent.delete(icon);
+      if (small) {
+        a2.widgets.send("status", { kind: "picture", icon, picture: small }).catch(failed);
+        continue;
+      }
+      const parts = Math.ceil(full.length / PART);
+      if (parts > 60) continue; // over 2.8 MB: stays a letter
+      for (let i = 0; i < parts; i++) {
+        a2.widgets.send("status", { kind: "picture", icon, part: i, parts, data: full.slice(i * PART, (i + 1) * PART) }).catch(failed);
+      }
     }
   }
   let widgetsSoon = 0;
@@ -560,6 +607,17 @@
         dirty();
       }
       closeWidget();
+    } else if (data.type === "thumb") {
+      // The window's small copy of a picture, kept for next time.
+      const d = data.data;
+      if (typeof data.icon === "string" && data.icon.length < 100 && typeof d === "string" && /^data:image\/(jpeg|png);base64,/.test(d) && d.length <= 30000 && (thumbs.has(data.icon) || thumbs.size < 2000)) {
+        thumbs.set(data.icon, d);
+        saveThumbs(thumbKey(data.icon));
+      }
+    } else if (data.type === "view" && (data.view === "shop" || data.view === "exchange")) {
+      settings.windowView = data.view;
+      saveSettings();
+      sendWidgets();
     } else if (data.type === "keep") {
       if (here) arrived(hereBy);
     } else if (data.type === "resized" && Number.isFinite(data.width) && Number.isFinite(data.height)) {
@@ -843,6 +901,12 @@
   $(".statusAlways").addEventListener("change", (e) => { settings.statusAlways = e.target.checked; saveSettings(); applyStatus(); });
   $(".toast").addEventListener("change", (e) => { settings.toast = e.target.checked; saveSettings(); });
   $(".showPopup").addEventListener("click", () => { dismissed = false; arrived(hereBy || "shop"); });
+  $(".showExchange").addEventListener("click", () => {
+    settings.windowView = "exchange";
+    saveSettings();
+    dismissed = false;
+    arrived(hereBy || "shop");
+  });
   $(".search").addEventListener("input", () => renderMissing());
   for (const k of ["kind", "grade", "order"]) $(`.${k}`).addEventListener("change", (e) => { settings[k] = e.target.value; saveSettings(); renderMissing(); });
   $(".lucky").addEventListener("change", (e) => { settings.lucky = e.target.checked; saveSettings(); renderCombine(); sendWidgets(); });
@@ -867,6 +931,10 @@
       const le = await a2.storage.get("learned");
       if (le && typeof le === "object") learned = { ...le, ...learned };
       restoreList(await a2.storage.get("exchange"));
+      for (let k = 0; k < THUMB_KEYS; k++) {
+        const t = await a2.storage.get(`thumbs-${k}`);
+        if (t && typeof t === "object") for (const [icon, d] of Object.entries(t)) if (typeof d === "string" && d.startsWith("data:image/")) thumbs.set(icon, d);
+      }
     } catch (e) {
       console.error(e);
     }

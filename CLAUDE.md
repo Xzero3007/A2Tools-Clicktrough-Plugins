@@ -229,7 +229,8 @@ images and JSON as a data URL, ≤ 8 MB; WebKitGTK can't load a plugin's own
 files once its page started), `a2.share(value)` (`share`, ≤ 64 KB),
 `a2.web.get(url)` (`web:<host>`, only the market price hosts and NC's
 character pages), `a2.web.image(url)` (`web:<host>`, the game's icon server
-and NC's portraits, as a data URL),
+and NC's portraits, as a data URL; the meter keeps the game's icons on disk,
+`picture-cache/`, and asks the server once for each, patch 0070),
 `a2.bossTimers` / `a2.abyssSiege` (`feed:boss-timers`, read only; live
 updates and reporting don't exist in this build), `a2.window.*` (`window`),
 `a2.widgets.*` (`widgets`, `resize` is Clicktrough's; `open(name, { width, height, unlocked: true })` keeps a widget taking the mouse while the meter is locked, so it scrolls but stays put, meter patch 0064). `a2.media.set(state, slot)` (`media`, meter patches 0049 and 0051: what the
@@ -278,9 +279,11 @@ skips the 500 ms wait that lets the login's identity land first.
   `pkill -x a2tools-dps-met`.
 - **A message to a widget is at most 64 KB** (`a2.widgets.send`; the meter
   refuses a larger one, and the widget keeps what it had or stays on its
-  "Waiting"). The game's pictures (`a2.web.image`, data URLs) are large:
-  send each in a message of its own, never in the widget's state (Closet
-  0.2.14's window stayed empty in the game). The sessions' machines can't
+  "Waiting"). The game's pictures (`a2.web.image`, data URLs) are often
+  larger than that alone: never put them in the widget's state (Closet
+  0.2.14's window stayed empty in the game); send each in parts and let the
+  widget put it together (Closet 0.3.0's `sendPictures`, which also keeps
+  the widget's small copies). The sessions' machines can't
   reach the icon server, so a test there has no pictures: have the dev hook
   in `pluginFrame.js` answer `calls["web.image"]` with a picture of real
   size (a 14 KB PNG) to see it.

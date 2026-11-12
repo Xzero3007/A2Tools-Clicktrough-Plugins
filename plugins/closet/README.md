@@ -22,7 +22,16 @@ extract and what no longer pays.
   you lack that are listed there (**Buy** in gold where that is below the
   merchant's price); at the bottom two short lines: the characters of the
   server not looked at this hour, and what to combine in the closet (the
-  Combine tab has the rest). It goes when you walk off or teleport
+  Combine tab has the rest). Two tabs in its head: **Shop** (all that) and
+  **Exchange**: every skin you lack that is listed on the Exchange, cheapest
+  first, with its price, how many are listed and **Buy** where it is below
+  the merchant's price; **Exchange list** on the Merchant tab opens the
+  window on it. The window keeps the tab you chose. The pictures are big
+  (72 px); each comes to the window in a message of its own (in parts: a
+  message is at most 64 KB) and the window makes a small copy the plugin
+  keeps, so they show at once the next time; one that didn't come is asked
+  for again after 5 minutes (the meter keeps the game's icons on disk
+  itself, patch 0070). It goes when you walk off or teleport
   to another zone, after 3 minutes, or with its × (until you come back;
   the × stays while the meter is locked); **Everywhere** (or the
   shirt button in the meter's title) keeps it up all the time. Drag it by
